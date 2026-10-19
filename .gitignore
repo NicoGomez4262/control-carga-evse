@@ -1,0 +1,15 @@
+# Datasheets de terceros: se citan con enlace en docs/DECISIONES.md, no se redistribuyen.
+docs/datasheets/
+
+# Respaldos automáticos de las hojas y la librería de Altium (los scripts los crean antes de editar).
+docs/respaldos/
+
+# PDF sin el arreglo de página de docs/tools/arreglar_pdf.py (el arreglado queda al lado).
+*_original.pdf
+
+# Archivos temporales
+__pycache__/
+*.pyc
+~$*
+.DS_Store
+Thumbs.db
