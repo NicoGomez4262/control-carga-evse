@@ -19,6 +19,7 @@ Sigue el ritmo de CLAUDE.md:
 5. Arma la BOM con proveedor, número de parte, forma de montaje y precio, revisando stock en Sigma, PCBWay (LCSC) y Mouser; dime qué piezas de Mouser conviene mandar consignadas a PCBWay y cuáles soldar a mano.
 6. Gabinete: pregúntame los requisitos del profesor y compara 2–3 opciones en un solo mensaje.
 7. Al final, el PDF de todo el proyecto (docs/revisiones/PROYECTO_F7.pdf) y la BOM exportada.
+8. Antes de terminar, sube todo a GitHub con docs/tools/sincronizar_altium.py --commit (regla de CLAUDE.md).
 ```
 
 ## Dónde estamos

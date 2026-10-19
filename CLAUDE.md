@@ -1,6 +1,6 @@
 # Control de carga EVSE — reglas del proyecto
 
-Dispositivo IoT que mide tensión, corriente, potencia, energía y temperatura durante la carga de un vehículo eléctrico, habilita o detiene la carga con un relé conectado a los bornes de habilitación del EVSE (sin contactor) y envía los datos por WiFi a una app propia en internet, desde la que se dan las órdenes. Funciona en 120 V monofásico (L–N) y en 240 V bifásico (L1–L2). Este repositorio contiene el proyecto de **Altium Designer** y su documentación.
+Dispositivo IoT que mide tensión, corriente, potencia, energía y temperatura durante la carga de un vehículo eléctrico, habilita o detiene la carga con un relé conectado a los bornes de habilitación del EVSE (sin contactor) y envía los datos por WiFi a una app propia en internet, desde la que se dan las órdenes. Funciona en 120 V monofásico (L–N) y en 240 V bifásico (L1–L2). Este repositorio contiene el proyecto de **Altium Designer** y su documentación, y es público en GitHub: <https://github.com/NicoGomez4262/control-carga-evse> (enlazado desde el portafolio, nicolasgomez.dev).
 
 **Objetivo final del proyecto de Altium:** enviar la PCB a fabricar y ensamblar en PCBWay y pedir los componentes.
 
@@ -20,7 +20,9 @@ Dispositivo IoT que mide tensión, corriente, potencia, energía y temperatura d
   3. Mover el `NEXT_SESSION.md` actual a `docs/sesiones/F<n>_cerrada.md`.
   4. Escribir un `NEXT_SESSION.md` nuevo para la fase siguiente: qué se hizo, diagrama «ESTÁS AQUÍ», lista de tareas con casillas, componentes a comparar, qué tener a mano y el prompt de inicio para pegar en la sesión nueva.
   5. Si la fase cambia algo visible de la arquitectura, actualizar también el artifact de referencia (ver Referencias).
-- Si una sesión termina sin cerrar la fase: actualizar `NEXT_SESSION.md` con las casillas marcadas y lo que falta.
+  6. Subir todo a GitHub (ver la regla siguiente).
+- Si una sesión termina sin cerrar la fase: actualizar `NEXT_SESSION.md` con las casillas marcadas y lo que falta, y subir todo a GitHub.
+- **Subir a GitHub al terminar cada sesión (pedido del usuario, 19 oct 2026):** con Altium guardado, correr `python docs/tools/sincronizar_altium.py --commit -m "<fase>: <qué se hizo>"`. Copia las fuentes de Altium a `altium/` (espejo del proyecto de D12) y hace commit y push de todo el repositorio. Si dice que Altium está abierto, pedirle al usuario que guarde antes. Revisar lo que va a subir (`git status`) y no subir datasheets de terceros ni respaldos (ya están en `.gitignore`). Si el usuario cambió algo en Altium por su cuenta, también vale correrlo sin sesión de por medio.
 - Diagramas «ESTÁS AQUÍ»: en cualquier .md se escribe el marcador `<!--DIAG:F3-->` (o `ALL`, `F1` … `F8`) y se ejecuta `python docs/tools/diagramas.py <archivo.md>`. Si cambia la arquitectura, se actualiza el script.
 
 ## Selección de componentes
@@ -41,7 +43,7 @@ Dispositivo IoT que mide tensión, corriente, potencia, energía y temperatura d
 
 ## Convenciones de Altium
 
-- Proyecto `C:/Nicolas/UNIVERSIDAD - 2026/Hardware en IoT/Control de Carga IoT/Control de Carga IoT/Control de Carga IoT.PrjPcb` (fuera de este repositorio). Librerías en `lib/` dentro de esa carpeta. Diseño jerárquico:
+- Proyecto `C:/Nicolas/UNIVERSIDAD - 2026/Hardware en IoT/Control de Carga IoT/Control de Carga IoT/Control de Carga IoT.PrjPcb` (fuera de este repositorio; es el original y ahí se edita siempre, también con los scripts). `altium/` en este repositorio es solo su espejo para GitHub: no se edita a mano, se actualiza con `docs/tools/sincronizar_altium.py`. Librerías en `lib/` dentro de esa carpeta. Diseño jerárquico:
   `01_TOP.SchDoc` · `02_ALIMENTACION.SchDoc` · `03_MEDICION.SchDoc` · `04_MCU.SchDoc` · `05_SENSORES.SchDoc` · `06_ACTUACION.SchDoc` · `EVSE_Monitor.PcbDoc`
 - Redes: `AC_L1`, `AC_L2` (entrada; en 120 V `AC_L2` es el neutro), `AC_L1_F`, `AC_L2_F` (después de fusibles), `+VIN` (riel del AC-DC, 12 V preferido; se confirma en F2), `+3V3`, `+3V3A` (analógico filtrado), `GND`; `MEAS_SCK`, `MEAS_MOSI`, `MEAS_MISO`, `MEAS_CS`, `MEAS_IRQ`, `MEAS_WARN`, `MEAS_ZX`; `I2C_SDA`, `I2C_SCL`; `OW_DATA`; `RTC_INT`; `RELAY_EN`; `USB_DP`, `USB_DN`, `VBUS`.
 - Conexión jerárquica: los rieles (`+VIN`, `+3V3`, `+3V3A`, `GND`) van con puertos de alimentación globales; las señales y las líneas de red, con entradas de hoja ↔ puertos (tabla de interfaces en `docs/PLAN_FASES.md`, Fase 1).

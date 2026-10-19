@@ -110,6 +110,7 @@ está en [`docs/PLAN_FASES.md`](docs/PLAN_FASES.md).
 ```
 ├── CLAUDE.md            reglas de trabajo del proyecto
 ├── NEXT_SESSION.md      plan de la fase en curso
+├── altium/              proyecto de Altium Designer (.PrjPcb, hojas, PCB, plantilla y librerías)
 └── docs/
     ├── PLAN_FASES.md    las 8 fases, con sus tareas y el mapa de bloques
     ├── DECISIONES.md    registro de decisiones (D1–D15) y componentes elegidos
@@ -120,7 +121,9 @@ está en [`docs/PLAN_FASES.md`](docs/PLAN_FASES.md).
     └── tools/           scripts en Python que leen y revisan los .SchDoc y la librería de Altium
 ```
 
-Los archivos fuente de Altium (`.PrjPcb`, `.SchDoc`, `.PcbDoc` y la librería) viven en una carpeta aparte.
+`altium/` se abre directo en Altium Designer 25 (las rutas del proyecto son relativas). Es un espejo del proyecto
+de trabajo, que vive en otra carpeta, y se actualiza al cierre de cada sesión con
+`python docs/tools/sincronizar_altium.py --commit`.
 
 ---
 

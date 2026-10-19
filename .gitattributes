@@ -1,0 +1,10 @@
+# Archivos de Altium: se guardan byte por byte, sin convertir finales de línea.
+*.PrjPcb            -text
+*.PrjPcbStructure   -text
+*.OutJob            -text
+*.SchDoc            binary
+*.SchDot            binary
+*.PcbDoc            binary
+*.SchLib            binary
+*.PcbLib            binary
+*.IntLib            binary
