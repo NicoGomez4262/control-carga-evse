@@ -1,6 +1,6 @@
 # Plan por fases — Control de carga EVSE en Altium
 
-**Objetivo final:** esquemático y PCB completos en Altium, archivos enviados a PCBWay (fabricación y ensamble de los SMD) y componentes comprados (mayoría en Sigma Electrónica; Mouser solo como última opción).
+**Objetivo final:** esquemático y PCB completos en Altium, archivos enviados a PCBWay (fabricación y ensamble de los SMD) y componentes comprados: todo lo posible ensamblado por PCBWay (turnkey), lo que falte en DigiKey (carrito ≤ US$50 que se suma al pedido del curso) y Sigma Electrónica solo como último recurso (D16).
 
 **Regla de trabajo:** una fase = una hoja o tarea concreta de Altium. La fase se cierra cuando su lista está completa; entonces se escribe el `NEXT_SESSION.md` de la fase siguiente (ver `CLAUDE.md`).
 
@@ -16,7 +16,7 @@
 | F4 | `04_MCU.SchDoc` | ESP32-S3, arranque, USB-C (J5) con puente USB-UART y programación automática (DTR/RTS), LEDs, mapa de pines | cerrada (2026-10-12) |
 | F5 | `05_SENSORES.SchDoc` | sonda DS18B20 (J4), sensor de ambiente I²C, RTC con pila (sin FRAM, D14) | cerrada (2026-10-12) |
 | F6 | `06_ACTUACION.SchDoc` | driver Q3, PhotoMOS K1 (NC, aislamiento reforzado), salida J2 a los bornes de habilitación del EVSE | cerrada (2026-10-12) |
-| F7 | todas las hojas | compilación, footprints, clases de red, BOM con proveedores (Sigma, PCBWay, Mouser), gabinete | siguiente |
+| F7 | todas las hojas | compilación, footprints, clases de red, librería del proyecto, BOM con proveedores (PCBWay, DigiKey; Sigma último recurso) | en curso (14–19 oct) |
 | F8 | `EVSE_Monitor.PcbDoc` | contorno, stackup, reglas de aislamiento, ubicación, ruteo, DRC, archivos y pedido a PCBWay | pendiente |
 
 Estados posibles: pendiente · en curso · cerrada.
@@ -58,7 +58,7 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 ## Reglas comunes a todas las fases
 
 - Cada componente nuevo se elige comparando 2 o 3 opciones (tabla con requisito, encapsulado, montaje, stock en Sigma y PCBWay, precio, pros y contras).
-- Proveedores, en este orden: Sigma (compra) y PCBWay (ensamble) → un equivalente que sí esté en alguno de los dos → Mouser como última opción (un solo pedido consolidado).
+- Proveedores, en este orden (D16, 19 oct): PCBWay (ensamble turnkey: lo que tenga en stock) → DigiKey (lo que PCBWay no tenga; consignado a PCBWay o soldado a mano; carrito ≤ US$50) → Sigma Electrónica solo si no queda otra. Mouser ya no se usa.
 - Cada componente sale de su fase con símbolo, footprint verificado contra el datasheet y parámetros completos (`Manufacturer`, `MPN`, `Supplier`, `Supplier PN`, `Assembly`).
 - Cada hoja se cierra con: compilación sin errores, PDF de todo el proyecto en `docs/revisiones/PROYECTO_F<n>.pdf` y revisión de Claude.
 - La lista de componentes de cada fase se separa en (a) piezas sin símbolo ni footprint, por prioridad para SamacSys (cuota diaria), y (b) piezas que se crean copiando otra de la librería con el mismo encapsulado.
@@ -486,8 +486,7 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 - [ ] Clases de red y directivas en el esquemático (`HV_AC`, `ANALOG`, `USB`).
 - [ ] Footprints: cada uno verificado contra el datasheet; modelos 3D; pads de THT cómodos para soldar a mano.
 - [ ] BOM (ActiveBOM): Designator, Qty, Manufacturer, MPN, Description, Footprint, Supplier, Supplier PN, Assembly, precio.
-- [ ] Stock verificado: Sigma Electrónica para las piezas manuales y PCBWay para las ensambladas. Lo que no haya: reemplazar por un equivalente disponible o, como última opción, pedirlo en Mouser; decidir si esas piezas se envían a PCBWay como consignadas o se sueldan a mano.
-- [ ] Gabinete elegido (2–3 opciones, P4: caja plástica junto al EVSE, bajo techo, según los requisitos del profesor): define el contorno de la PCB y dónde van los conectores.
+- [ ] Stock verificado según D16: PCBWay (turnkey) primero, DigiKey para lo que falte, Sigma solo como último recurso. Revisar sobre todo lo que hoy dice Mouser (AMC3330DWE, ESP32-S3-WROOM-1-N16R2, J5 632723300011, AQY414EHAX) y Sigma (IRM-20-12, borneras, J8, BLX-A, CT SCT-013-000, pila CR2032, sonda DS18B20). Decidir qué va consignado a PCBWay y qué se suelda a mano, y actualizar `Supplier`/`Supplier PN`/`Assembly` en la librería por script.
 - [ ] Revisión de diseño con lista: seguridad y aislamiento, potencia, arranque, ESD en conectores, puntos de prueba, valores.
 - [ ] Bloque de título: corregir los `*` (renombrar parámetros del proyecto a `Proj_Name`, `Proj_Revision`, `Proj_DrawnBy` y usarlos en la plantilla) y poner `Title` en cada hoja.
 - [ ] Copiar `SamacSys.SchLib/PcbLib` de `C:/Users/nico/Documents/AltiumLL/` a `lib/` del proyecto y reemplazar las referencias en el `.PrjPcb` (portabilidad).
@@ -537,9 +536,11 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 
 **Objetivo.** Placa ruteada, verificada y pedida; componentes comprados.
 
+**Guía de ruteo (pedido del usuario, 19 oct):** antes de ubicar, Claude explica en general cómo van distribuidos los componentes (zona de red, barrera, SELV, antena, conectores), los planos de tierra, las distancias entre piezas y entre zonas, los anchos de pista por corriente, los mínimos y máximos de fabricación de PCBWay (pista, espacio, taladro, anillo, ranuras) y las reglas de Altium que se configuran, con pasos ubicados en Altium. Si F8 no alcanza, el ruteo sigue en una F9.
+
 **8A · Preparación**
 
-- [ ] Contorno según el gabinete, agujeros de montaje, conectores J1–J6 al borde.
+- [ ] Contorno libre (esta versión es PCB desnuda; el gabinete queda para la próxima versión de la PCB y no es tarea), agujeros de montaje M3 en las esquinas, conectores J1–J8 al borde.
 - [ ] Stackup: 2 capas (1.6 mm, cobre de 1 oz) o 4 capas; decidir con la cotización de PCBWay.
 - [ ] Reglas: clearance `HV_AC` ↔ resto ≥ 5.5 mm; regla Creepage Distance de Altium ≥ 6.4 mm entre red y SELV; L1 ↔ L2 ≥ 3.2 mm; anchos por clase; par USB de 90 Ω; mínimos de fabricación de PCBWay (traza, espacio, taladro, anillo).
 - [ ] Zonas: exclusión de cobre bajo la antena del ESP32 en todas las capas, zona de red sin planos internos, ranura de aislamiento en la capa de contorno si hace falta.
@@ -565,15 +566,16 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 **8D · Verificación**
 
 - [ ] DRC sin violaciones, incluida la regla de creepage.
-- [ ] Revisión 3D: alturas dentro del gabinete y choques.
+- [ ] Revisión 3D: choques entre piezas y acceso del cautín a lo que se suelda a mano.
 - [ ] Revisión contra las capacidades de PCBWay.
 
 **8E · Salidas y pedido**
 
 - [ ] OutJob: Gerber (X2 o RS-274X), taladros NC, Pick and Place en mm, BOM de ensamble en formato PCBWay, PDF de ensamble y STEP.
-- [ ] **Carrito de compras (pedido del usuario, F6):** una sola lista con todo lo que hay que pagar, agrupada por proveedor: Sigma (piezas manuales y repuestos), PCBWay (PCB, ensamble y componentes turnkey) y Mouser (pedido consolidado). Cada línea lleva designadores, número de parte, cantidad, precio unitario, subtotal y enlace. Al final van los subtotales por proveedor, el envío y los impuestos estimados (Mouser y PCBWay a Colombia) y el **total en COP y USD** con la tasa del día. Se entrega como página interactiva (artifact), con casillas para marcar lo comprado.
+- [ ] **Carrito de compras (pedido del usuario, F6):** una sola lista con todo lo que hay que pagar, agrupada por proveedor: PCBWay (PCB, ensamble y componentes turnkey), DigiKey y, si hiciera falta, Sigma. Cada línea lleva designadores, número de parte, cantidad, precio unitario, subtotal y enlace. Al final van los subtotales por proveedor, el envío y los impuestos estimados (DigiKey y PCBWay a Colombia) y el **total en COP y USD** con la tasa del día. Se entrega como página interactiva (artifact), con casillas para marcar lo comprado.
 - [ ] Pedido a PCBWay: FR-4 de 1.6 mm, cobre de 1 oz, HASL sin plomo o ENIG, cantidad (por ejemplo 5); ensamble turnkey de los SMD; piezas manuales marcadas como DNP.
-- [ ] Compra en Sigma Electrónica de las piezas manuales y repuestos; pedido consolidado a Mouser solo de lo que no se consiguió en Sigma ni en PCBWay.
+- [ ] **Carrito de DigiKey (pedido del usuario, 19 oct):** lista lista para pasar al carrito común del curso (número de parte DigiKey, cantidad, precio unitario, subtotal), idealmente **≤ US$50**; si se pasa, proponer reemplazos que PCBWay sí ensamble.
+- [ ] Compra en Sigma solo de lo que no se consiguió en PCBWay ni en DigiKey.
 - [ ] Plan de montaje y primeras pruebas: primero con la entrada de banco de 12 V, sin red; después con red a través de un transformador de aislamiento.
 - [ ] Cerrar el proyecto de Altium (Rev 1.0 enviada).
 

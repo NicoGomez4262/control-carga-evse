@@ -8,8 +8,8 @@
 | D2 | 2026-10-06 | El riel de 3.3 V usa el RECOM R-78CK3.3-0.5 disponible (reemplaza el LDO de Rev A) | adoptada | F2 |
 | D3 | 2026-10-06 | La fuente AC-DC será un módulo de PCB certificado, no un cargador de celular; preferencia por salida de 12 V | adoptada (2026-10-07): **Mean Well IRM-20-12** de Sigma y riel `+VIN` de 12 V (ver «Fase 2») | F2 |
 | D4 | 2026-10-06 | Proyecto jerárquico en Altium, 8 fases, una hoja por bloque | adoptada | F1 |
-| D5 | 2026-10-06 | Compras en Sigma Electrónica; ensamble automático en PCBWay de lo que tenga en stock; el resto se suelda a mano | adoptada | F7–F8 |
-| D6 | 2026-10-06 | Mouser es el proveedor de última opción: solo para piezas que no estén en Sigma ni en el stock de ensamble de PCBWay y sin equivalente disponible en ellos; un solo pedido consolidado | adoptada | F2–F8 |
+| D5 | 2026-10-06 | Compras en Sigma Electrónica; ensamble automático en PCBWay de lo que tenga en stock; el resto se suelda a mano | reemplazada por D16 | F7–F8 |
+| D6 | 2026-10-06 | Mouser es el proveedor de última opción: solo para piezas que no estén en Sigma ni en el stock de ensamble de PCBWay y sin equivalente disponible en ellos; un solo pedido consolidado | reemplazada por D16 (DigiKey) | F2–F8 |
 | D7 | 2026-10-06 | Sin contactor: la carga se habilita o detiene con un contacto seco (relé) en la entrada de habilitación del EVSE; la placa solo mide la corriente | adoptada; reemplaza el contactor de D1 | F1, F6 |
 | D8 | 2026-10-06 | Conectividad: la ESP32 abre una conexión saliente cifrada (TLS) hacia el servidor de la app del usuario, sube datos y recibe órdenes por ella; sin VPN ni puertos abiertos. Las protecciones funcionan sin internet. Reemplaza «app web local, sin nube» | adoptada | F1, F4, F5 |
 | D9 | 2026-10-06 | Medición de tensión con divisor resistivo + amplificador aislado TI AMC3330 (reemplaza al ZMPT101B de D1) | adoptada | F3 |
@@ -19,6 +19,7 @@
 | D13 | 2026-10-09 | Programación de la ESP32-S3 con puente USB-UART (DTR y RTS) y circuito de auto-reset de dos NPN hacia EN y GPIO0, para no depender de pulsadores (requisito del profesor; imagen en `docs/referencias/F4_autoprogramacion_profesor.jpg`) | adoptada como requisito; componentes en F4 | F4 |
 | D14 | 2026-10-12 | Sin FRAM: el búfer sin internet (P5) va en la flash de 16 MB del ESP32 (partición de datos) y la energía acumulada de la sesión se guarda en NVS cada minuto y al empezar o terminar la sesión. Con internet los datos ya están en el servidor a los pocos segundos; lo peor es perder ≤ 1 min de energía (≈ 0,16 kWh a 40 A/240 V) si se va la luz estando sin internet. El RTC con pila se mantiene para fechar mediciones cuando vuelve la luz sin internet | adoptada | F5 |
 | D15 | 2026-10-12 | K1 = PhotoMOS AQY414EHAX (NC, aislamiento reforzado de 5000 Vrms) en lugar de un relé: no tiene carga mínima (la entrada de un EVSE genérico es de pocos mA), es NC sin energía (P3) y cuesta US$3,42 en Mouser; el relé dorado no está en Mouser (Phoenix, US$22). Salida: ≤ 120 mA, ≤ 400 V pico; si los bornes resultan ser de red, se pone un relé externo | adoptada | F6 |
+| D16 | 2026-10-19 | Compras: PCB en PCBWay con ensamble turnkey de todo lo que tenga en stock; lo que falte, en DigiKey (carrito ≤ US$50 que se suma al pedido conjunto del curso; consignado a PCBWay o soldado a mano); Sigma solo como último recurso; Mouser deja de usarse (reemplaza D5 y D6). Esta versión es PCB desnuda: el gabinete queda para la próxima versión y no es tarea | adoptada | F7–F8 |
 
 ## D2 · Verificación del R-78CK3.3-0.5
 
@@ -336,6 +337,20 @@ Datasheets en `docs/datasheets/F6/`. El usuario aprobó la propuesta del 12 oct 
 **Lecciones:** Mouser no trabaja Finder y bloquea a ratos el navegador (se reintenta después); antes de colocar piezas nuevas, borra de la hoja las del diseño anterior (quedaron 3 sueltas); la Library Loader de SamacSys puede nombrar la pieza distinto del MPN (`AQY-414EHAX`).
 
 **Librería (por script `piezas_f6.py`, 12 oct):** AO3400A copiado del MMBT3904LT1G (pines G/S/D, dibujo de MOSFET de canal N) y KT-0805Y copiado del APT2012SGC. Los parámetros del AQY414EHAX se ponen cuando se baje de SamacSys. El 34.51.7.012.5010 y la TB001-500-03BE quedaron bajados pero no se usan.
+
+## Fase 7 — Cierre del esquemático (en curso, 14–19 oct 2026)
+
+**Revisión por script (14 oct):** seis hojas sin pines sueltos ni redes con dos nombres; los 6 parámetros obligatorios completos en los 136 componentes; rieles como puertos de alimentación; entradas de hoja de la TOP iguales a los puertos (nombre y dirección); designadores sin huecos.
+
+**Footprints contra datasheet:** J5 ✓ (Content Vault = plano Würth rev 003.000, 2025-09-04, incluidas las ranuras de 0,6 × 1,2 mm); C2 (FK tamaño F) y C3 (tamaño D) ✓ con la tabla de pads del FK (10-feb-26) y pad 1 = +; K1 se queda con el de SamacSys (6,70 mm entre lados; Panasonic recomienda pads de 1,5 × 1,9 mm a 8,3 mm, que dejarían 6,40 mm); BT1 corregido al plano TE rev E1 (pads en ±10,5 mm, 1,8 × 5,2 mm; contacto Ø17,0 mm); F1B/F2B: el 01000056Z era un solo clip (puenteaba el fusible) → footprint nuevo `BLX-A_5X20` (XC Electronics BLX-A, LCSC C3131: pines planos de 1,5 × 0,35 mm a 22 ± 0,5 mm → agujero Ø1,9, pad Ø3,4).
+
+**Cambios por script (`libreria_f7.py`, `arreglos_hojas_f7.py`, 14 oct; directiva de 03 el 19 oct):**
+- Librería del proyecto: SamacSys copiada a `lib/` (57 piezas usadas + BLX-A; 38 sin uso fuera); los 125 modelos de footprint de las hojas y los de la SchLib apuntan a `lib\SamacSys.PcbLib` (antes, ruta absoluta a `Documents\AltiumLL`); sin los «Mouser Part Number» ajenos (Y1, FB1, D1, D2). La librería de `Documents/AltiumLL` no se tocó.
+- `.PrjPcb`: librerías en `lib\`, sin `Job1.OutJob`, Revision 1.0.
+- Hojas: Title en cada una, direcciones sin `*`, texto de plantilla propio y sin logo de Altium (también en `templates/EVSE_A3.SchDoc`); nota de rieles de la TOP; clase `USB` (Blanket junto a U5); Blankets `ANALOG` de 03 agrandadas; J4, U6, K1 con librería de origen; F1B/F2B → BLX-A.
+- Validate (19 oct): compila; el único aviso era «Floating Parameter Set» en 03: la directiva `HV_AC` estaba 200 mil dentro de su Blanket y no aplicaba la clase a `HV_D1–3`, `HV_DCDC`, `HV_INP`, `HV_LDO`. Se movió al borde (1000, 11000).
+
+**Notas para F8:** J5 tiene agujeros de 0,4 mm con pad de 0,65 mm (anillo de 0,125 mm): confirmar con PCBWay; BT1 sin pasta en el contacto central; reglas de `EVSE_EXT`, `HV_AC`, `USB` y `ANALOG`.
 
 ## Componentes elegidos
 
