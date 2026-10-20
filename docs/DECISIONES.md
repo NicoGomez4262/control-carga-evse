@@ -20,6 +20,7 @@
 | D14 | 2026-10-12 | Sin FRAM: el búfer sin internet (P5) va en la flash de 16 MB del ESP32 (partición de datos) y la energía acumulada de la sesión se guarda en NVS cada minuto y al empezar o terminar la sesión. Con internet los datos ya están en el servidor a los pocos segundos; lo peor es perder ≤ 1 min de energía (≈ 0,16 kWh a 40 A/240 V) si se va la luz estando sin internet. El RTC con pila se mantiene para fechar mediciones cuando vuelve la luz sin internet | adoptada | F5 |
 | D15 | 2026-10-12 | K1 = PhotoMOS AQY414EHAX (NC, aislamiento reforzado de 5000 Vrms) en lugar de un relé: no tiene carga mínima (la entrada de un EVSE genérico es de pocos mA), es NC sin energía (P3) y cuesta US$3,42 en Mouser; el relé dorado no está en Mouser (Phoenix, US$22). Salida: ≤ 120 mA, ≤ 400 V pico; si los bornes resultan ser de red, se pone un relé externo | adoptada | F6 |
 | D16 | 2026-10-19 | Compras: PCB en PCBWay con ensamble turnkey de todo lo que tenga en stock; lo que falte, en DigiKey (carrito ≤ US$50 que se suma al pedido conjunto del curso; consignado a PCBWay o soldado a mano); Sigma solo como último recurso; Mouser deja de usarse (reemplaza D5 y D6). Esta versión es PCB desnuda: el gabinete queda para la próxima versión y no es tarea | adoptada | F7–F8 |
+| D17 | 2026-10-19 | BOM de F7: **una placa ensamblada**. Todo lo que PCBWay tiene (stock en LCSC) llega soldado, también los THT (PS1, J1, J2, J4, J6–J8); lo que PCBWay no tiene se compra en DigiKey y se suelda a mano (solo K1, AQY414EHAX); U1 es el R-78CK del profesor, a mano; CT, sonda y pila en Sigma (DigiKey sin stock o sin envío aéreo). Sustitutos por stock: AMC3330DWER, 3403.0274.11, XY301V-A-5.0-2P (J1, J2), Murata LQH43NH120J03L (L1), Ruilon RL4032P471KJ (RV1), Murata GRM31C5C1H104JA01L (C16) y GRM3195C1H333JA01D (C20, C23), Yageo RT0805BRD0710RL (R11, R13) | adoptada | F7 |
 
 ## D2 · Verificación del R-78CK3.3-0.5
 
@@ -338,7 +339,7 @@ Datasheets en `docs/datasheets/F6/`. El usuario aprobó la propuesta del 12 oct 
 
 **Librería (por script `piezas_f6.py`, 12 oct):** AO3400A copiado del MMBT3904LT1G (pines G/S/D, dibujo de MOSFET de canal N) y KT-0805Y copiado del APT2012SGC. Los parámetros del AQY414EHAX se ponen cuando se baje de SamacSys. El 34.51.7.012.5010 y la TB001-500-03BE quedaron bajados pero no se usan.
 
-## Fase 7 — Cierre del esquemático (en curso, 14–19 oct 2026)
+## Fase 7 — Cierre del esquemático (cerrada 2026-10-19)
 
 **Revisión por script (14 oct):** seis hojas sin pines sueltos ni redes con dos nombres; los 6 parámetros obligatorios completos en los 136 componentes; rieles como puertos de alimentación; entradas de hoja de la TOP iguales a los puertos (nombre y dirección); designadores sin huecos.
 
@@ -350,6 +351,52 @@ Datasheets en `docs/datasheets/F6/`. El usuario aprobó la propuesta del 12 oct 
 - Hojas: Title en cada una, direcciones sin `*`, texto de plantilla propio y sin logo de Altium (también en `templates/EVSE_A3.SchDoc`); nota de rieles de la TOP; clase `USB` (Blanket junto a U5); Blankets `ANALOG` de 03 agrandadas; J4, U6, K1 con librería de origen; F1B/F2B → BLX-A.
 - Validate (19 oct): compila; el único aviso era «Floating Parameter Set» en 03: la directiva `HV_AC` estaba 200 mil dentro de su Blanket y no aplicaba la clase a `HV_D1–3`, `HV_DCDC`, `HV_INP`, `HV_LDO`. Se movió al borde (1000, 11000).
 
+**BOM con la regla D16 (19 oct, D17).** Tabla completa en `docs/BOM_F7.md`, generada por `docs/tools/bom_f7.py` (la lista `LINEAS` del script es la fuente única; el mismo script puso los parámetros en la librería y las hojas). Stock revisado en LCSC (API de JLCPCB/LCSC, como referencia de lo que ensambla PCBWay), DigiKey y Sigma; TRM 3.174,67 COP/USD. PCBWay en turnkey compra por MPN, primero en LCSC y si no en DigiKey/Mouser ([componentes](https://www.pcbway.com/pcb_prototype/Electronic_Components.html)); el usuario decidió que lo que PCBWay no tenga se compre en DigiKey y se suelde a mano.
+
+| Por placa | Líneas | US$ | Montaje |
+|---|---|---|---|
+| A · PCBWay (stock en LCSC) | 57 | 60,02 | PCBWay (SMD y THT) |
+| B · DigiKey, carrito del curso | K1 | 3,29 | a mano |
+| C · Disponible | U1 | — | a mano |
+| D · DNP | F1B/F2B, SW2/SW3 | — | — |
+| E · Sigma, fuera de la PCB | CT, sonda, pila | 16,01 (50.813 COP) | — |
+
+Sustitutos (el original estaba en 0 o no estaba en LCSC; mismo footprint, verificado contra el datasheet):
+
+| Designador | Antes | Ahora | Por qué sirve |
+|---|---|---|---|
+| U2 | AMC3330DWE (tubo, Mouser) | **AMC3330DWER** (carrete), LCSC C2999368 | la misma pieza |
+| F1, F2 | Schurter 3403.0274.23 | **3403.0274.11**, LCSC C6384960 | el mismo UMT-H T1A en bolsa (1 A, 277 VAC, 1500 A, 3,6 A²s) |
+| J1, J2 | Same Sky TB001-500-02BE / ED1621 de Sigma | **Xinlaiya XY301V-A-5.0-2P**, LCSC C557651 | 300 V 15 A, paso 5,0 mm, pin Ø1,0 mm en agujero de 1,30 mm ([plano](https://datasheet.lcsc.com/datasheet/pdf/365cd490152737f9c602c462cbc5755e.pdf?productCode=C557651)). La KF301 y la DG301 de LCSC son de 250 V: no sirven para 264 VAC |
+| L1 | RECOM RLS-126 | **Murata LQH43NH120J03L**, LCSC C3224514 | 12 µH ±5 %, 0,25 Ω, 420 mA (L1 lleva ≤ 0,17 A), AEC-Q200, 1812 ([spec](https://datasheet.lcsc.com/datasheet/pdf/8edb8b255c580e6accc90a1332550501.pdf?productCode=C3224514)). El filtro de RECOM (C3 = 1 nF entre Vin y Vout) se mantiene; la clase B de EMC no se verificó con el sustituto |
+| RV1 | TDK B72660M0301K072 (1200 A, 23 J) | **Ruilon RL4032P471KJ**, LCSC C2935514 | 300 VAC, 2500 A (8/20 µs), 30 J; pads recomendados 3,50 × 2,80 mm a 6,50 mm, iguales al footprint CU4032 ([datasheet](https://datasheet.lcsc.com/datasheet/pdf/1a5b1623e8458213c7164fb853a09779.pdf?productCode=C2935514)). UL «pendiente» |
+| C16 | TDK C3216NP01H104J160AA | **Murata GRM31C5C1H104JA01L**, LCSC C97946 | 100 nF C0G 50 V 1206 |
+| C20, C23 | KEMET C1206C333J5GACTU | **Murata GRM3195C1H333JA01D**, LCSC C97930 | 33 nF C0G 50 V 1206 |
+| R11, R13 | Panasonic ERA-6AHD100V (0,5 %) | **Yageo RT0805BRD0710RL**, LCSC C865142 | 10 Ω 0,1 % 25 ppm (mejor) |
+| D3 | «Vishay» SMBJ15A | Littelfuse SMBJ15A, LCSC C83846 | como se eligió en F2 |
+
+Antes en Mouser y ahora en LCSC/PCBWay: U4 (C2913205), J5 (C2830802; en DigiKey cuesta US$ 4,37). Antes en Sigma y ahora en PCBWay: PS1 IRM-20-12 (C5278499, US$ 6,37 frente a 71.400 COP), J3, J4 y J6/J7 (Phoenix originales), J8. K1 (AQY414EHAX) no está en LCSC y no tiene equivalente NC con aislamiento reforzado: DigiKey 255-6089-1-ND, US$ 3,29, a mano. Fuera de la PCB: CT SCT-013-000V (Sigma 35.700 COP; el de Seeed en DigiKey está sin stock), sonda DS18B20 2 m (Sigma 11.900 COP), pila CR2032 (Sigma 3.213 COP; DigiKey solo la envía por tierra).
+
+**Cambios por script (`bom_f7.py`, 19 oct):** 8 piezas nuevas en `lib/SamacSys.SchLib` por copia de la que reemplazan (mismo símbolo y footprint; las reemplazadas se borraron; quedan 58); `Manufacturer_Name`, `Manufacturer_Part_Number`, `Supplier`, `Supplier PN` (LCSC C…, DigiKey o Sigma) y `Assembly` iguales a la BOM en la librería y en los 128 componentes de las hojas (SW2/SW3 y F1B/F2B siguen DNP); sin campos de Mouser, Arrow ni RS. Redes idénticas antes y después (`lista_redes.py`); `libreria.py` sin avisos (acepta un MPN igual al nombre más un sufijo de empaque, como `DS3231SN#T&R`).
+
+**Revisión de diseño (19 oct, sobre las redes de las 6 hojas):**
+
+| Punto | Resultado |
+|---|---|
+| Aislamiento | Solo PS1, U2 y K1 tienen pines en red/`EVSE_EXT` y en SELV; los pasivos de red (R2–R6, C9–C12, C16, C17, RV1, F1/F2) tienen los dos pines del lado de red. `EVSE_EN_A/B` solo van de J2 a K1. Clases: `HV_AC` (4 directivas en 02 y Blanket en 03), `ANALOG`, `USB`, `EVSE_EXT` |
+| Tensiones nominales | J1 300 V, F1/F2 277 VAC, RV1 300 VAC, PS1 85–305 VAC, R2–R5 500 V (93 Vpk cada una a 264 VAC), K1 400 Vpk y 5000 Vrms reforzado |
+| Potencia | `+3V3` ≈ 429 mA en el pico del WiFi (86 % del R-78CK, F4); L1 ≤ 0,17 A de 420 mA; R41 72 mW (0805); R37 0,16 W con la sonda en corto (1206) |
+| Arranque | EN con 10 kΩ + 1 µF; IO0 con 4,7 kΩ a 3,3 V; IO3, IO45 e IO46 sin conectar (valores por defecto: flash a 3,3 V); RELAY_EN con R40 a GND → K1 cerrado (carga permitida) mientras arranca; reset del ATM90E26 10 kΩ + 100 nF |
+| ESD en conectores | J1 fusibles + RV1; J3 D4 SMAJ5.0CA + 1 kΩ + 33 nF; J4 D6 + R36/R37; J5 D5; J6 D2 + D3; J7 solo R31 1 kΩ + C36 100 nF (sin TVS; se acepta sin gabinete); J2 sin TVS (K1 aguanta 400 Vpk); J8 interno con 1 kΩ en TX/RX |
+| Puntos de prueba | TP1 GND, TP2 `+VIN`, TP3 `+3V3`, TP4 `+3V3A`, TP5 `AMC_DIAG`, TP6 CF2; ninguno en la red (seguridad). Las señales analógicas se miden en los pads de C19/C20 |
+| Valores | R7 47 kΩ (pull-up de DIAG), R41 → 8,4 mA en el LED de K1, CC1/CC2 5,1 kΩ, I²C 4,7 kΩ, cristal con 12 pF, divisor 4 × 1 MΩ / 10 kΩ, carga del CT 2 × 10 Ω. C1 (1 nF entre la entrada y la salida del R-78CK) es el C3 del filtro de EMC de RECOM ([datasheet, p. 5](https://recom-power.com/pdf/Innoline/R-78CK-0.5.pdf)) |
+
+Sin cambios en el esquemático. Opcional (no se hizo, se mantiene el esquemático congelado): llevar `AMC_DIAG` a un GPIO libre; la caída de la red ya se ve en la tensión que mide el ATM90E26.
+
+**Cierre (19 oct).** Validate correcto después de la BOM. `docs/revisiones/F7_BOM.csv` (60 filas, 132 designadores) coincide con `bom_f7.py` en fabricante, MPN, proveedor, PN del proveedor y montaje. La única diferencia es de agrupación: Altium junta SW1 (PCBWay) con SW2/SW3 (DNP) en una fila con «PCBWay, DNP», aunque cada componente tiene su valor bien puesto. En F8, la BOM de ensamble de PCBWay se agrupa también por `Assembly`. `docs/revisiones/PROYECTO_F7.pdf` (6 hojas + BOM, carta, sin recorte) revisado página por página: los títulos de 02, 04 y 06 se salían del bloque de título (caben ≈ 31 caracteres) y la nota de rieles de la TOP mostraba 6 de sus 7 líneas. Se arregló por script (`presentacion_f7.py`: títulos «Alimentación: red, 12 V y 3,3 V», «ESP32-S3, USB y programación», «Actuación: PhotoMOS K1 al EVSE»; nota 400 mil más alta), con las redes iguales; se verá en el PDF de F8. Quedan sin arreglar, por ser solo de presentación, las banderas «Parameter Set» de 03 encimadas sobre el texto de la plantilla (`HV_AC`) y sobre J3 (`ANALOG`).
+
+**Lecciones:** la API de búsqueda de JLCPCB y la ficha de LCSC dan el stock real que ensambla PCBWay; la búsqueda de LCSC está bloqueada. DigiKey se lee bien con WebFetch, y en Sigma la búsqueda no encuentra todo, pero sí la página directa del producto (`/producto/<referencia>/`). Un parámetro con «&» (`DS3231SN#T&R`) se guarda sin problema.
+
 **Notas para F8:** J5 tiene agujeros de 0,4 mm con pad de 0,65 mm (anillo de 0,125 mm): confirmar con PCBWay; BT1 sin pasta en el contacto central; reglas de `EVSE_EXT`, `HV_AC`, `USB` y `ANALOG`.
 
 ## Componentes elegidos
@@ -359,38 +406,40 @@ Se llena al cerrar cada fase.
 | Bloque | Función | Elegido | Alternativas comparadas | Proveedor | Montaje | Fase |
 |---|---|---|---|---|---|---|
 | Alimentación | Regulador de 3.3 V | RECOM R-78CK3.3-0.5 | — (disponible) | ya se tiene | manual | F2 |
-| Alimentación | Fuente AC-DC aislada, 12 V | Mean Well IRM-20-12 | Hi-Link HLK-PM12, Mean Well IRM-10-12 (IRM-05-12) | Sigma (71.400 COP) | manual (THT) | F2 |
-| Alimentación | Bornera de red J1 | ED1621 (tipo KF301, 5.0 mm) | TER BLOCK 7.5M, BORNE 2P EMPAL | Sigma (952 COP) | manual (THT) | F2 |
-| Alimentación | Fusibles F1, F2 | Schurter UMT-H T1A 3403.0274.23 | Littelfuse 0215002.MXP + BLX-A, Littelfuse 0443 | PCBWay | PCBWay (SMD) | F2 |
+| Alimentación | Fuente AC-DC aislada, 12 V | Mean Well IRM-20-12 | Hi-Link HLK-PM12, Mean Well IRM-10-12 (IRM-05-12) | PCBWay (LCSC C5278499; antes Sigma) | PCBWay (THT) | F2, F7 |
+| Alimentación | Bornera de red J1 | Xinlaiya XY301V-A-5.0-2P (300 V 15 A, 5,0 mm; antes ED1621) | TER BLOCK 7.5M, BORNE 2P EMPAL; KF301/DG301 de 250 V | PCBWay (LCSC C557651) | PCBWay (THT) | F2, F7 |
+| Alimentación | Fusibles F1, F2 | Schurter UMT-H T1A 3403.0274.11 (bolsa; antes .23) | Littelfuse 0215002.MXP + BLX-A, Littelfuse 0443 | PCBWay | PCBWay (SMD) | F2 |
 | Alimentación | Portafusibles alternos F1B, F2B | BLX-A 5×20 | — | Sigma (595 COP) | DNP | F2 |
-| Alimentación | Varistor RV1 | TDK CU4032K300G2 (B72660M0301K072) | TDK S14K300 | PCBWay | PCBWay (SMD) | F2 |
+| Alimentación | Varistor RV1 | Ruilon RL4032P471KJ (antes TDK B72660M0301K072, sin stock) | TDK S14K300, Bourns PV300K4032R2 | PCBWay (LCSC C2935514) | PCBWay (SMD) | F2, F7 |
 | Alimentación | Diodos OR D1, D2 | Vishay SS34-E3/57T (SMC) | TI TPS2121, un solo diodo | PCBWay | PCBWay | F2 |
-| Alimentación | Entrada de banco J6 | bornera 3.5 mm 2P «BORNE 3.5MM 2P V» (modelo Phoenix 1751248) | jack de barril SMD, ED1621 | Sigma (952 COP) | manual | F2 |
+| Alimentación | Entrada de banco J6 | Phoenix 1751248 (2P 3,5 mm) | jack de barril SMD, ED1621 | PCBWay (LCSC C89122) | PCBWay (THT) | F2, F7 |
 | Alimentación | TVS D3 | Littelfuse SMBJ15A | SMAJ15A, sin TVS | PCBWay | PCBWay | F2 |
 | Alimentación | Bulk `+VIN` C1 | Panasonic EEE-FK1V101P (100 µF 35 V) | Sigma 100 µF 25 V, 470 µF 35 V THT | PCBWay | PCBWay | F2 |
-| Alimentación | Filtro EMI del R-78CK | L1 RECOM RLS-126 + C2 CL31B106KBHNNNE + C3 KEMET C0805C102J5GAC-TU | sin L1 | PCBWay | PCBWay | F2 |
+| Alimentación | Filtro EMI del R-78CK | L1 Murata LQH43NH120J03L (antes RLS-126) + C2 CL31B106KBHNNNE + C3 KEMET C0805C102J5GAC-TU | sin L1 | PCBWay | PCBWay | F2 |
 | Alimentación | Filtro LC de `+3V3` | L2 Bourns SRR4028-2R2Y + C4 CL21A106KAYNNNE + C5/C6 CL21A226MAQNNNE + C7 EEE-FK1C101P | ferrita de potencia, solo condensadores | PCBWay | PCBWay | F2 |
 | Alimentación | Filtro `+3V3A` | FB1 Murata BLM21PG221SN1D + C8 CL21A106KAYNNNE | RC 10 Ω, LDO | PCBWay | PCBWay | F2 |
 | Alimentación | LED de encendido | LED1 Kingbright APT2012SGC + R1 RC0805FR-071KL (en `+3V3`) | — | PCBWay | PCBWay | F2 |
 | Alimentación | Puntos de prueba | Keystone 5016 (librería de Altium) | Keystone 5015, pad propio | PCBWay | PCBWay | F2 |
-| Medición | Amplificador aislado U2 | TI AMC3330DWE | AMC1350, ACPL-C87B | Mouser (595-AMC3330DWE) | PCBWay (consignado) o manual, se decide en F7 | F3 |
+| Medición | Amplificador aislado U2 | TI AMC3330DWER (carrete) | AMC1350, ACPL-C87B | PCBWay (LCSC C2999368) | PCBWay | F3, F7 |
 | Medición | Divisor R2–R5 + R6 | 4 × Panasonic ERJ-P08F1004V + ERA-6AEB103V | 6 × RC1206 680 kΩ | PCBWay | PCBWay | F3 |
 | Medición | IC de medición U3 | Microchip ATM90E26-YU-R + Y1 ECS-81.92-12-30Q-EN-TR | ADE7953 | PCBWay | PCBWay | F3 |
-| Medición | CT y conector | YHDC SCT-013-000V + J3 Same Sky SJ1-3515-SMT-TR + D4 SMAJ5.0CA | SCT-013-050, bornera | Sigma (CT y jack) / PCBWay | CT externo; resto PCBWay | F3 |
-| Medición | Acople y carga de precisión | Panasonic ERA-6A (0,1 %), ERA-6AHD100V, C0G/X7R 0805 y 1206 | RC0805 1 % | PCBWay | PCBWay | F3 |
-| MCU | Módulo U4 | Espressif ESP32-S3-WROOM-1-N16R2 | N8R2, N16R8 | Mouser (356-ESP32S3WRM1N16R2) | PCBWay | F4 |
+| Medición | CT y conector | YHDC SCT-013-000V + J3 Same Sky SJ1-3515-SMT-TR + D4 SMAJ5.0CA | SCT-013-050, bornera | Sigma (CT) / PCBWay (J3, D4) | CT externo; resto PCBWay | F3, F7 |
+| Medición | Acople y carga de precisión | Panasonic ERA-6A (0,1 %), Yageo RT0805BRD0710RL (R11/R13), Murata GRM C0G 1206 (C16, C20, C23), C0G/X7R 0805 | RC0805 1 % | PCBWay | PCBWay | F3 |
+| MCU | Módulo U4 | Espressif ESP32-S3-WROOM-1-N16R2 | N8R2, N16R8 | PCBWay (LCSC C2913205) | PCBWay | F4, F7 |
 | MCU | Puente USB-UART U5 | WCH CH340C | CP2102N, CH340G | PCBWay | PCBWay | F4 |
 | MCU | Auto-reset | 2 × onsemi MMBT3904LT1G + RC0805 12 k, 4,7 k | S8050, MMDT3904 | PCBWay | PCBWay | F4 |
-| MCU | USB-C J5 + ESD D5 | Würth 632723300011 + ST USBLC6-2SC6 + 2 × 5,1 k | HRO TYPE-C-31-M-12, GCT USB4105/4085, micro-USB Molex 105017-0001 | Mouser / PCBWay | PCBWay | F4 |
+| MCU | USB-C J5 + ESD D5 | Würth 632723300011 + ST USBLC6-2SC6 + 2 × 5,1 k | HRO TYPE-C-31-M-12, GCT USB4105/4085, micro-USB Molex 105017-0001 | PCBWay (LCSC C2830802) | PCBWay | F4, F7 |
 | MCU | Pulsadores SW1–SW3 | XKB TS-1187A-B-A-B (SW2, SW3 DNP) + botón de panel SW730RD en J7 | KFC-A04-02, SW-761SMD | PCBWay / Sigma | PCBWay / manual | F4 |
-| MCU | LEDs y conectores | APT2012SGC ×2, APT2012SURCK; J7 bornera 3,5 mm; J8 Würth 61300611121 | — | PCBWay / Sigma | PCBWay / manual | F4 |
+| MCU | LEDs y conectores | APT2012SGC ×2, APT2012SURCK; J7 Phoenix 1751248; J8 Würth 61300611121 | — | PCBWay | PCBWay (J7, J8 THT) | F4, F7 |
 | Sensores | Sensor de ambiente U6 | Aosong AHT20 + R38/C37/C38 | SHT40-AD1B-R2, TMP117 | PCBWay (LCSC C2757850) | PCBWay | F5 |
 | Sensores | RTC U7 + pila BT1 | DS3231SN#T&R + TE BAT-HLD-001 + CR2032 | RV-3028-C7, PCF85063A, MCP7940N; BH-106, BK-913 | PCBWay (LCSC C9866, C7501066) / Sigma (pila) | PCBWay / pila a mano | F5 |
-| Actuación | Salida a los bornes del EVSE K1 | Panasonic PhotoMOS AQY414EHAX (NC) | Finder 34.51.7.012.5010, Phoenix 2961163, Panasonic APF30212; NA: AQY214EHAX | Mouser (769-AQY414EHAX) | PCBWay (consignado) o manual, F7 | F6 |
+| Actuación | Salida a los bornes del EVSE K1 | Panasonic PhotoMOS AQY414EHAX (NC) | Finder 34.51.7.012.5010, Phoenix 2961163, Panasonic APF30212; NA: AQY214EHAX | DigiKey (255-6089-1-ND), carrito del curso | manual | F6, F7 |
 | Actuación | Driver Q3 + R39/R40 | AO3400A + RC0805 1 k / 10 k | 2N7002, BSS138 | PCBWay | PCBWay | F6 |
 | Actuación | LED6 + R41 | Hubei KENTO KT-0805Y + RC0805 1 k | APT2012SYCK/J3-PRV | PCBWay (LCSC C2296) | PCBWay | F6 |
-| Actuación | J2 | bornera 2P 5,0 mm ED1621 (TB001-500-02BE) | ED1610 3P, BORNE 3P EMPAL | Sigma ($952) | manual | F6 |
-| Sensores | Sonda DS18B20 J4 + ESD D6 | bornera 3P 3,5 mm (1751251) + USBLC6-2SC6 + R35–R37, C40 | JST XH, SMAJ5.0CA | Sigma (bornera, sonda SEN DS18B20 2M) / PCBWay | manual / PCBWay | F5 |
+| Actuación | J2 | Xinlaiya XY301V-A-5.0-2P (footprint TB001-500-02BE) | ED1610 3P, BORNE 3P EMPAL | PCBWay (LCSC C557651) | PCBWay (THT) | F6, F7 |
+| Sensores | Sonda DS18B20 J4 + ESD D6 | Phoenix 1751251 + USBLC6-2SC6 + R35–R37, C40 | JST XH, SMAJ5.0CA | PCBWay (LCSC C91152) / Sigma (sonda SEN DS18B20 2M) | PCBWay (THT); sonda externa | F5, F7 |
+
+Desde F7 (D17) el proveedor, el número de parte del proveedor y el montaje de cada línea están en `docs/BOM_F7.md`.
 
 Regla desde F2: pasivos y LEDs en 0805 o más grandes; 0603 solo si no existe en 0805.
 

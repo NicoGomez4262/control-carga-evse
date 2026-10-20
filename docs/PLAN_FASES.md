@@ -16,7 +16,7 @@
 | F4 | `04_MCU.SchDoc` | ESP32-S3, arranque, USB-C (J5) con puente USB-UART y programación automática (DTR/RTS), LEDs, mapa de pines | cerrada (2026-10-12) |
 | F5 | `05_SENSORES.SchDoc` | sonda DS18B20 (J4), sensor de ambiente I²C, RTC con pila (sin FRAM, D14) | cerrada (2026-10-12) |
 | F6 | `06_ACTUACION.SchDoc` | driver Q3, PhotoMOS K1 (NC, aislamiento reforzado), salida J2 a los bornes de habilitación del EVSE | cerrada (2026-10-12) |
-| F7 | todas las hojas | compilación, footprints, clases de red, librería del proyecto, BOM con proveedores (PCBWay, DigiKey; Sigma último recurso) | en curso (14–19 oct) |
+| F7 | todas las hojas | compilación, footprints, clases de red, librería del proyecto, BOM con proveedores (PCBWay, DigiKey; Sigma último recurso) | cerrada (2026-10-19) |
 | F8 | `EVSE_Monitor.PcbDoc` | contorno, stackup, reglas de aislamiento, ubicación, ruteo, DRC, archivos y pedido a PCBWay | pendiente |
 
 Estados posibles: pendiente · en curso · cerrada.
@@ -442,7 +442,7 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 
 ## Fase 7 — Cierre del esquemático y BOM
 
-**Hojas:** todas · **Estado:** pendiente
+**Hojas:** todas · **Estado:** cerrada (2026-10-19)
 
 <!--DIAG:F7-->
 ```text
@@ -480,19 +480,19 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 
 **Tareas**
 
-- [ ] Compilar todo el proyecto: 0 errores y warnings revisados.
-- [ ] Anotación final de designadores.
-- [ ] Revisión cruzada TOP ↔ hojas: nombres de red, puertos y entradas de hoja.
-- [ ] Clases de red y directivas en el esquemático (`HV_AC`, `ANALOG`, `USB`).
-- [ ] Footprints: cada uno verificado contra el datasheet; modelos 3D; pads de THT cómodos para soldar a mano.
-- [ ] BOM (ActiveBOM): Designator, Qty, Manufacturer, MPN, Description, Footprint, Supplier, Supplier PN, Assembly, precio.
-- [ ] Stock verificado según D16: PCBWay (turnkey) primero, DigiKey para lo que falte, Sigma solo como último recurso. Revisar sobre todo lo que hoy dice Mouser (AMC3330DWE, ESP32-S3-WROOM-1-N16R2, J5 632723300011, AQY414EHAX) y Sigma (IRM-20-12, borneras, J8, BLX-A, CT SCT-013-000, pila CR2032, sonda DS18B20). Decidir qué va consignado a PCBWay y qué se suelda a mano, y actualizar `Supplier`/`Supplier PN`/`Assembly` en la librería por script.
-- [ ] Revisión de diseño con lista: seguridad y aislamiento, potencia, arranque, ESD en conectores, puntos de prueba, valores.
-- [ ] Bloque de título: corregir los `*` (renombrar parámetros del proyecto a `Proj_Name`, `Proj_Revision`, `Proj_DrawnBy` y usarlos en la plantilla) y poner `Title` en cada hoja.
-- [ ] Copiar `SamacSys.SchLib/PcbLib` de `C:/Users/nico/Documents/AltiumLL/` a `lib/` del proyecto y reemplazar las referencias en el `.PrjPcb` (portabilidad).
-- [ ] Pendientes heredados de F6: nota de rieles de la TOP (`+3V3` ya no va a ACTUACION; esta usa solo `+VIN`); borrar de `SamacSys.SchLib` las piezas bajadas que no se usan (34.51.7.012.5010, TB001-500-03BE, FM24CL64B-GTR y las que no tengan parámetros); en el borde de las Blankets de 03 quedan `ATM_VN` y `CT_P`; conviene agrandarlas un poco para que no dependan de un extremo de cable.
-- [ ] Exportar PDF completo y BOM a `docs/revisiones/F7_*`.
-- [ ] Cerrar la fase.
+- [x] Compilar todo el proyecto: 0 errores y warnings revisados (Validate correcto el 19 oct, antes y después de la BOM).
+- [x] Anotación final de designadores (sin huecos, 14 oct).
+- [x] Revisión cruzada TOP ↔ hojas: nombres de red, puertos y entradas de hoja (14 oct).
+- [x] Clases de red y directivas en el esquemático (`HV_AC`, `ANALOG`, `USB`, `EVSE_EXT`); directiva `HV_AC` de 03 en el borde de su Blanket (19 oct).
+- [x] Footprints: cada uno verificado contra el datasheet (J5, C2, C3, K1, BT1, F1B/F2B; los sustitutos de la BOM usan el mismo footprint: XY301V, RL4032, LQH43NH, GRM, RT0805).
+- [x] BOM con Designator, Qty, Manufacturer, MPN, Description, Footprint, Supplier, Supplier PN, Assembly y precio: `docs/BOM_F7.md`, generada por `docs/tools/bom_f7.py` (19 oct).
+- [x] Stock verificado según D16 (19 oct, LCSC/DigiKey/Sigma): 128 piezas por placa; todo a PCBWay salvo K1 (DigiKey, a mano) y U1 (disponible, a mano); CT, sonda y pila en Sigma. `Supplier`/`Supplier PN`/`Assembly` puestos por script en la librería y las hojas (D17).
+- [x] Revisión de diseño con lista: seguridad y aislamiento, potencia, arranque, ESD en conectores, puntos de prueba, valores (19 oct, sin cambios; ver `docs/DECISIONES.md`, «Fase 7»).
+- [x] Bloque de título: Title por hoja, sin `*`, sin logo ni texto de Altium (14 oct).
+- [x] Librería del proyecto en `lib/` y `.PrjPcb` apuntando a ella (14 oct).
+- [x] Pendientes heredados de F6: nota de rieles de la TOP; piezas sin uso fuera de la librería; Blankets de 03 agrandadas (14 oct).
+- [x] Exportar `docs/revisiones/PROYECTO_F7.pdf` (6 hojas + BOM) y `docs/revisiones/F7_BOM.csv`, y revisarlos (19 oct): el CSV coincide con la BOM en los 132 designadores; en el PDF, tres títulos se salían del bloque y la nota de la TOP quedaba cortada → arreglado por script (`presentacion_f7.py`), se verá en el PDF de F8.
+- [x] Cerrar la fase (19 oct).
 
 **Termina cuando:** el esquemático está congelado y cada línea de la BOM tiene proveedor y forma de montaje.
 
@@ -548,7 +548,7 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 **8B · Ubicación**
 
 - [ ] Zona de red en un lado con frontera recta; solo el AC-DC, el AMC3330 y el relé de J2 la cruzan.
-- [ ] Todos los SMD en la cara superior (un solo lado de ensamble en PCBWay); THT (AC-DC, R-78CK, relé, borneras, jack, portafusibles) agrupados y accesibles para soldar.
+- [ ] Todos los SMD en la cara superior (un solo lado de ensamble en PCBWay). Los THT que suelda PCBWay (PS1, J1, J2, J4, J6, J7, J8) con espacio para su soldadura; lo que va a mano (U1 R-78CK, K1 y, si algún día, F1B/F2B) agrupado y con espacio para el cautín (D17).
 - [ ] ESP32-S3 en el borde con la antena hacia afuera.
 - [ ] ATM90E26 y su cadena analógica lejos del relé y del AC-DC; cristal pegado al chip.
 - [ ] Desacoples junto a cada pin de alimentación; sensor de ambiente lejos de fuentes de calor.
@@ -573,9 +573,9 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 
 - [ ] OutJob: Gerber (X2 o RS-274X), taladros NC, Pick and Place en mm, BOM de ensamble en formato PCBWay, PDF de ensamble y STEP.
 - [ ] **Carrito de compras (pedido del usuario, F6):** una sola lista con todo lo que hay que pagar, agrupada por proveedor: PCBWay (PCB, ensamble y componentes turnkey), DigiKey y, si hiciera falta, Sigma. Cada línea lleva designadores, número de parte, cantidad, precio unitario, subtotal y enlace. Al final van los subtotales por proveedor, el envío y los impuestos estimados (DigiKey y PCBWay a Colombia) y el **total en COP y USD** con la tasa del día. Se entrega como página interactiva (artifact), con casillas para marcar lo comprado.
-- [ ] Pedido a PCBWay: FR-4 de 1.6 mm, cobre de 1 oz, HASL sin plomo o ENIG, cantidad (por ejemplo 5); ensamble turnkey de los SMD; piezas manuales marcadas como DNP.
-- [ ] **Carrito de DigiKey (pedido del usuario, 19 oct):** lista lista para pasar al carrito común del curso (número de parte DigiKey, cantidad, precio unitario, subtotal), idealmente **≤ US$50**; si se pasa, proponer reemplazos que PCBWay sí ensamble.
-- [ ] Compra en Sigma solo de lo que no se consiguió en PCBWay ni en DigiKey.
+- [ ] Pedido a PCBWay: FR-4 de 1.6 mm, cobre de 1 oz, HASL sin plomo o ENIG, 5 PCB y **1 ensamblada** (D17); turnkey de todo lo que tiene PCBWay (SMD y THT, `Assembly = PCBWay`); K1 y U1 (`Manual`) y F1B/F2B, SW2, SW3 (`DNP`) sin ensamblar. La BOM de ensamble sale de `docs/BOM_F7.md` / parámetros de Altium.
+- [ ] **Carrito de DigiKey (pedido del usuario, 19 oct):** lista lista para pasar al carrito común del curso (número de parte DigiKey, cantidad, precio unitario, subtotal), idealmente **≤ US$50**; si se pasa, proponer reemplazos que PCBWay sí ensamble. Según la BOM de F7 solo lleva K1 (AQY414EHAX, 255-6089-1-ND, US$ 3,29) y los repuestos que se quieran (por ejemplo, otro K1, dos fusibles 3403.0274.23).
+- [ ] Compra en Sigma solo de lo que no se consiguió en PCBWay ni en DigiKey: CT SCT-013-000V, sonda DS18B20 2 m y pila CR2032 (≈ 50.813 COP, F7).
 - [ ] Plan de montaje y primeras pruebas: primero con la entrada de banco de 12 V, sin red; después con red a través de un transformador de aislamiento.
 - [ ] Cerrar el proyecto de Altium (Rev 1.0 enviada).
 

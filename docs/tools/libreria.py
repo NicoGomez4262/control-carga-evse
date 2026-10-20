@@ -100,7 +100,8 @@ def avisos(nombre, regs, fps_lib, otros_mpn=()):
     if not ao.valor(comp, "ComponentDescription"):
         out.append("falta Description")
     mpn = params.get("Manufacturer_Part_Number", "")
-    if mpn and norm(mpn) != norm(nombre):
+    # el MPN puede ser el nombre más un sufijo de empaque (DS3231SN → DS3231SN#T&R)
+    if mpn and not norm(mpn).startswith(norm(nombre)):
         out.append(f"MPN «{mpn}» distinto del nombre")
     if not fps:
         out.append("sin footprint")

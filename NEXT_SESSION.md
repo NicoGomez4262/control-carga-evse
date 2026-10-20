@@ -1,32 +1,32 @@
-# Siguiente sesión → Fase 7 (continuación): BOM con PCBWay y DigiKey, PDF y cierre
+# Siguiente sesión → Fase 8: PCB, ruteo y fabricación en PCBWay
 
-**Estado (19 oct 2026):** F7 va por la mitad. Ya están la revisión por script de las seis hojas, los footprints verificados, la librería propia en `lib/`, el bloque de título, las clases de red y Validate (compila; el aviso de la directiva `HV_AC` de 03 ya se corrigió). Falta la BOM con la nueva regla de compras (D16), el PDF de todo el proyecto y cerrar la fase. Detalle en `docs/DECISIONES.md`, «Fase 7».
+**Estado (19 oct 2026):** F7 cerrada. El esquemático está congelado (Rev 1.0): seis hojas revisadas por script, footprints verificados, librería propia en `lib/`, clases de red (`HV_AC`, `ANALOG`, `USB`, `EVSE_EXT`), Validate correcto y `docs/revisiones/PROYECTO_F7.pdf`. La BOM con la regla D16 está en `docs/BOM_F7.md` (D17): **una placa ensamblada**; PCBWay suelda todo lo que tiene en stock (US$ 60,02 en componentes, incluidos los THT); K1 va en el carrito de DigiKey del curso (US$ 3,29) y se suelda a mano junto con U1 (el R-78CK del profesor); CT, sonda y pila se compran en Sigma (50.813 COP). Detalle en `docs/DECISIONES.md`, «Fase 7».
 
 ## Prompt para iniciar
 
 Cierra Altium antes de pegar esto en una sesión nueva de Claude abierta en la carpeta del repositorio:
 
 ```text
-Seguimos con la FASE 7 del proyecto "Control de carga EVSE" (cierre del esquemático y BOM). Ya cerré Altium.
+Seguimos con la FASE 8 del proyecto "Control de carga EVSE" (PCB, ruteo y fabricación en PCBWay). Ya cerré Altium.
 
-Lee CLAUDE.md, NEXT_SESSION.md, docs/PLAN_FASES.md (Fase 7 y Fase 8) y docs/DECISIONES.md (D15, D16 y la sección «Fase 7»).
+Lee CLAUDE.md, NEXT_SESSION.md, docs/PLAN_FASES.md (Fase 8), docs/DECISIONES.md (D16, D17 y la sección «Fase 7») y docs/BOM_F7.md.
 
 Sigue el ritmo de CLAUDE.md:
-1. Muéstrame el diagrama «ESTÁS AQUÍ» (como gráfico) y lo que falta de F7.
-2. Arma la BOM completa con la regla de compras D16: la PCB va a PCBWay y quiero que llegue soldada con todo lo posible (turnkey); lo que PCBWay no tenga se compra en DigiKey (en un carrito que idealmente no pase de US$50, porque se suma al pedido conjunto del curso), y Sigma solo como último recurso. Mouser ya no se usa. Para cada línea: designadores, cantidad, fabricante, MPN, proveedor, número de parte del proveedor, forma de montaje (PCBWay / consignada a PCBWay / a mano) y precio. Revisa stock de verdad (PCBWay/LCSC y DigiKey), empezando por lo que hoy dice Mouser (AMC3330DWE, ESP32-S3-WROOM-1-N16R2, J5 632723300011, AQY414EHAX) y Sigma (IRM-20-12, borneras ED1621 y Phoenix, J8, BLX-A, CT SCT-013-000, jack, pila CR2032, sonda DS18B20). Si algo no está, propón equivalentes con 2–3 opciones (datasheet oficial, mismo footprint si se puede).
-3. Cuando apruebe, actualiza por script Supplier, Supplier PN y Assembly en lib/SamacSys.SchLib y en las hojas (Altium cerrado, con respaldo) y dime qué cambiaste.
-4. Revisión de diseño con lista: seguridad y aislamiento, potencia, arranque, ESD en conectores, puntos de prueba, valores.
-5. Al final: Validate, el PDF de todo el proyecto (docs/revisiones/PROYECTO_F7.pdf) y la BOM exportada (docs/revisiones/F7_BOM.*); revísalos, cierra la fase según CLAUDE.md, deja el NEXT_SESSION.md de F8 y sube todo a GitHub con sincronizar_altium.py.
+1. Muéstrame el diagrama «ESTÁS AQUÍ» (como gráfico) y la lista de tareas de F8.
+2. Antes de ubicar nada, dame la guía de ruteo: distribución general (zona de red, barrera, SELV, antena del ESP32, conectores al borde), planos de tierra, distancias entre piezas y entre zonas, anchos de pista por corriente, mínimos y máximos de PCBWay (pista, espacio, taladro, anillo, ranuras) y las reglas de Altium que se configuran, con pasos ubicados en Altium.
+3. Propón stackup (2 o 4 capas), tamaño de la placa y acabado (HASL sin plomo o ENIG) con 2–3 opciones y su precio en PCBWay; yo decido.
+4. Haz por script lo que se pueda (clases, reglas, parámetros) y guíame paso a paso en lo que sea de Altium (Update PCB, ubicación, ruteo).
+5. Al final: DRC sin violaciones, revisión 3D, salidas (Gerber, taladros, Pick and Place, BOM de ensamble de PCBWay) y el carrito de compras total (PCBWay + DigiKey + Sigma, en COP y USD). Si F8 no alcanza, deja el NEXT_SESSION.md para seguir y sube todo a GitHub con sincronizar_altium.py.
 ```
 
 ## Dónde estamos
 
-<!--DIAG:F7-->
+<!--DIAG:F8-->
 ```text
-► ESTÁS AQUÍ: FASE 7 · todas las hojas — revisión completa y BOM (todo ▐marcado▌)
+► ESTÁS AQUÍ: FASE 8 · EVSE_Monitor.PcbDoc — ubicación, ruteo y fabricación de toda la placa ▐marcada▌
 
 EXTERNO · instalación (fuera de la PCB)
-  [Breaker del EVSE] ─┬─► ▐F3 CT en L1▌ ─► [EVSE] ─► [Vehículo]
+  [Breaker del EVSE] ─┬─► [F3 CT en L1] ─► [EVSE] ─► [Vehículo]
                       │         │           ▲  │
                       └─► J1    └─► J3      │  └─ sonda DS18B20 ─► J4
                                             └─ J2 (bornes de habilitación)
@@ -52,43 +52,64 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 │ L1/L2 (L/N en 120 V) con fusibles · J1–J6 conectores · J1 con cable largo a la línea · J2 contacto seco aislado
 ```
 <!--/DIAG-->
-<!--/DIAG-->
 
-## Tareas de la Fase 7
+## Tareas de la Fase 8
 
-- [x] Diagrama «ESTÁS AQUÍ» y lista de tareas (14 oct).
-- [x] Informe por script de las 6 hojas y de la librería: sin pines sueltos ni redes con dos nombres; parámetros completos; rieles como puertos de alimentación.
-- [x] Anotación: sin huecos, no hace falta re-anotar.
-- [x] Revisión cruzada TOP ↔ hojas; nota de rieles de la TOP corregida.
-- [x] Clases de red: `USB` agregada; Blankets `ANALOG` de 03 agrandadas; directiva `HV_AC` de 03 movida al borde de su Blanket (estaba flotando, 19 oct).
-- [x] Footprints contra datasheet: J5 ✓, C2 ✓, C3 ✓, K1 ✓, BT1 corregido (TE rev E1), F1B/F2B → `BLX-A_5X20`.
-- [x] Librería propia en `lib/` (58 piezas), rutas de modelos y `.PrjPcb` apuntando a `lib/`; sin `Job1.OutJob`; Revision 1.0.
-- [x] Bloque de título: Title por hoja, sin `*`, sin logo ni texto de Altium.
-- [x] Validate (19 oct): compila; único aviso (directiva flotante en 03) corregido. Repetir Validate al final.
-- [ ] BOM con D16 (PCBWay turnkey → DigiKey ≤ US$50 → Sigma último recurso): stock real, equivalentes para lo que falte, montaje de cada línea.
-- [ ] Actualizar `Supplier`, `Supplier PN` y `Assembly` en la librería y las hojas por script.
-- [ ] Revisión de diseño con lista: seguridad y aislamiento, potencia, arranque, ESD, puntos de prueba, valores.
-- [ ] Exportar `docs/revisiones/PROYECTO_F7.pdf` y la BOM (`docs/revisiones/F7_BOM.*`) y revisarlos.
-- [ ] Cerrar la fase (CLAUDE.md) y subir a GitHub.
+**8A · Preparación**
 
-**El gabinete ya no es tarea** (D16): esta versión es PCB desnuda; la caja queda para la próxima versión de la PCB.
+- [ ] Guía de ruteo (pedido del usuario): distribución, planos, distancias, anchos de pista, mínimos de PCBWay y reglas de Altium, con pasos ubicados.
+- [ ] Update PCB desde el esquemático (Design » Update PCB Document) y revisar que lleguen los 132 componentes con su footprint.
+- [ ] Contorno libre (PCB desnuda), agujeros de montaje M3 en las esquinas, conectores J1–J8 al borde.
+- [ ] Stackup: 2 capas (1,6 mm, 1 oz) o 4 capas; decidir con la cotización de PCBWay.
+- [ ] Reglas: clearance `HV_AC` ↔ resto ≥ 5,5 mm; Creepage Distance ≥ 6,4 mm entre red y SELV y entre `EVSE_EXT` y SELV; L1 ↔ L2 ≥ 3,2 mm; anchos por clase; par USB de 90 Ω; mínimos de PCBWay.
+- [ ] Zonas: sin cobre bajo la antena del ESP32 (todas las capas), sin cobre bajo K1 ni U2, zona de red sin planos, ranura de aislamiento si hace falta.
 
-## Herramientas (`docs/tools/`)
+**8B · Ubicación**
 
-- `lista_redes.py -p`, `cobertura_blanket.py`, `render_hoja.py`, `pcblib.py`, `libreria.py` (`--pieza`, `--poner`, `--copiar`), `arreglar_pdf.py`, `diagramas.py`, `sincronizar_altium.py --commit`.
-- Nuevas en F7: `pcblib_editar.py` (leer y armar footprints, mover pads, crear un footprint nuevo en la PcbLib), `libreria_f7.py` y `arreglos_hojas_f7.py` (ejemplos de cambios en la librería y en las seis hojas).
-- La librería que se edita es `lib/SamacSys.SchLib`/`PcbLib` del proyecto, no la de `Documents/AltiumLL` (el Library Loader sigue bajando allá: si llega una pieza nueva, se copia a `lib/`).
+- [ ] Zona de red en un lado con frontera recta; solo PS1, U2 y K1 cruzan la barrera.
+- [ ] SMD en la cara superior; THT de PCBWay (PS1, J1, J2, J4, J6, J7, J8) con espacio para soldar; lo de mano (U1, K1) agrupado y cómodo para el cautín.
+- [ ] ESP32-S3 en el borde con la antena hacia afuera; ATM90E26 y su cadena analógica lejos de PS1; Y1 pegado a U3; C39 pegado a U7; D6 junto a J4; D5 junto a J5.
+- [ ] Desacoples junto a cada pin; U6 (AHT20) lejos de fuentes de calor; 3 fiduciales y marcas de pin 1.
+
+**8C · Ruteo**
+
+- [ ] Primero la red (≥ 1 mm, sin vías innecesarias); luego `+VIN`/`+3V3` (lazo corto del R-78CK y su filtro L1/C1/C6); analógico en pares cortos; USB 90 Ω; SPI corto.
+- [ ] GND continuo con vías de costura; sin cobre bajo la antena; serigrafía con «PELIGRO 240 VAC», contorno de la zona de red, polaridades, nombre y versión.
+
+**8D · Verificación**
+
+- [ ] DRC sin violaciones (incluida la regla de creepage); revisión 3D (choques y acceso del cautín); revisión contra las capacidades de PCBWay.
+
+**8E · Salidas y pedido**
+
+- [ ] OutJob: Gerber, taladros NC, Pick and Place (mm), BOM de ensamble de PCBWay, PDF de ensamble y STEP.
+- [ ] Carrito de compras total (artifact con casillas): PCBWay (PCB, ensamble y componentes), DigiKey (K1 y repuestos, ≤ US$ 50), Sigma (CT, sonda, pila); subtotales, envío, impuestos y total en COP y USD con la TRM del día.
+- [ ] Pedido a PCBWay: 5 PCB, 1 ensamblada (D17); K1, U1, F1B/F2B, SW2, SW3 sin ensamblar.
+- [ ] Plan de montaje y primeras pruebas: primero con la entrada de banco J6 (12 V), sin red; después con red a través de un transformador de aislamiento.
+
+## Lo que hay que comparar en F8
+
+- Stackup: 2 capas frente a 4 capas (precio en PCBWay, plano de GND, aislamiento).
+- Acabado: HASL sin plomo frente a ENIG (J5 tiene pines finos; el SSOP-28 del ATM90E26 tiene paso de 0,65 mm).
+- Tamaño de la placa (lo pone el AC-DC de 52,4 × 27,2 mm y la separación de 6,4 mm).
 
 ## Ten a mano
 
-- **Altium cerrado al empezar** (que no quede `X2.EXE`).
-- Acceso a PCBWay (lista de piezas de ensamble / LCSC) y DigiKey.
-- La tasa de cambio COP/USD del día.
+- Altium cerrado al empezar (que no quede `X2.EXE`).
+- Cuenta de PCBWay para cotizar (PCB y ensamble) y la página de capacidades de PCBWay.
+- La TRM del día para el carrito.
 
-## Pendientes para F8 (y F9 si hace falta)
+## Notas de F7 para el layout
 
-- **Guía de ruteo (pedido del usuario):** Claude explica en general la distribución de componentes (zona de red, barrera, SELV, antena del ESP32, conectores al borde), planos de tierra, distancias entre piezas y entre zonas, anchos de pista por corriente, mínimos y máximos de PCBWay (pista, espacio, taladro, anillo, ranuras) y las reglas de Altium, con pasos ubicados.
-- **Carrito de DigiKey** para el pedido conjunto del curso (≤ US$50) y el carrito de compras total (PCBWay + DigiKey + Sigma si hace falta).
-- J5: agujeros de 0,4 mm con pad de 0,65 mm (anillo de 0,125 mm): confirmar con PCBWay. BT1 sin pasta en el contacto central. Sin cobre bajo K1 ni U6; C39 pegado a U7; D6 junto a J4; reglas de `EVSE_EXT` (≥ 6,4 mm hacia SELV y `HV_AC`).
+- J5: agujeros de 0,4 mm con pad de 0,65 mm (anillo de 0,125 mm): confirmar con PCBWay.
+- BT1: sin pasta en el contacto central.
+- K1: pads a ±4,30 mm (6,70 mm entre lados); sin cobre debajo. U2: 7,50 mm entre filas de pads; sin cobre debajo.
+- Sustitutos de la BOM con el mismo footprint: J1/J2 XY301V (agujero 1,30 mm para pin de 1,0 mm), RV1 Ruilon (pads iguales a CU4032), L1 Murata LQH43NH (footprint RLS126: Murata recomienda 1,5 mm entre pads y el footprint tiene 0,8 mm; suelda igual), C16/C20/C23 Murata 1206.
+- Clases: `HV_AC`, `EVSE_EXT` (≥ 6,4 mm hacia SELV y hacia `HV_AC`), `ANALOG`, `USB`.
+- BOM de ensamble para PCBWay: agrupar también por `Assembly` (en el CSV de F7, Altium juntó SW1 con SW2/SW3 DNP en una fila «PCBWay, DNP»).
+- Después del PDF de F7 se acortaron por script los títulos de 02, 04 y 06 y se alargó la nota de la TOP (`presentacion_f7.py`): revisarlo en el PDF de F8. Quedan dos banderas «Parameter Set» encimadas en 03 (sobre el texto de la plantilla y sobre J3), solo de presentación.
+
+## Pendientes fuera de Altium
+
 - Firmware: SPI del ATM90E26 ≤ 160 kbps y LNSel = N; CH340C con esptool en auto-reset; AHT20 espera ≥ 5 ms; búfer sin internet y energía en NVS (D14); hora por NTP; `RELAY_EN` = 1 → carga parada y restaurar el estado desde NVS al arrancar.
-- Instalación: confirmar si el tercer conductor es neutro o tierra; P10 (dónde va la sonda DS18B20).
+- Instalación: confirmar si el tercer conductor es neutro o tierra; P10 (dónde va la sonda DS18B20); medir los bornes del EVSE antes de conectar J2 (K1 aguanta ≤ 400 Vpk y 120 mA).

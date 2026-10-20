@@ -31,11 +31,11 @@ HOJAS = ["01_TOP", "02_ALIMENTACION", "03_MEDICION", "04_MCU", "05_SENSORES", "0
 
 TITULOS = {
     "01_TOP": "Diagrama de bloques (hoja TOP)",
-    "02_ALIMENTACION": "Alimentación: red, AC-DC 12 V y 3,3 V",
+    "02_ALIMENTACION": "Alimentación: red, 12 V y 3,3 V",  # acortado en presentacion_f7.py
     "03_MEDICION": "Medición de tensión y corriente",
-    "04_MCU": "ESP32-S3, USB-UART y programación",
+    "04_MCU": "ESP32-S3, USB y programación",
     "05_SENSORES": "Sensores, RTC y sonda 1-Wire",
-    "06_ACTUACION": "Actuación: PhotoMOS K1 hacia el EVSE",
+    "06_ACTUACION": "Actuación: PhotoMOS K1 al EVSE",
 }
 DIRECCION = {"Address1": "Hardware en IoT · 2026", "Address2": " ", "Address3": " ", "Address4": " "}
 PLANTILLA = {
