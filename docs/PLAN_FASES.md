@@ -17,7 +17,8 @@
 | F5 | `05_SENSORES.SchDoc` | sonda DS18B20 (J4), sensor de ambiente I²C, RTC con pila (sin FRAM, D14) | cerrada (2026-10-12) |
 | F6 | `06_ACTUACION.SchDoc` | driver Q3, PhotoMOS K1 (NC, aislamiento reforzado), salida J2 a los bornes de habilitación del EVSE | cerrada (2026-10-12) |
 | F7 | todas las hojas | compilación, footprints, clases de red, librería del proyecto, BOM con proveedores (PCBWay, DigiKey; Sigma último recurso) | cerrada (2026-10-19) |
-| F8 | `EVSE_Monitor.PcbDoc` | contorno, stackup, reglas de aislamiento, ubicación, ruteo, DRC, archivos y pedido a PCBWay | pendiente |
+| F8 | `EVSE_Monitor.PcbDoc` | contorno, stackup, reglas de aislamiento, ubicación, ruteo, DRC, archivos para PCBWay y carrito | cerrada (2026-10-22) |
+| F9 | pedido y banco de pruebas | pedido a PCBWay, DigiKey y Sigma; recepción, soldadura a mano (K1, U1) y primeras pruebas | pendiente |
 
 Estados posibles: pendiente · en curso · cerrada.
 
@@ -500,7 +501,7 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 
 ## Fase 8 — PCB, ruteo y fabricación en PCBWay
 
-**Archivo:** `EVSE_Monitor.PcbDoc` y OutJob · **Estado:** pendiente
+**Archivo:** `EVSE_Monitor.PcbDoc` y OutJob · **Estado:** cerrada (2026-10-22). El pedido, el montaje y las pruebas pasan a F9.
 
 <!--DIAG:F8-->
 ```text
@@ -536,47 +537,53 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 
 **Objetivo.** Placa ruteada, verificada y pedida; componentes comprados.
 
-**Guía de ruteo (pedido del usuario, 19 oct):** antes de ubicar, Claude explica en general cómo van distribuidos los componentes (zona de red, barrera, SELV, antena, conectores), los planos de tierra, las distancias entre piezas y entre zonas, los anchos de pista por corriente, los mínimos y máximos de fabricación de PCBWay (pista, espacio, taladro, anillo, ranuras) y las reglas de Altium que se configuran, con pasos ubicados en Altium. Si F8 no alcanza, el ruteo sigue en una F9.
+**Guía de ruteo (pedido del usuario, 19 oct):** antes de ubicar, Claude explica en general cómo van distribuidos los componentes (zona de red, barrera, SELV, antena, conectores), los planos de tierra, las distancias entre piezas y entre zonas, los anchos de pista por corriente, los mínimos y máximos de fabricación de PCBWay (pista, espacio, taladro, anillo, ranuras) y las reglas de Altium que se configuran, con pasos ubicados en Altium. Si F8 no alcanza, el ruteo sigue en una F9. **Hecha el 19 oct: `docs/GUIA_RUTEO_F8.md`.**
 
 **8A · Preparación**
 
-- [ ] Contorno libre (esta versión es PCB desnuda; el gabinete queda para la próxima versión de la PCB y no es tarea), agujeros de montaje M3 en las esquinas, conectores J1–J8 al borde.
-- [ ] Stackup: 2 capas (1.6 mm, cobre de 1 oz) o 4 capas; decidir con la cotización de PCBWay.
-- [ ] Reglas: clearance `HV_AC` ↔ resto ≥ 5.5 mm; regla Creepage Distance de Altium ≥ 6.4 mm entre red y SELV; L1 ↔ L2 ≥ 3.2 mm; anchos por clase; par USB de 90 Ω; mínimos de fabricación de PCBWay (traza, espacio, taladro, anillo).
-- [ ] Zonas: exclusión de cobre bajo la antena del ESP32 en todas las capas, zona de red sin planos internos, ranura de aislamiento en la capa de contorno si hace falta.
+- [x] Contorno libre (esta versión es PCB desnuda; el gabinete queda para la próxima versión de la PCB y no es tarea), agujeros de montaje M3 en las esquinas, conectores J1–J8 al borde. *Contorno de 130 × 100 mm por script (`reglas_f8.py`, D18), también en Mechanical 1 para los Gerber (`salidas_f8.py`); 4 agujeros M3 sin metalizar en las esquinas; J1–J8 en los bordes.*
+- [x] Stackup: **2 capas, 1,6 mm, 1 oz, HASL sin plomo, 130 × 100 mm** (D18, US$ 36,87 las 5 placas). Núcleo de 1,51 mm y εr 4,4 puestos en el Layer Stack Manager (20 oct).
+- [x] Reglas: clearance `HV_AC` ↔ resto ≥ 5.5 mm; regla Creepage Distance de Altium ≥ 6.4 mm entre red y SELV; L1 ↔ L2 ≥ 3.2 mm; anchos por clase; par USB de 90 Ω; mínimos de fabricación de PCBWay (traza, espacio, taladro, anillo). *Hecho (20 oct): 66 reglas por script (`reglas_f8.py`), incluidas Minimum Annular Ring y Creepage Distance (sus códigos se leyeron de las que el usuario creó a mano); excepciones de J5 (patrón de Würth: anillo 0,125 mm). Par diferencial `USB_D` creado.*
+- [x] Zonas: exclusión de cobre bajo la antena del ESP32 en todas las capas, zona de red sin planos internos, ranura de aislamiento en la capa de contorno si hace falta. *La antena sobresale del borde (sin cobre debajo); keepouts en la barrera y en el hueco red–isla; sin planos en la red; la ranura no hizo falta (6,4 mm de superficie libre).*
 
 **8B · Ubicación**
 
-- [ ] Zona de red en un lado con frontera recta; solo el AC-DC, el AMC3330 y el relé de J2 la cruzan.
-- [ ] Todos los SMD en la cara superior (un solo lado de ensamble en PCBWay). Los THT que suelda PCBWay (PS1, J1, J2, J4, J6, J7, J8) con espacio para su soldadura; lo que va a mano (U1 R-78CK, K1 y, si algún día, F1B/F2B) agrupado y con espacio para el cautín (D17).
-- [ ] ESP32-S3 en el borde con la antena hacia afuera.
-- [ ] ATM90E26 y su cadena analógica lejos del relé y del AC-DC; cristal pegado al chip.
-- [ ] Desacoples junto a cada pin de alimentación; sensor de ambiente lejos de fuentes de calor.
-- [ ] 3 fiduciales, marcas de polaridad y de pin 1.
+- [x] Zona de red en un lado con frontera recta; solo el AC-DC, el AMC3330 y el relé de J2 la cruzan.
+- [x] Todos los SMD en la cara superior (un solo lado de ensamble en PCBWay). Los THT que suelda PCBWay (PS1, J1, J2, J4, J6, J7, J8) con espacio para su soldadura; lo que va a mano (U1 R-78CK, K1 y, si algún día, F1B/F2B) agrupado y con espacio para el cautín (D17).
+- [x] ESP32-S3 en el borde con la antena hacia afuera.
+- [x] ATM90E26 y su cadena analógica lejos del relé y del AC-DC; cristal pegado al chip.
+- [x] Desacoples junto a cada pin de alimentación; sensor de ambiente lejos de fuentes de calor.
+- [x] 3 fiduciales, marcas de polaridad y de pin 1.
 
 **8C · Ruteo**
 
-- [ ] Primero la red: pistas de 1 mm o más, sin vías innecesarias, respetando distancias.
-- [ ] Potencia SELV: `+VIN` y `+3V3` con el ancho adecuado; lazo corto del R-78CK y su filtro.
-- [ ] Analógico: entradas de V e I en pares simétricos y cortos; AGND unido bajo el ATM90E26.
-- [ ] USB como par diferencial de 90 Ω; SPI corto; pull-ups de I²C cerca del maestro.
-- [ ] Plano de GND continuo con vías de costura; sin cobre bajo la antena.
-- [ ] Serigrafía: designadores legibles, «PELIGRO 240 VAC», contorno de la zona de red, polaridades, nombre y versión.
+- [x] Primero la red: pistas de 1 mm o más, sin vías innecesarias, respetando distancias.
+- [x] Potencia SELV: `+VIN` y `+3V3` con el ancho adecuado; lazo corto del R-78CK y su filtro.
+- [x] Analógico: entradas de V e I en pares simétricos y cortos; AGND unido bajo el ATM90E26.
+- [x] USB como par diferencial de 90 Ω; SPI corto; pull-ups de I²C cerca del maestro.
+- [x] Plano de GND continuo con vías de costura; sin cobre bajo la antena.
+- [x] Serigrafía: designadores legibles, «PELIGRO 240 VAC», contorno de la zona de red, polaridades, nombre y versión.
 
 **8D · Verificación**
 
-- [ ] DRC sin violaciones, incluida la regla de creepage.
-- [ ] Revisión 3D: choques entre piezas y acceso del cautín a lo que se suelda a mano.
-- [ ] Revisión contra las capacidades de PCBWay.
+- [x] DRC sin violaciones, incluida la regla de creepage. *0 eléctricas (22 oct); quedan 31 avisos de serigrafía: designadores y dibujos de las piezas que sobresalen del borde.*
+- [x] Revisión 3D: choques entre piezas y acceso del cautín a lo que se suelda a mano. *Regla de 2 mm alrededor de K1; vías tapadas vistas en 3D.*
+- [x] Revisión contra las capacidades de PCBWay. *`revisar_gerber_f8.py`: 304 taladros, máscara, pasta y cobre comparados contra el PcbDoc.*
 
 **8E · Salidas y pedido**
 
-- [ ] OutJob: Gerber (X2 o RS-274X), taladros NC, Pick and Place en mm, BOM de ensamble en formato PCBWay, PDF de ensamble y STEP.
-- [ ] **Carrito de compras (pedido del usuario, F6):** una sola lista con todo lo que hay que pagar, agrupada por proveedor: PCBWay (PCB, ensamble y componentes turnkey), DigiKey y, si hiciera falta, Sigma. Cada línea lleva designadores, número de parte, cantidad, precio unitario, subtotal y enlace. Al final van los subtotales por proveedor, el envío y los impuestos estimados (DigiKey y PCBWay a Colombia) y el **total en COP y USD** con la tasa del día. Se entrega como página interactiva (artifact), con casillas para marcar lo comprado.
-- [ ] Pedido a PCBWay: FR-4 de 1.6 mm, cobre de 1 oz, HASL sin plomo o ENIG, 5 PCB y **1 ensamblada** (D17); turnkey de todo lo que tiene PCBWay (SMD y THT, `Assembly = PCBWay`); K1 y U1 (`Manual`) y F1B/F2B, SW2, SW3 (`DNP`) sin ensamblar. La BOM de ensamble sale de `docs/BOM_F7.md` / parámetros de Altium.
-- [ ] **Carrito de DigiKey (pedido del usuario, 19 oct):** lista lista para pasar al carrito común del curso (número de parte DigiKey, cantidad, precio unitario, subtotal), idealmente **≤ US$50**; si se pasa, proponer reemplazos que PCBWay sí ensamble. Según la BOM de F7 solo lleva K1 (AQY414EHAX, 255-6089-1-ND, US$ 3,29) y los repuestos que se quieran (por ejemplo, otro K1, dos fusibles 3403.0274.23).
-- [ ] Compra en Sigma solo de lo que no se consiguió en PCBWay ni en DigiKey: CT SCT-013-000V, sonda DS18B20 2 m y pila CR2032 (≈ 50.813 COP, F7).
-- [ ] Plan de montaje y primeras pruebas: primero con la entrada de banco de 12 V, sin red; después con red a través de un transformador de aislamiento.
-- [ ] Cerrar el proyecto de Altium (Rev 1.0 enviada).
+- [x] OutJob: Gerber (X2 o RS-274X), taladros NC, Pick and Place en mm, BOM de ensamble en formato PCBWay, PDF de ensamble y STEP.
+- [x] **Carrito de compras (pedido del usuario, F6):** una sola lista con todo lo que hay que pagar, agrupada por proveedor: PCBWay (PCB, ensamble y componentes turnkey), DigiKey y, si hiciera falta, Sigma. Cada línea lleva designadores, número de parte, cantidad, precio unitario, subtotal y enlace. Al final van los subtotales por proveedor, el envío y los impuestos estimados (DigiKey y PCBWay a Colombia) y el **total en COP y USD** con la tasa del día. Se entrega como página interactiva (artifact), con casillas para marcar lo comprado.
+- [ ] → F9 · Pedido a PCBWay: FR-4 de 1.6 mm, cobre de 1 oz, HASL sin plomo o ENIG, 5 PCB y **1 ensamblada** (D17); turnkey de todo lo que tiene PCBWay (SMD y THT, `Assembly = PCBWay`); K1 y U1 (`Manual`) y F1B/F2B, SW2, SW3 (`DNP`) sin ensamblar. La BOM de ensamble sale de `docs/BOM_F7.md` / parámetros de Altium.
+- [x] **Carrito de DigiKey (pedido del usuario, 19 oct):** lista lista para pasar al carrito común del curso (número de parte DigiKey, cantidad, precio unitario, subtotal), idealmente **≤ US$50**; si se pasa, proponer reemplazos que PCBWay sí ensamble. Según la BOM de F7 solo lleva K1 (AQY414EHAX, 255-6089-1-ND, US$ 3,29) y los repuestos que se quieran (por ejemplo, otro K1, dos fusibles 3403.0274.23).
+- [ ] → F9 · Compra en Sigma solo de lo que no se consiguió en PCBWay ni en DigiKey: CT SCT-013-000V, sonda DS18B20 2 m y pila CR2032 (≈ 50.813 COP, F7).
+- [ ] → F9 · Plan de montaje y primeras pruebas: primero con la entrada de banco de 12 V, sin red; después con red a través de un transformador de aislamiento.
+- [ ] → F9 · Cerrar el proyecto de Altium (Rev 1.0 enviada).
 
-**Termina cuando:** el pedido está hecho en PCBWay y los componentes manuales están comprados.
+**Termina cuando:** el pedido está hecho en PCBWay y los componentes manuales están comprados. *(22 oct: F8 se cierra con los archivos verificados y el carrito listo; el pedido, la compra y las pruebas pasan a F9.)*
+
+**Cierre (22 oct).** Paquete en `docs/fabricacion/` (Gerber, BOM y Pick & Place para PCBWay, notas del pedido, plano de ensamble). Carrito: https://claude.ai/artifact/Vf8NPamJJd74KN2qhytMVX (US$ 209,38 ≈ 668.235 COP con la TRM del 22 oct). Explicación del diseño: `docs/EXPLICACION_PCB_F8.md`.
+
+## Fase 9 — Pedido, montaje y primeras pruebas
+
+**Estado:** pendiente. Lista de tareas en `NEXT_SESSION.md`.

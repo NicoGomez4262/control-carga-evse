@@ -13,3 +13,13 @@ __pycache__/
 ~$*
 .DS_Store
 Thumbs.db
+
+# Lo que Altium crea al abrir el proyecto de script docs/tools/ubicar_f8.PrjScr
+docs/tools/History/
+docs/tools/Project Logs for */
+docs/tools/Project Outputs for */
+docs/tools/__Previews/
+docs/tools/*.PrjScrStructure
+
+# STEP de 20 MB: se regenera con el OutJob
+docs/fabricacion/*.step

@@ -21,6 +21,7 @@
 | D15 | 2026-10-12 | K1 = PhotoMOS AQY414EHAX (NC, aislamiento reforzado de 5000 Vrms) en lugar de un relé: no tiene carga mínima (la entrada de un EVSE genérico es de pocos mA), es NC sin energía (P3) y cuesta US$3,42 en Mouser; el relé dorado no está en Mouser (Phoenix, US$22). Salida: ≤ 120 mA, ≤ 400 V pico; si los bornes resultan ser de red, se pone un relé externo | adoptada | F6 |
 | D16 | 2026-10-19 | Compras: PCB en PCBWay con ensamble turnkey de todo lo que tenga en stock; lo que falte, en DigiKey (carrito ≤ US$50 que se suma al pedido conjunto del curso; consignado a PCBWay o soldado a mano); Sigma solo como último recurso; Mouser deja de usarse (reemplaza D5 y D6). Esta versión es PCB desnuda: el gabinete queda para la próxima versión y no es tarea | adoptada | F7–F8 |
 | D17 | 2026-10-19 | BOM de F7: **una placa ensamblada**. Todo lo que PCBWay tiene (stock en LCSC) llega soldado, también los THT (PS1, J1, J2, J4, J6–J8); lo que PCBWay no tiene se compra en DigiKey y se suelda a mano (solo K1, AQY414EHAX); U1 es el R-78CK del profesor, a mano; CT, sonda y pila en Sigma (DigiKey sin stock o sin envío aéreo). Sustitutos por stock: AMC3330DWER, 3403.0274.11, XY301V-A-5.0-2P (J1, J2), Murata LQH43NH120J03L (L1), Ruilon RL4032P471KJ (RV1), Murata GRM31C5C1H104JA01L (C16) y GRM3195C1H333JA01D (C20, C23), Yageo RT0805BRD0710RL (R11, R13) | adoptada | F7 |
+| D18 | 2026-10-19 | PCB: **2 capas, FR-4 de 1,6 mm, cobre de 1 oz, HASL sin plomo** (opción A). Tamaño corregido el 20 oct a **130 × 100 mm** (US$ 36,87 las 5 placas): con los courtyards reales (66 cm² de piezas) 100 × 100 mm quedaba al ~78 % de ocupación. Distribución, distancias, anchos y reglas en `docs/GUIA_RUTEO_F8.md` | adoptada | F8 |
 
 ## D2 · Verificación del R-78CK3.3-0.5
 
@@ -398,6 +399,55 @@ Sin cambios en el esquemático. Opcional (no se hizo, se mantiene el esquemátic
 **Lecciones:** la API de búsqueda de JLCPCB y la ficha de LCSC dan el stock real que ensambla PCBWay; la búsqueda de LCSC está bloqueada. DigiKey se lee bien con WebFetch, y en Sigma la búsqueda no encuentra todo, pero sí la página directa del producto (`/producto/<referencia>/`). Un parámetro con «&» (`DS3231SN#T&R`) se guarda sin problema.
 
 **Notas para F8:** J5 tiene agujeros de 0,4 mm con pad de 0,65 mm (anillo de 0,125 mm): confirmar con PCBWay; BT1 sin pasta en el contacto central; reglas de `EVSE_EXT`, `HV_AC`, `USB` y `ANALOG`.
+
+## Fase 8 — PCB, ruteo y fabricación (cerrada, 22 oct 2026)
+
+**Guía de ruteo (19 oct):** `docs/GUIA_RUTEO_F8.md`. Zona de red abajo a la izquierda, isla `EVSE_EXT` (J2 y la salida de K1) arriba a la izquierda, barrera vertical de 6,7 mm (la separación entre pads de K1) que solo cruzan PS1, U2 y K1, SELV a la derecha; antena de U4 sobresaliendo del borde superior (recomendación de Espressif); bordes izquierdo y derecho para la banda de la línea SMT (solo THT, ningún SMD a < 5 mm) para no necesitar rieles; F1B/F2B anidados sobre F1/F2. Par USB de 0,50 mm con 0,15 mm de separación y GND coplanar a 0,15 mm: 92,6 Ω (cálculo 2D por diferencias finitas, εr 4,4, núcleo de 1,51 mm).
+
+**Stackup, tamaño y acabado (D18).** Cotizador de PCBWay, 19 oct 2026, 5 placas de FR-4 de 1,6 mm, 1 oz, verde:
+
+| Opción | PCB (5 u.) | Plazo |
+|---|---|---|
+| A · 2 capas, HASL sin plomo, 100 × 100 mm (elegida el 19 oct; no alcanzó) | US$ 5,00 | 24 h |
+| B · 2 capas, ENIG, 100 × 100 mm | US$ 44,14 | 3–4 días |
+| C · 4 capas, ENIG, 100 × 100 mm (con HASL: US$ 31,16) | US$ 55,93 | 4–5 días |
+| 2 capas, HASL, 120 × 80 mm (referencia) | US$ 31,94 | 24 h |
+
+100 × 80 mm cuesta lo mismo que 100 × 100 mm, pero el SELV no cabe con holgura.
+
+**Corrección del tamaño (20 oct).** Al medir los courtyards de los 132 componentes en el PcbDoc (`medidas_pcb.py`) las piezas suman 66 cm² (PS1 15 cm², BT1 5,9, U4 5,9, F1B/F2B 5,8, J3 2,5, …). En 100 × 100 mm la zona de red y el SELV quedaban al ~78 % (la estimación del 19 oct usaba el cuerpo de las piezas, no su courtyard) y J1 + el portafusibles BLX-A (11 + 27,4 mm) no cabían lado a lado en los 38 mm de la zona de red. Cotizador de PCBWay (2 capas, HASL sin plomo, 5 u.): 110 × 100 US$ 34,01 · 120 × 100 US$ 35,58 · **130 × 100 US$ 36,87 (elegida)** · 140 × 100 US$ 38,43 · 120 × 120 US$ 38,96. Con 130 × 100 mm: zona de red de 45 mm de ancho (~60 %) y SELV ~53 %. `reglas_f8.py` cambió el contorno en `Board6` y `BoardRegions`. Ensamble estimado en el cotizador para 1 placa (57 referencias, 118 SMD, 8 THT): US$ 29; envío DHL a Colombia ≈ US$ 74 (0,5 kg) menos US$ 30 de promoción (precio final al revisar los archivos).
+
+**Reglas y contorno por script (`reglas_f8.py`, 19 oct, Altium cerrado):** 32 reglas en `Rules6` (reemplazan 12 por defecto): Clearance `HV_SELV` 6,4, `EVSE_resto` 6,4, `L1_L2` 3,2, `EVSE_pads_K1` 1,7, `EVSE_A_B` 1,5, `HV_interna` 0,5, general 0,2 mm; anchos por red; vías 0,3/0,6 y 0,4/0,8; par USB; polígono directo en vías y con relieve en pads; separación de cuerpos 0,25 mm (2 mm en U1/K1; F1B/F2B solo contra el resto); agujeros 0,3–6,0; agujero-agujero 0,4; máscara 0,05 y puente 0,1; borde 0,3 mm (1,0 mm en red y EVSE). Contorno (hoy 130 × 100 mm) desde (1000 mil, 1000 mil) en `Board6` y `BoardRegions`, con el origen en la esquina inferior izquierda. Minimum Annular Ring (0,15 mm) y Creepage Distance (6,4 / 6,4 / 3,2 mm) se crean a mano: su código de regla no aparece en ningún archivo de referencia. El stackup (núcleo de 1,51 mm, εr 4,4) se ajusta en el Layer Stack Manager porque está repetido en cuatro grupos de campos de `Board6`.
+
+**Ruteo (20–22 oct).** Se descartaron el prerruteo y el autorouter: el usuario ruteó a mano sobre la ubicación reorganizada (`ubicacion_f8.py`, 227 → 140 cruces de ratsnest). El 22 oct se revisó leyendo el PcbDoc (`revisar_ruteo_f8.py`) y se terminó por script (`rutear_f8.py`, `aplicar_ruteo_f8.py`); el detalle está en `GUIA_RUTEO_F8.md`, sección 8. Decisiones:
+- **`AC_L2_F` cruza el lado L1 por Bottom:** debajo de F1, entre sus pads y lejos de ellos. Por Top la regla L1–L2 de 3,2 mm no lo permite, y a través de 1,6 mm de FR-4 el aislamiento sobra. Es aislamiento funcional (después de los fusibles y del varistor).
+- **Keepouts fuera de las reglas de 6,4 mm:** `HV_SELV` y `EVSE_resto` llevan «And Not IsKeepOut». Las 71 violaciones en verde eran del keepout de la barrera, no de cobre.
+- **GND:** polígonos sólidos en Top y Bottom solo en el SELV (x ≥ 52 mm), una vía junto a cada pad SMD de GND y vías de costura cada 7,5 mm. Nada de cobre de GND en la zona de red, la barrera ni la isla. Regla de 0,3 mm para los polígonos y anillo de keepout en Top alrededor de los fiduciales.
+- **Par USB:** 30 mm sin acoplar permitidos (Full Speed), en vez de 3 mm.
+- **F1B:** se perdió de la PCB durante el ruteo. Vuelve con Update PCB en la misma posición de F1.
+- **DRC (22 oct):** 0 violaciones eléctricas. Vías tapadas con máscara en las dos caras (`Vias_tapadas`). La serigrafía se revisa solo contra las aberturas de máscara. Los designadores sobre pads se reubicaron por script.
+- **Vías de costura:** se quedan (grilla de 7,5 mm donde hay al menos 0,8 mm libres), porque unen los dos planos de GND y no cuestan extra. El par `USB_D` solo existe en la PCB: en cada ECO se desmarca «Remove Differential Pair».
+
+**Archivos de fabricación (22 oct).** `salidas_f8.py` agregó el contorno en Mechanical 1 y quitó la pasta del contacto de BT1. También escribió el OutJob del proyecto (Gerber RS-274X en pulgadas 2:5, sin la capa Keep-Out; Excellon con PTH/NPTH separados y ranuras G85; Pick & Place CSV en mm; STEP; plano de ensamble) y `docs/fabricacion/BOM_PCBWay.xlsx`. `revisar_gerber_f8.py` lee los Gerber y taladros y los compara contra el PcbDoc:
+- los 304 agujeros coinciden en posición y diámetro;
+- máscara: 447 aberturas en Top y 52 en Bottom, solo en pads (ninguna en vías);
+- pasta: 394 aberturas, una por pad SMD menos el contacto de BT1;
+- cobre: nada fuera del contorno ni en la barrera; contorno de 130 × 100 mm cerrado.
+
+`paquete_pcbway_f8.py` arma `EVSE_Monitor_Gerber.zip` y `PickPlace_PCBWay.csv` (126 piezas; sin K1, U1, F1B, F2B, SW2 ni SW3). Las notas del pedido están en `docs/fabricacion/PEDIDO_PCBWAY.md`.
+
+**Carrito (22 oct, TRM 3.191,47 COP/USD):** https://claude.ai/artifact/Vf8NPamJJd74KN2qhytMVX (casillas guardadas en el `db` del artifact), y en texto `docs/fabricacion/CARRITO_F8.md`, generado por `carrito_f8.py`.
+
+| Proveedor | US$ | COP |
+|---|---:|---:|
+| PCBWay: PCB, ensamble, componentes, envío y arancel estimado | 186,88 | 596.422 |
+| DigiKey: K1 + 1 de repuesto | 6,58 | 21.000 |
+| Sigma: CT, sonda y pila | 15,92 | 50.813 |
+| **Total** | **209,38** | **668.235** |
+
+El precio de PCBWay es el del cotizador del 20 oct; DigiKey y Sigma se revisaron el 22 oct. Envío y arancel son estimados.
+
+**Cierre de F8 (22 oct).** Placa ruteada y verificada: 0 violaciones eléctricas, GND en un solo grupo y Gerber comparados contra el PcbDoc. El pedido, la compra y las pruebas pasan a F9. Explicación del diseño para el portafolio: `docs/EXPLICACION_PCB_F8.md`.
 
 ## Componentes elegidos
 
