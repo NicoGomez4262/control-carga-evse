@@ -31,7 +31,7 @@ PCBWAY = [  # id, concepto, detalle, cantidad, US$ c/u, enlace
      "https://www.pcbway.com/pcb-assembly.html"),
     ("componentes", "Componentes que compra PCBWay (1 placa)", "126 piezas de LCSC, detalle abajo", 1, None,
      "https://www.pcbway.com/pcb-assembly.html"),
-    ("envio", "Envío DHL a Colombia", "≈ 0,5 kg; US$ 74 menos US$ 30 de promoción (estimado)", 1, 44.00,
+    ("envio", "Envío DHL a Colombia", "0,5 kg: US$ 74,41 menos US$ 30 de descuento (cotización del 22 oct); en el pedido del grupo se divide", 1, 44.41,
      "https://www.pcbway.com/"),
 ]
 ARANCEL = 0.10   # envío urgente desde China por debajo de US$ 200 (estimado; confirmar en la cotización de DHL)
@@ -115,7 +115,10 @@ def markdown(d):
     L += ["", "Ya disponible, no se compra: U1 (RECOM R-78CK3.3-0.5, la del profesor).", "",
           "Supuestos: el precio de PCBWay es el del cotizador del 20 oct (el final sale al revisar los archivos); los "
           "componentes turnkey usan el precio de LCSC por unidad (PCBWay puede cobrar mínimos de compra en pasivos); el "
-          "envío y el arancel son estimados."]
+          "envío y el arancel son estimados.", "",
+          "Pedido en grupo: el envío de PCBWay se divide entre quienes pidan en la misma cuenta (el total es el máximo, "
+          "como si se pidiera solo) y DigiKey cobra US$ 100 fijos de envío a Colombia por todo el carrito del curso (tu "
+          "parte no está sumada). Paso a paso: `docs/fabricacion/GUIA_PEDIDO.md`."]
     return "\n".join(L) + "\n"
 
 
@@ -236,6 +239,7 @@ document.getElementById("t-comp").innerHTML = `<thead><tr><th>Designadores</th><
 document.getElementById("nota").innerHTML = `
   <p><strong>Ya disponible, no se compra:</strong> U1, el regulador RECOM R-78CK3.3-0.5 del profesor.</p>
   <p><strong>Supuestos:</strong> PCB y ensamble salen del cotizador de PCBWay del 20 oct; el precio final llega cuando PCBWay revisa los archivos. Los componentes usan el precio de LCSC por unidad (PCBWay puede cobrar mínimos de compra en pasivos). Envío y arancel son estimados: confírmalos en la cotización de DHL.</p>
+  <p><strong>Pedido en grupo:</strong> el envío de PCBWay se divide entre quienes pidan en la misma cuenta, así que el total de arriba es el máximo (como si pidieras solo). DigiKey cobra US$ 100 fijos de envío a Colombia por todo el carrito del curso; tu parte no está sumada. El paso a paso está en docs/fabricacion/GUIA_PEDIDO.md.</p>
   <p><strong>Archivos para subir:</strong> EVSE_Monitor_Gerber.zip, BOM_PCBWay.xlsx y PickPlace_PCBWay.csv (carpeta docs/fabricacion del repositorio).</p>`;
 
 function pintar() {

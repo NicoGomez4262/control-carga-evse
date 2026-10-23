@@ -37,7 +37,11 @@ Archivos (en esta carpeta; los arma `docs/tools/paquete_pcbway_f8.py` con lo que
    thieving or fill anywhere.
 5. Assembly on top side only. Do not place K1 and U1 (customer will hand-solder). DNP: F1B, F2B, SW2, SW3.
 6. BT1 center pad (battery contact) has no solder paste on purpose.
+7. Sensitive part: U6 (AHT20 humidity sensor). No washing or ultrasonic cleaning after soldering, no coating.
+8. Assemble 1 board; ship the other 4 PCBs bare.
 ```
+
+Paso a paso del pedido en grupo (PCBWay y DigiKey): `GUIA_PEDIDO.md`.
 
 ## Formulario de ensamble (turnkey)
 

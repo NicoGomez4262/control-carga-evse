@@ -4,10 +4,10 @@ Precios al 22 de octubre de 2026; TRM 3.191,47 COP/USD. Página interactiva con 
 
 | Proveedor | US$ | COP |
 |---|---:|---:|
-| PCBWay (PCB, ensamble, componentes, envío, arancel estimado) | 186,88 | 596.422 |
+| PCBWay (PCB, ensamble, componentes, envío, arancel estimado) | 187,33 | 597.858 |
 | DigiKey (carrito del curso) | 6,58 | 21.000 |
 | Sigma Electrónica | 15,92 | 50.813 |
-| **Total** | **209,38** | **668.235** |
+| **Total** | **209,83** | **669.671** |
 
 ## PCBWay
 
@@ -16,8 +16,8 @@ Precios al 22 de octubre de 2026; TRM 3.191,47 COP/USD. Página interactiva con 
 | Fabricación de la PCB | 2 capas, FR-4 1,6 mm, 1 oz, HASL sin plomo, 130 × 100 mm, vías tapadas | 5 | 7,37 | 36,87 |
 | Ensamble turnkey (1 placa) | Una cara: 57 referencias, 117 SMD + 9 THT (el stencil se cotiza con el ensamble) | 1 | 29,00 | 29,00 |
 | Componentes que compra PCBWay (1 placa) | 126 piezas de LCSC, detalle abajo | 1 | 60,02 | 60,02 |
-| Envío DHL a Colombia | ≈ 0,5 kg; US$ 74 menos US$ 30 de promoción (estimado) | 1 | 44,00 | 44,00 |
-| Arancel de importación (estimado) | 10 % sobre mercancía + envío; si el valor declarado pasa de US$ 200 se suma IVA 19 % | 1 | 16,99 | 16,99 |
+| Envío DHL a Colombia | 0,5 kg: US$ 74,41 menos US$ 30 de descuento (cotización del 22 oct); en el pedido del grupo se divide | 1 | 44,41 | 44,41 |
+| Arancel de importación (estimado) | 10 % sobre mercancía + envío; si el valor declarado pasa de US$ 200 se suma IVA 19 % | 1 | 17,03 | 17,03 |
 
 ## DigiKey (carrito del curso, ≤ US$ 50)
 
@@ -37,3 +37,5 @@ Precios al 22 de octubre de 2026; TRM 3.191,47 COP/USD. Página interactiva con 
 Ya disponible, no se compra: U1 (RECOM R-78CK3.3-0.5, la del profesor).
 
 Supuestos: el precio de PCBWay es el del cotizador del 20 oct (el final sale al revisar los archivos); los componentes turnkey usan el precio de LCSC por unidad (PCBWay puede cobrar mínimos de compra en pasivos); el envío y el arancel son estimados.
+
+Pedido en grupo: el envío de PCBWay se divide entre quienes pidan en la misma cuenta (el total es el máximo, como si se pidiera solo) y DigiKey cobra US$ 100 fijos de envío a Colombia por todo el carrito del curso (tu parte no está sumada). Paso a paso: `docs/fabricacion/GUIA_PEDIDO.md`.
