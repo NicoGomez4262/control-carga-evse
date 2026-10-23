@@ -72,6 +72,12 @@ Pasos en Altium, en este orden:
 
 Como cambian el Gerber y el Pick & Place (BT1 rotado), el pedido que ya está en PCBWay se reemplaza: ver A2.
 
+**Resultado (23 oct, 14:04).** El OutJob se generó después del Repour. Revisión:
+- **Gerber:** el cobre de GND queda a ≥ 0,29 mm de las pistas de `RTC_VBAT` (ya no hay corto). El contorno tiene los 4 arcos, no hay cobre fuera ni en la barrera, los 304 taladros coinciden y la máscara y la pasta están bien.
+- **QR:** se lee desde el GBO.
+- **Pick & Place:** solo cambió BT1, de 0° a 90°.
+- **Gotas:** no se aplicaron. Siguen 431 con gota y 178 sin, ni en el PcbDoc ni en el Gerber. No son necesarias para fabricar, así que el paquete se sube así.
+
 ### A1. Llenar el formulario
 
 Entra a https://www.pcbway.com y crea la cuenta del grupo o inicia sesión. En *My Account › Shipping address* pon la dirección de Colombia donde llega todo. Después abre https://www.pcbway.com/quotesmt.aspx y llena los campos en este orden (el mismo de la página).

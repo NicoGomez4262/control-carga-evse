@@ -511,6 +511,10 @@ Carrito actualizado (TRM 3.191,47): PCBWay US$ 186,23 · DigiKey US$ 17,87 · Si
   - 86 deberían caber: Altium las saltó porque el GND ya vertido estaba al lado.
 
   Se rehacen guardando los polígonos (Shelve), con Teardrops en Add, Adjust Teardrop Size y sin Force, y volviendo a verter.
+- **Paquete final (23 oct, 14:04):** el usuario hizo Repour y el OutJob.
+  - En el GTL, ningún cobre queda a menos de 0,29 mm de `RTC_VBAT`; `revisar_gerber_f8.py` da todo bien y el QR se lee desde el GBO.
+  - En el Pick & Place solo cambió la rotación de BT1, a 90°.
+  - Las gotas nuevas no se aplicaron en dos intentos (el PcbDoc y el Gerber tienen las mismas 609 regiones de gota). Se sube sin ellas: no son necesarias para fabricar.
 - **Formulario de ensamble:** «Detailed information of assembly» acepta 600 caracteres como máximo; las notas quedaron en 516.
 
 ## Componentes elegidos
