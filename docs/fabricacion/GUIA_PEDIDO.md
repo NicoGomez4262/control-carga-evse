@@ -41,6 +41,17 @@ Los archivos de `docs/fabricacion/` que había antes son de la placa vieja.
 6. Abre `Control de Carga IoT.OutJob` y, en cada contenedor de la derecha (PDF y carpetas de salida), haz clic en **Generate Content**, como el 22 oct.
 7. Cierra Altium y avísale a Claude. Él corre `paquete_pcbway_f8.py` y `revisar_gerber_f8.py`, que revisa el cobre contra las esquinas redondeadas, el contorno, los taladros, la máscara y la pasta. Después te dice que ya puedes subir.
 
+**Hecho el 22 oct (21:39).** Revisión de los archivos finales:
+- contorno con las 4 esquinas en arco;
+- nada de cobre fuera del contorno ni en la barrera;
+- 304 taladros iguales al PcbDoc;
+- máscara: 447 aberturas arriba y 52 abajo, ninguna en vías;
+- pasta: 394 aberturas, sin el contacto de BT1;
+- GND en un solo grupo y 0 cortos;
+- el QR se lee desde el GBO: `HTTPS://NICOLASGOMEZ.DEV`, corrección Q.
+
+Un relleno de la zona de silencio del QR había quedado corrido 0,635 mm (un paso de la grilla) al mover los símbolos en Altium. Se devolvió a su lugar en el PcbDoc (`marcas_f9.py --reponer`) y en el GBO (una coordenada, X155374 → X157874), así que no hubo que volver a correr el OutJob.
+
 ### A1. Llenar el formulario
 
 Entra a https://www.pcbway.com y crea la cuenta del grupo o inicia sesión. En *My Account › Shipping address* pon la dirección de Colombia donde llega todo. Después abre https://www.pcbway.com/quotesmt.aspx y llena los campos en este orden (el mismo de la página).

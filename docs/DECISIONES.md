@@ -494,6 +494,11 @@ Carrito actualizado (TRM 3.191,47): PCBWay US$ 186,23 · DigiKey US$ 17,87 · Si
   - «nicolasgomez.dev».
 - **Esquinas «rectas» que vio el usuario en 3D:** eran el cobre vertido viejo de los polígonos de GND, que todavía tenía las esquinas cuadradas. El contorno del polígono ya tiene los arcos y Altium los conservó al guardar. Se arregla con Repour All.
 - Silk to Silk sigue en 0 mm (F8), así que las piezas del QR y de los símbolos que se tocan no son violación.
+- **Archivos finales (22 oct, 21:39):** el usuario hizo Repour All, DRC y OutJob.
+  - El usuario reubicó los símbolos: alta tensión y ESD en una columna en el borde izquierdo de la zona de red (x 2,7–9,2, y 44,6–61,4) y RAEE en x 35,4–39,9, y 33–39,6. Toda la serigrafía libre de las dos caras queda a ≥ 0,15 mm de pads y del borde.
+  - Un relleno del QR había quedado corrido 0,635 mm y se devolvió a su lugar en el PcbDoc y en el GBO.
+  - Resultado de `revisar_gerber_f8.py`: el contorno tiene los arcos, no hay cobre fuera ni en la barrera, los 304 taladros coinciden, la máscara y la pasta están bien y el QR se lee.
+  - Resultado de `revisar_ruteo_f8.py`: 0 cortos y GND en un solo grupo (394 objetos). El cobre vertido queda a ≥ 0,49 mm de los arcos de las esquinas.
 - **Formulario de ensamble:** «Detailed information of assembly» acepta 600 caracteres como máximo; las notas quedaron en 516.
 
 ## Componentes elegidos

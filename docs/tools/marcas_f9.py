@@ -21,6 +21,10 @@ Arial Bold (con el formato de serigrafia_f9.py). Alto de TrueType = alto de la c
 
 Uso: python docs/tools/marcas_f9.py            # dibuja las vistas previas (docs/revisiones/marcas_f9_*.png)
      python docs/tools/marcas_f9.py --escribir # respalda el PcbDoc en docs/respaldos/ y escribe
+     python docs/tools/marcas_f9.py --reponer  # devuelve a su lugar los rellenos del QR que se movieron en Altium
+                                               # (22 oct: uno de la zona de silencio quedó corrido 0,635 mm)
+Los símbolos de arriba los reubicó el usuario en Altium el 22 oct (alta tensión y ESD en x 2,7–9,2, y 44,6–61,4;
+RAEE en x 35,4–39,9, y 33–39,6); --escribir ya no se vuelve a correr.
 """
 import math
 import struct
@@ -353,7 +357,40 @@ def escribir(top, bot):
     print(f"Escrito: {len(tr)} pistas, {len(ar)} arcos, {len(fl)} rellenos, {len(tx)} textos, {len(ws)} cadenas")
 
 
+def reponer():
+    """Rellenos de atrás que no están donde se escribieron: se busca el esperado de la misma fila y tamaño que falta."""
+    _, bot, _, _ = armar()
+    pcb = rv.PCB
+    fl = ap.registros(ao.leer_stream(pcb, "Fills6/Data"), 1)
+    def caja(g):
+        x1, y1, x2, y2 = (v * U - O for v in struct.unpack_from("<iiii", g, 13))
+        return (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
+    hay = [(k, caja(bl[0])) for k, (t, bl) in enumerate(fl) if bl[0][0] == BOT]
+    igual = lambda a, b: all(abs(u - v) < 0.002 for u, v in zip(a, b))
+    faltan = [e for e in bot.rellenos if not any(igual(e, c) for _, c in hay)]
+    sobran = [(k, c) for k, c in hay if not any(igual(e, c) for e in bot.rellenos)]
+    cambios = []
+    for k, c in sobran:
+        e = next((e for e in faltan if abs(e[1] - c[1]) < 0.002 and abs((e[2] - e[0]) - (c[2] - c[0])) < 0.002), None)
+        if e is None:
+            continue
+        g = bytearray(fl[k][1][0])
+        struct.pack_into("<iiii", g, 13, ap.interno(e[0]), ap.interno(e[1]), ap.interno(e[2]), ap.interno(e[3]))
+        fl[k] = (6, [bytes(g)])
+        faltan.remove(e)
+        cambios.append(f"relleno {k}: x {c[0]:.3f}–{c[2]:.3f} → {e[0]:.3f}–{e[2]:.3f} (y {c[1]:.3f})")
+    print("\n".join(cambios) or "Todos los rellenos del QR están en su lugar")
+    if not cambios:
+        return
+    if ao.altium_abierto():
+        sys.exit("Altium está abierto (X2.exe): guarda, ciérralo y vuelve a correr.")
+    print("Respaldo:", ao.respaldo(pcb, "antes_reponer_qr_f9"))
+    ao.escribir_streams(pcb, {"Fills6/Data": ap.unir(fl)})
+
+
 def main():
+    if "--reponer" in sys.argv:
+        return reponer()
     top, bot, caja, qr = armar()
     for nombre, d in (("arriba", top), ("atrás", bot)):
         print(f"{nombre}: {len(d.lineas)} pistas, {len(d.arcos)} arcos, {len(d.rellenos)} rellenos, {len(d.textos)} textos")
