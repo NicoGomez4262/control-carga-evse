@@ -58,7 +58,7 @@ LINEAS = [
     ("D4", "Littelfuse", "SMAJ5.0CA", "PCBWay", "LCSC C83324", "PCBWay", 0.1117, ""),
     ("D5,D6", "STMicroelectronics", "USBLC6-2SC6", "PCBWay", "LCSC C7519", "PCBWay", 0.1774, ""),
     ("F1,F2", "Schurter", "3403.0274.11", "PCBWay", "LCSC C6384960", "PCBWay", 2.572,
-     "cambio: el mismo UMT-H T1A en bolsa; el .23 (carrete) está en 0 en LCSC"),
+     "Please buy 2 extra pcs (4 total) and ship the 2 spares loose with the boards"),
     ("FB1", "Murata", "BLM21PG221SN1D", "PCBWay", "LCSC C85840", "PCBWay", 0.0345, ""),
     ("J1,J2", "Xinlaiya", "XY301V-A-5.0-2P", "PCBWay", "LCSC C557651", "PCBWay", 0.1141,
      "cambio: TB001-500-02BE sin stock; 300 V 15 A, pin de 1,0 mm, mismo footprint (THT)"),
@@ -107,9 +107,9 @@ LINEAS = [
     ("U6", "Aosong", "AHT20", "PCBWay", "LCSC C2757850", "PCBWay", 0.7968, ""),
     ("U7", "Analog Devices", "DS3231SN#T&R", "PCBWay", "LCSC C9866", "PCBWay", 9.9329, ""),
     ("Y1", "ECS", "ECS-81.92-12-30Q-EN-TR", "PCBWay", "LCSC C2450755", "PCBWay", 1.7128, ""),
-    # B · DigiKey (carrito del curso), a mano: PCBWay no lo tiene
-    ("K1", "Panasonic", "AQY414EHAX", "DigiKey", "255-6089-1-ND", "Manual", 3.29,
-     "LCSC en 0, sin equivalente NC con aislamiento reforzado"),
+    # 23 oct: sin pedido de DigiKey (nadie más del curso pidió). PCBWay lo compra en DigiKey/Mouser y lo suelda
+    ("K1", "Panasonic", "AQY414EHAX", "PCBWay", "DigiKey 255-6089-1-ND", "PCBWay", 3.29,
+     "Not in LCSC stock: please buy from DigiKey 255-6089-1-ND or Mouser 769-AQY414EHAX. No substitutes"),
     # C · ya disponible, a mano
     ("U1", "RECOM Power", "R-78CK3.3-0.5", "Disponible", "-", "Manual", 0.0,
      "la del profesor; otra: DigiKey 945-R-78CK3.3-0.5-ND, US$ 3,57"),
@@ -364,8 +364,8 @@ def cop(x):
 
 
 def md(ruta):
-    tit = {"A": "A · PCBWay turnkey (stock en LCSC): llega soldado",
-           "B": "B · DigiKey (carrito del curso), se suelda a mano: PCBWay no lo tiene",
+    tit = {"A": "A · PCBWay turnkey (stock en LCSC; K1 lo compra PCBWay en DigiKey o Mouser): llega soldado",
+           "B": "B · DigiKey (carrito del curso), se suelda a mano: PCBWay no lo tiene (vacío desde el 23 oct)",
            "C": "C · Ya disponible, se suelda a mano",
            "D": "D · No se monta (DNP)"}
     o = ["# BOM de la Fase 7 (regla de compras D16)", "",
@@ -374,13 +374,16 @@ def md(ruta):
          "`Supplier PN` y `Assembly` de la librería y las hojas).", "",
          "- **Stock revisado el 19 oct 2026** en LCSC (API de JLCPCB/LCSC), DigiKey y Sigma. Precio en US$ por pieza "
          "a cantidad 1 (LCSC o DigiKey); PCBWay cotiza el suyo al hacer el pedido.",
-         "- **Una placa ensamblada** (decisión del usuario): U1 es el R-78CK del profesor. Todo lo que tiene "
-         "PCBWay llega soldado; lo que no, se compra en DigiKey y se suelda a mano.",
+         "- **Una placa ensamblada** (decisión del usuario): U1 es el R-78CK del profesor y se suelda a mano. "
+         "Lo demás llega soldado. **23 oct:** no hay pedido de DigiKey; K1 (en 0 en LCSC) lo compra PCBWay en "
+         "DigiKey o Mouser dentro del turnkey, y F1/F2 llevan 2 fusibles de repuesto sueltos.",
          f"- TRM del día: {usd(TRM)} COP/USD ([dolarhoy.co](https://www.dolarhoy.co/2026-10-19)).",
          "- PCBWay compra por número de parte, primero en proveedores locales y si no en DigiKey, Mouser o Arrow "
          "([componentes](https://www.pcbway.com/pcb_prototype/Electronic_Components.html)).", ""]
     tot = {}
     for g in "ABCD":
+        if not any(grupo(ln) == g for ln in LINEAS):
+            continue  # B quedó vacío el 23 oct
         o += [f"## {tit[g]}", "",
               "| Designadores | Cant. | Fabricante | MPN | Proveedor | PN proveedor | Montaje | US$ c/u | US$ línea | Nota |",
               "|---|---|---|---|---|---|---|---|---|---|"]
@@ -403,18 +406,18 @@ def md(ruta):
           "## Resumen", "",
           f"{len(LINEAS)} líneas, {n_pz} piezas montadas por placa.", "",
           "| Grupo | US$ | COP |", "|---|---|---|",
-          f"| A · PCBWay (LCSC) | {usd(tot['A'])} | {cop(tot['A'] * TRM)} |",
-          f"| B · DigiKey, carrito del curso | {usd(tot['B'])} | {cop(tot['B'] * TRM)} |",
+          f"| A · PCBWay (LCSC; K1 en DigiKey/Mouser) | {usd(tot.get('A', 0))} | {cop(tot.get('A', 0) * TRM)} |",
+          f"| B · DigiKey, carrito del curso | {usd(tot.get('B', 0))} | {cop(tot.get('B', 0) * TRM)} |",
           f"| E · Sigma, fuera de la PCB | {usd(sc_ / TRM)} | {cop(sc_)} |",
-          f"| **Total en componentes** | **{usd(tot['A'] + tot['B'] + sc_ / TRM)}** | "
-          f"**{cop((tot['A'] + tot['B']) * TRM + sc_)}** |", "",
+          f"| **Total en componentes** | **{usd(tot.get('A', 0) + tot.get('B', 0) + sc_ / TRM)}** | "
+          f"**{cop((tot.get('A', 0) + tot.get('B', 0)) * TRM + sc_)}** |", "",
           "Sin la PCB, el costo de ensamble de PCBWay (SMD y THT), el envío ni los impuestos: eso va en el "
           "carrito de compras de F8.",
           "",
           "Stock justo en LCSC (sobra para una placa): APT2012SGC 62 u., Y1 70, SRR4028 66, BAT-HLD-001 55, "
-          "3403.0274.11 79."]
+          "3403.0274.11 89 (23 oct; con los 2 de repuesto se piden 4)."]
     Path(ruta).write_text("\n".join(o) + "\n", encoding="utf-8")
-    print(f"escrito {ruta}: A US$ {tot['A']:.2f}, B US$ {tot['B']:.2f}, E {sc_} COP")
+    print(f"escrito {ruta}: A US$ {tot.get('A', 0):.2f}, B US$ {tot.get('B', 0):.2f}, E {sc_} COP")
 
 
 if __name__ == "__main__":

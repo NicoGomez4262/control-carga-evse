@@ -23,7 +23,7 @@ docs/fabricacion/PEDIDO_PCBWAY.md y docs/EXPLICACION_PCB_F8.md.
 - **Ruteo:** a mano, por el usuario. Lo que faltaba se terminó por script (`rutear_f8.py`), con planos de GND en Top y Bottom, una vía junto a cada pad de GND y vías de costura. Las vías van tapadas.
 - **Verificación:** DRC de Altium con 0 violaciones eléctricas (quedan 31 avisos de serigrafía, aceptados). Revisión propia del cobre (`revisar_ruteo_f8.py`) y de los Gerber (`revisar_gerber_f8.py`: 304 taladros, máscara, pasta y cobre iguales al PcbDoc).
 - **Paquete en `docs/fabricacion/`:** `EVSE_Monitor_Gerber.zip`, `BOM_PCBWay.xlsx`, `PickPlace_PCBWay.csv`, `Ensamble_EVSE_Monitor.pdf` y `PEDIDO_PCBWAY.md` (formulario y notas en inglés para el «Remark»). El STEP se regenera con el OutJob y no va a GitHub.
-- **Carrito:** https://claude.ai/artifact/Vf8NPamJJd74KN2qhytMVX. **US$ 220,02 ≈ 702.192 COP** (TRM 3.191,47 del 22 oct): PCBWay US$ 186,23 (estimado), DigiKey US$ 17,87 (K1 y repuestos) y Sigma 50.813 COP.
+- **Carrito:** https://claude.ai/artifact/Vf8NPamJJd74KN2qhytMVX. **US$ 211,48 ≈ 672.732 COP** (TRM 3.181,01 del 23 oct): PCBWay US$ 195,51 (estimado, con K1 y 2 fusibles de repuesto) y Sigma 50.813 COP. Sin DigiKey desde el 23 oct (D19).
 - **Preparación del pedido (22 oct, ya en F9):** `docs/fabricacion/GUIA_PEDIDO.md` tiene el paso a paso del pedido en grupo, con cada campo de PCBWay revisado en su formulario. TP1–TP6 pasaron a ronghe RH-5016, porque el Keystone 5016 quedó en 0 en LCSC. Conteo para el formulario: 57 referencias, 118 SMD, 8 THT y 2 BGA/QFP.
 
 ## Dónde estamos
@@ -69,26 +69,28 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 - [x] Símbolos de alta tensión, RAEE y ESD en la zona de red, y tarjeta con el QR a nicolasgomez.dev atrás (`marcas_f9.py`, 22 oct).
 - [x] En Altium (`GUIA_PEDIDO.md`, A0): Repour All, revisar esquinas, serigrafía y QR, DRC y OutJob. Después `paquete_pcbway_f8.py` y `revisar_gerber_f8.py` (22 oct, 21:39: todo bien y el QR se lee desde el GBO).
 - [x] 23 oct: BT1 girado, Repour y OutJob (14:04). Paquete revisado: sin corto en `RTC_VBAT`, Gerber y QR bien. Las gotas nuevas no se aplicaron; se sube sin ellas.
+- [x] 23 oct: sin DigiKey (nadie más del curso pidió). K1 (AQY414EHAX) lo compra PCBWay en DigiKey o Mouser y lo suelda, y F1/F2 llevan 2 fusibles 3403.0274.11 de repuesto sueltos. BOM, Pick & Place (127 piezas), notas (597 de 600 caracteres), parámetros de Altium y carrito actualizados. Formulario: **58 referencias, 119 SMD**, 8 THT, 2 BGA/QFP (D19).
 - [ ] Reemplazar el pedido en PCBWay con el paquete del 23 oct (`GUIA_PEDIDO.md`, A2 y A1).
 
 - [ ] PCBWay, PCB: subir `EVSE_Monitor_Gerber.zip` y revisar las 9 capas en su visor de Gerber; tienen que verse como `docs/revisiones/gerber/*.png`. Llenar el formulario según `GUIA_PEDIDO.md` (5 placas, 5/5 mil, casilla «PCB Specifications» marcada).
 - [ ] PCBWay, ensamble: turnkey de 1 placa, con `BOM_PCBWay.xlsx` y `PickPlace_PCBWay.csv`. Pegar los tres textos de `GUIA_PEDIDO.md` (sensitive components, Detailed information of assembly y Other special request).
 - [ ] Revisar la cotización de PCBWay:
   - piezas que propongan cambiar (aceptar solo equivalentes exactos);
+  - que K1 salga con precio (lo compran en DigiKey o Mouser) y F1/F2 con 4 piezas. Si no consiguen K1: plan B AQY214EHAX (NA, invierte P3), a decidir;
   - mínimos de compra de pasivos;
   - envío y arancel reales.
 
   Actualizar `carrito_f8.py` con los valores reales y volver a publicar el carrito.
 - [ ] Responder el DFM de PCBWay: anillo de 0,125 mm de J5 (es el patrón de Würth: no cambiar); 5/5 mil si lo piden.
 - [ ] Pagar y marcar en el carrito.
-- [ ] DigiKey (carrito común del curso, cupo US$ 40): las 4 líneas de `DigiKey_bulk_add.txt` por **Bulk Add**, que suman US$ 17,87: K1 ×2, fusibles UMT-H ×2, R-78CK ×1 y ATM90E26 ×1.
+- [x] ~~DigiKey~~: no se pide (23 oct, D19). K1 y los fusibles de repuesto van en el pedido de PCBWay; los repuestos de U1 y U3 no se piden.
 - [ ] Sigma, sin afán (antes de las pruebas): SCT-013-000V, SEN DS18B20 2M y CR2032.
 
 **9B · Recepción y montaje**
 
-- [ ] Inspección visual: puentes de soldadura en U3, J5 y U4, polaridad de diodos, LEDs y electrolíticos (C2, C3), y que F1B, F2B, SW2 y SW3 estén vacíos.
+- [ ] Inspección visual: puentes de soldadura en U3, J5 y U4, polaridad de diodos, LEDs y electrolíticos (C2, C3), orientación de K1 (pin 1), que F1B, F2B, SW2 y SW3 estén vacíos y que lleguen los 2 fusibles de repuesto sueltos.
 - [ ] Sin alimentar, con el multímetro: ningún corto entre `+VIN`, `+3V3`, `+3V3A` y GND; ninguna continuidad entre la red (J1) y cualquier punto del SELV (GND, J5, J6).
-- [ ] Soldar a mano U1 (R-78CK3.3-0.5) y K1 (AQY414EHAX), con 2 mm de espacio para el cautín.
+- [ ] Soldar a mano U1 (R-78CK3.3-0.5). K1 ya llega soldado por PCBWay.
 
 **9C · Primeras pruebas (por etapas)**
 

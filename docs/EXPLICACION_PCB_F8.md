@@ -50,7 +50,7 @@ La ubicación sigue el camino de la señal, para que las pistas sean cortas y no
 - **Potencia SELV:** abajo, en orden: salida de PS1 → D1 → 12 V → R-78CK (U1) → filtro LC → 3,3 V. Su lazo de corriente queda compacto y lejos de la medición.
 - **Sensores, RTC y pila:** a la derecha, lejos del calor del regulador y de PS1.
 - **Bordes izquierdo y derecho:** ningún SMD a menos de 5 mm, porque esos bordes los usa la banda de la máquina de PCBWay. Así no hacen falta rieles.
-- **K1 con 2 mm libres alrededor:** se suelda a mano con cautín.
+- **K1 con 2 mm libres alrededor:** se pensó para soldarlo a mano con cautín. Desde el 23 oct lo suelda PCBWay, y el espacio queda como margen para cambiarlo.
 
 ## 4. Planos de tierra
 
@@ -88,7 +88,7 @@ Con cobre de 1 oz por fuera (IPC-2221, unos 10 °C de calentamiento): ≈ 0,3 mm
 
 | Pieza | Qué pasa | Por qué |
 |---|---|---|
-| K1 (AQY414EHAX) | Se compra en DigiKey y se suelda a mano | Ni LCSC ni PCBWay tienen un PhotoMOS normalmente cerrado con aislamiento reforzado. |
+| K1 (AQY414EHAX) | Lo compra PCBWay en DigiKey o Mouser y lo suelda (desde el 23 oct) | LCSC no tiene un PhotoMOS normalmente cerrado con aislamiento reforzado. Al no haber pedido de DigiKey del curso, PCBWay lo compra dentro del turnkey. |
 | U1 (R-78CK3.3-0.5) | Se suelda a mano | Ya está disponible (lo dio el profesor). Es THT. |
 | F1B, F2B | No se montan (DNP) | Portafusibles 5×20 de repuesto: si un fusible SMD se quema en las pruebas, se suelda el portafusible sin desoldar nada. |
 | SW2, SW3 | No se montan (DNP) | RESET y BOOT a mano. No hacen falta porque el CH340C hace el auto-reset por USB. |

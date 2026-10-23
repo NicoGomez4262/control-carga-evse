@@ -22,6 +22,7 @@
 | D16 | 2026-10-19 | Compras: PCB en PCBWay con ensamble turnkey de todo lo que tenga en stock; lo que falte, en DigiKey (carrito ≤ US$50 que se suma al pedido conjunto del curso; consignado a PCBWay o soldado a mano); Sigma solo como último recurso; Mouser deja de usarse (reemplaza D5 y D6). Esta versión es PCB desnuda: el gabinete queda para la próxima versión y no es tarea | adoptada | F7–F8 |
 | D17 | 2026-10-19 | BOM de F7: **una placa ensamblada**. Todo lo que PCBWay tiene (stock en LCSC) llega soldado, también los THT (PS1, J1, J2, J4, J6–J8); lo que PCBWay no tiene se compra en DigiKey y se suelda a mano (solo K1, AQY414EHAX); U1 es el R-78CK del profesor, a mano; CT, sonda y pila en Sigma (DigiKey sin stock o sin envío aéreo). Sustitutos por stock: AMC3330DWER, 3403.0274.11, XY301V-A-5.0-2P (J1, J2), Murata LQH43NH120J03L (L1), Ruilon RL4032P471KJ (RV1), Murata GRM31C5C1H104JA01L (C16) y GRM3195C1H333JA01D (C20, C23), Yageo RT0805BRD0710RL (R11, R13) | adoptada | F7 |
 | D18 | 2026-10-19 | PCB: **2 capas, FR-4 de 1,6 mm, cobre de 1 oz, HASL sin plomo** (opción A). Tamaño corregido el 20 oct a **130 × 100 mm** (US$ 36,87 las 5 placas): con los courtyards reales (66 cm² de piezas) 100 × 100 mm quedaba al ~78 % de ocupación. Distribución, distancias, anchos y reglas en `docs/GUIA_RUTEO_F8.md` | adoptada | F8 |
+| D19 | 2026-10-23 | **Sin pedido de DigiKey** (nadie más del curso pidió; solo no sale rentable). K1 sigue siendo el AQY414EHAX, pero lo **compra PCBWay** en DigiKey o Mouser dentro del turnkey y lo suelda. El repuesto de F1/F2 son 2 fusibles 3403.0274.11 extra en el mismo pedido. Los repuestos de U1 y U3 no se piden. Plan B para K1: AQY214EHAX (NA, invierte P3). Cambia D16 y D17 en lo de DigiKey | adoptada | F9 |
 
 ## D2 · Verificación del R-78CK3.3-0.5
 
@@ -517,6 +518,37 @@ Carrito actualizado (TRM 3.191,47): PCBWay US$ 186,23 · DigiKey US$ 17,87 · Si
   - Las gotas nuevas no se aplicaron en dos intentos (el PcbDoc y el Gerber tienen las mismas 609 regiones de gota). Se sube sin ellas: no son necesarias para fabricar.
 - **Formulario de ensamble:** «Detailed information of assembly» acepta 600 caracteres como máximo; las notas quedaron en 516.
 
+**Sin DigiKey (23 oct, D19).** Nadie más del curso quiso pedir en DigiKey, y un pedido solo paga US$ 100 de envío. El usuario pidió opciones para K1 y para el repuesto de los fusibles que estuvieran en PCBWay o en Sigma. Se revisó el stock en LCSC (API de JLCPCB) y en Sigma (todas las categorías de relés, optoelectrónica, componentes y fuentes), con los datasheets.
+
+K1 necesita contacto NC (P3), aislamiento reforzado hacia J2 (regla de seguridad) y el footprint actual (SOP254P962X315: pads en ±4,30 mm, 6,7 mm entre entrada y salida).
+
+| Opción | Contacto | Aislamiento | ¿Cabe? | Stock (23 oct) | US$ | Resultado |
+|---|---|---|---|---|---|---|
+| **AQY414EHAX, comprado por PCBWay** | NC | 5000 Vrms reforzado (EN 60950), UL y BSI | es el actual | LCSC 0; DigiKey 570 | 3,29 | **elegida**: cero cambios de diseño, cumple P3 y la regla de aislamiento, y PCBWay la suelda |
+| Panasonic AQY214EHAX | **NA** | igual (misma familia «DIP4 reinforced») | sí | LCSC C371971, 767 | 0,97 | plan B. Sin energía o al reiniciar, el EVSE deja de cargar (invierte P3); hay que invertir el firmware y el significado de LED6. Ron 26/35 Ω, fuga ≤ 1 µA, IFon ≤ 3 mA |
+| SUPSiC GAQY414AEH | NC | 5000 Vrms por 1 min, **sin certificación ni «reforzado»** | sí: patas a 7,62 mm + pie de 1,0 → 9,62 mm | LCSC C54938374, 293 | 1,42 | descartada por la regla de seguridad (Ron 4 Ω típ., IFon ≤ 3 mA, pide IF de 5–30 mA) |
+| CPC1117NTR, LCB110S, AQY414EH (THT) | NC | 1500 / 3750 Vrms / reforzado | no (SOP-4, 6 pines, THT) | 1828 / 20 / 2 | — | descartadas |
+| Sigma | — | — | — | no tiene PhotoMOS: PC817, 4N35, MOC30xx (triac) y relés de bobina | — | — |
+
+Repuesto de F1/F2:
+
+| Opción | Resultado |
+|---|---|
+| **2 × 3403.0274.11 extra en PCBWay** (LCSC C6384960, 89 en stock, US$ 2,59) | **elegida**: es el fusible de la placa (el .23 era el mismo en carrete, LCSC en 0), validado en F2 (3,6 A²s, 1500 A) y llega con la placa |
+| Sigma + portafusibles BLX-A | no hay fusible 5×20 que sirva: 021701.6H (1,6 A rápido) agotado; 0217.315H (315 mA) se funde con el inrush de 0,53 A²s; 10 A de vidrio no protege |
+| Otro fusible de 16 × 5,3 mm en LCSC | no hay: solo el .11 y el .23 |
+
+PCBWay compra lo que no tiene en distribuidores autorizados (DigiKey, Mouser, Arrow), sin recargo según su página, y eso puede sumar 5–7 días hábiles ([componentes](https://www.pcbway.com/pcb_prototype/Electronic_Components.html)).
+
+Cambios (23 oct):
+- `bom_f7.LINEAS`: K1 queda con `Supplier` PCBWay, `Supplier PN` «DigiKey 255-6089-1-ND» y `Assembly` PCBWay. Las notas de K1 y de F1/F2 van en inglés, porque PCBWay las lee en la BOM.
+- Altium, con un script y Altium cerrado: los parámetros de `AQY-414EHAX` en `SamacSys.SchLib` y de K1 en `06_ACTUACION` (`bom_f7.py --hojas`). Solo cambió K1, y `lista_redes.py` muestra la hoja con las mismas redes.
+- `salidas_f8.py --solo-bom`: 61 líneas, con 127 piezas para PCBWay, 1 a mano (U1) y 4 DNP. Para el formulario: 58 referencias únicas, 119 SMD y 8 THT.
+- `paquete_pcbway_f8.py`: K1 entra al Pick & Place, con 127 piezas. Es la única línea nueva; el Gerber no cambió.
+- Las notas del ensamble quedan en 597 de 600 caracteres: K1 lo compra PCBWay sin sustitutos y se piden 2 fusibles extra sueltos.
+- `GUIA_PEDIDO.md`: la parte B (DigiKey) queda sin uso. `DigiKey_bulk_add.txt` se borró.
+- Carrito sin DigiKey, con la TRM del 23 oct (3.181,01).
+
 ## Componentes elegidos
 
 Se llena al cerrar cada fase.
@@ -551,7 +583,7 @@ Se llena al cerrar cada fase.
 | MCU | LEDs y conectores | APT2012SGC ×2, APT2012SURCK; J7 Phoenix 1751248; J8 Würth 61300611121 | — | PCBWay | PCBWay (J7, J8 THT) | F4, F7 |
 | Sensores | Sensor de ambiente U6 | Aosong AHT20 + R38/C37/C38 | SHT40-AD1B-R2, TMP117 | PCBWay (LCSC C2757850) | PCBWay | F5 |
 | Sensores | RTC U7 + pila BT1 | DS3231SN#T&R + TE BAT-HLD-001 + CR2032 | RV-3028-C7, PCF85063A, MCP7940N; BH-106, BK-913 | PCBWay (LCSC C9866, C7501066) / Sigma (pila) | PCBWay / pila a mano | F5 |
-| Actuación | Salida a los bornes del EVSE K1 | Panasonic PhotoMOS AQY414EHAX (NC) | Finder 34.51.7.012.5010, Phoenix 2961163, Panasonic APF30212; NA: AQY214EHAX | DigiKey (255-6089-1-ND), carrito del curso | manual | F6, F7 |
+| Actuación | Salida a los bornes del EVSE K1 | Panasonic PhotoMOS AQY414EHAX (NC) | Finder 34.51.7.012.5010, Phoenix 2961163, Panasonic APF30212; NA: AQY214EHAX; SUPSiC GAQY414AEH (sin aislamiento reforzado certificado) | PCBWay (lo compra en DigiKey 255-6089-1-ND o Mouser; LCSC en 0) | PCBWay (desde el 23 oct; antes manual) | F6, F7, F9 |
 | Actuación | Driver Q3 + R39/R40 | AO3400A + RC0805 1 k / 10 k | 2N7002, BSS138 | PCBWay | PCBWay | F6 |
 | Actuación | LED6 + R41 | Hubei KENTO KT-0805Y + RC0805 1 k | APT2012SYCK/J3-PRV | PCBWay (LCSC C2296) | PCBWay | F6 |
 | Actuación | J2 | Xinlaiya XY301V-A-5.0-2P (footprint TB001-500-02BE) | ED1610 3P, BORNE 3P EMPAL | PCBWay (LCSC C557651) | PCBWay (THT) | F6, F7 |

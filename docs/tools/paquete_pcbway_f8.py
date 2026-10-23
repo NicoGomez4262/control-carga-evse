@@ -3,8 +3,9 @@
 
 - Gerber + taladros → docs/fabricacion/EVSE_Monitor_Gerber.zip. Revisa que estén las 9 capas y los taladros
   (PTH y NPTH) y que no venga la capa Keep-Out.
-- Pick & Place → docs/fabricacion/PickPlace_PCBWay.csv solo con lo que ensambla PCBWay (sin K1 y U1, que van a mano,
-  ni F1B, F2B, SW2 y SW3, que no se montan), y la cantidad tiene que coincidir con la BOM. La columna Comment lleva
+- Pick & Place → docs/fabricacion/PickPlace_PCBWay.csv solo con lo que ensambla PCBWay (sin U1, que va a mano,
+  ni F1B, F2B, SW2 y SW3, que no se montan; K1 entró el 23 oct: lo compra y lo suelda PCBWay), y la cantidad tiene
+  que coincidir con la BOM. La columna Comment lleva
   el MPN de bom_f7.LINEAS, el mismo de la BOM (en la PCB TP1–TP6 dicen «5016» y la BOM, RH-5016).
 - Plano de ensamble (PDF) y STEP: se copian.
 
@@ -25,7 +26,7 @@ FAB = RAIZ / "docs" / "fabricacion"
 # Altium dejó las salidas en la raíz de Project Outputs (no respetó la subcarpeta PCBWay del OutJob)
 BASE = rv.PCB.parent / "Project Outputs for Control de Carga IoT"
 NOMBRE = "EVSE_Monitor"
-NO_ENSAMBLA = {"K1", "U1", "F1B", "F2B", "SW2", "SW3"}
+NO_ENSAMBLA = {"U1", "F1B", "F2B", "SW2", "SW3"}
 GERBER = {".GTL": "Top Layer", ".GBL": "Bottom Layer", ".GTO": "Top Overlay", ".GBO": "Bottom Overlay",
           ".GTS": "Top Solder", ".GBS": "Bottom Solder", ".GTP": "Top Paste", ".GBP": "Bottom Paste",
           ".GM1": "Mechanical 1 (contorno)"}

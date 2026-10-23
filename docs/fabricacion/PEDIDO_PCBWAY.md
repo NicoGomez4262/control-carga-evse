@@ -5,7 +5,7 @@ Archivos (en esta carpeta; los arma `docs/tools/paquete_pcbway_f8.py` con lo que
 | Archivo | Para qué |
 |---|---|
 | `EVSE_Monitor_Gerber.zip` | Fabricación: Top/Bottom Layer, Overlay, Solder, Paste, Mechanical 1 (contorno) y taladros PTH/NPTH (Excellon, pulgadas 2:5) |
-| `BOM_PCBWay.xlsx` | Ensamble: 61 líneas, 126 piezas para PCBWay (118 SMD + 8 THT), 2 a mano y 4 sin montar |
+| `BOM_PCBWay.xlsx` | Ensamble: 61 líneas, 127 piezas para PCBWay (119 SMD + 8 THT), 1 a mano (U1) y 4 sin montar. Desde el 23 oct K1 lo compra y lo suelda PCBWay, y F1/F2 piden 2 fusibles de repuesto |
 | `PickPlace_PCBWay.csv` | Ensamble: posiciones en mm (solo las piezas que ensambla PCBWay); la columna Comment lleva el MPN de la BOM |
 | `Ensamble_EVSE_Monitor.pdf` | Plano de ensamble (cara superior) |
 
@@ -38,9 +38,9 @@ Paso a paso del pedido en grupo, con cada campo del formulario en el orden de la
 | Quantity | 1 |
 | Sensitive components | Yes: U6 (AHT20) |
 | Alternatives made in China | No |
-| Unique parts / SMD / BGA-QFP / THT | 57 · 118 · 2 (U3 SSOP-28, U4 módulo ESP32-S3; PCBWay cuenta ahí todo integrado de más de 16 pines) · 8 (J1, J2, J4, J5, J6, J7, J8, PS1) |
-| Parts by PCBWay | Todas las de la BOM marcadas «PCBWay» (proveedor LCSC) |
-| Customer parts | Ninguna consignada: K1 (DigiKey) y U1 (ya disponible) se sueldan a mano |
+| Unique parts / SMD / BGA-QFP / THT | 58 · 119 · 2 (U3 SSOP-28, U4 módulo ESP32-S3; PCBWay cuenta ahí todo integrado de más de 16 pines) · 8 (J1, J2, J4, J5, J6, J7, J8, PS1) |
+| Parts by PCBWay | Todas las de la BOM marcadas «PCBWay»: de LCSC, menos K1, que PCBWay compra en DigiKey o Mouser. F1/F2: 4 fusibles, 2 de repuesto sueltos |
+| Customer parts | Ninguna consignada: solo U1 (ya disponible) se suelda a mano |
 | Fiducials | 3 (FID1–FID3) |
 | Stencil | Incluido con el ensamble |
 
@@ -51,13 +51,15 @@ J3 tiene 2 huecos de 1,8 mm sin anillo de cobre, que son para sus pines plástic
 **Detailed information of assembly** (formulario de ensamble):
 
 ```
-1. Top side only. Do not place K1, U1 (customer hand-solders). DNP: F1B, F2B, SW2, SW3.
-2. Keep J5 (Wurth 632723300011) land pattern as designed: 0.125 mm annular ring and plated slots per manufacturer.
-3. U4, J3 and J5 overhang the board edge on purpose.
-4. BT1 center pad: no paste on purpose.
-5. U6 (AHT20 humidity sensor): no washing, no ultrasonic cleaning, no coating.
-6. All vias tented. Mains board: no copper thieving or fill (x = 45-51.7 mm is an isolation gap).
-7. Assemble 1 board; ship the other 4 bare.
+1. Top side only. Do not place U1 (customer hand-solders). DNP: F1B, F2B, SW2, SW3.
+2. K1 AQY414EHAX is not in LCSC: please buy it from DigiKey 255-6089-1-ND or Mouser and place it. No substitutes.
+3. F1/F2: buy 2 extra 3403.0274.11 and ship them loose with the boards.
+4. Keep J5 land pattern as designed (0.125 mm annular ring, plated slots).
+5. U4, J3 and J5 overhang the board edge on purpose.
+6. BT1 center pad: no paste on purpose.
+7. U6 (AHT20 sensor): no washing, no coating.
+8. All vias tented. No copper fill in x = 45-51.7 mm (isolation gap).
+9. Assemble 1 board; ship the other 4 bare.
 ```
 
 **Other special request** (PCB Specifications):
@@ -75,4 +77,4 @@ J3 tiene 2 huecos de 1,8 mm sin anillo de cobre, que son para sus pines plástic
 AHT20 (U6, Aosong humidity and temperature sensor): do not wash after soldering (no water, no ultrasonic cleaning), no conformal coating, do not cover the sensor opening.
 ```
 
-Piezas a mano después: K1 (AQY414EHAX, DigiKey 255-6089-1-ND) con 2 mm libres alrededor para el cautín, y U1 (RECOM R-78CK3.3-0.5, THT).
+Pieza a mano después: U1 (RECOM R-78CK3.3-0.5, THT). K1 (AQY414EHAX) ya no va a mano: desde el 23 oct lo compra y lo suelda PCBWay (no hay pedido de DigiKey).

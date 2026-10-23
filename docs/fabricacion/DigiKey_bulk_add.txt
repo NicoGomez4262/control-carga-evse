@@ -1,4 +1,0 @@
-2,255-6089-1-ND,Nicolas EVSE K1
-2,486-3065-1-ND,Nicolas EVSE F1 F2 repuesto
-1,945-R-78CK3.3-0.5-ND,Nicolas EVSE U1 repuesto
-1,ATM90E26-YU-RCT-ND,Nicolas EVSE U3 repuesto

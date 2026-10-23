@@ -1,20 +1,35 @@
-# Guía del pedido en grupo — PCBWay y DigiKey
+# Guía del pedido — PCBWay y Sigma
 
-Para dejar todo listo y que al final solo falte pagar. Precios y formularios revisados en las dos tiendas el 22 oct 2026. Los archivos están en esta carpeta (`docs/fabricacion/`).
+Para dejar todo listo y que al final solo falte pagar. Precios y formularios revisados el 22 oct 2026; el 23 oct se quitó DigiKey (ver «Cambio del 23 oct»). Los archivos están en esta carpeta (`docs/fabricacion/`).
 
 **Tiendas:**
 - PCBWay, cotización de PCB + ensamble: https://www.pcbway.com/quotesmt.aspx
-- DigiKey: https://www.digikey.com (la lista para pegar está en la parte B)
+- Sigma Electrónica (Bogotá), solo lo que va fuera de la placa: parte C
 
-**Por qué en grupo:** DigiKey cobra **US$ 100 fijos** de envío a Colombia por pedido (DHL, FedEx o UPS), y PCBWay cobra el envío según el peso de todo el paquete (DHL ≈ US$ 60 solo con las PCB, ≈ US$ 74 con ensamble). Juntando a la clase, ese costo se divide.
+**Por qué en grupo:** PCBWay cobra el envío según el peso de todo el paquete (DHL ≈ US$ 60 solo con las PCB, ≈ US$ 74 con ensamble). Si alguien de la clase pide en la misma cuenta, ese costo se divide.
 
 **Qué se compra dónde:**
 
 | Dónde | Qué | Por qué |
 |---|---|---|
-| PCBWay | 5 PCB + ensamble de 1 + los 126 componentes que van soldados | Turnkey: PCBWay compra las piezas con la BOM y las suelda. No hay que comprarlas aparte |
-| DigiKey | K1 y repuestos (US$ 17,87) | K1 (AQY414EHAX) es lo único de la placa que PCBWay no consigue. Lo demás son repuestos |
-| Sigma | CT, sonda DS18B20 y pila CR2032 (50.813 COP) | Van fuera de la placa y DigiKey no los tiene o no los envía. No es urgente: se compran antes de probar |
+| PCBWay | 5 PCB + ensamble de 1 + los 127 componentes que van soldados (K1 incluido) + 2 fusibles de repuesto sueltos | Turnkey: PCBWay compra las piezas con la BOM y las suelda. Lo que no está en LCSC (K1) lo compra en DigiKey o Mouser |
+| Sigma | CT, sonda DS18B20 y pila CR2032 (50.813 COP) | Van fuera de la placa. No es urgente: se compran antes de probar |
+
+### Cambio del 23 oct: sin DigiKey
+
+Nadie más del curso pidió en DigiKey y un pedido solo no sale rentable (US$ 100 fijos de envío), así que las líneas de DigiKey se reparten así:
+
+| Línea de DigiKey | Ahora |
+|---|---|
+| K1 · AQY414EHAX (×2) | **PCBWay lo compra y lo suelda** (1 u.). No está en LCSC, pero PCBWay compra en DigiKey, Mouser y Arrow lo que no tiene ([componentes](https://www.pcbway.com/pcb_prototype/Electronic_Components.html)); puede sumar unos 5–7 días hábiles. DigiKey tenía 570 el 23 oct, a US$ 3,29. Ya no se suelda a mano |
+| F1/F2 · fusibles UMT-H de repuesto (×2) | **2 × 3403.0274.11 extra en el pedido de PCBWay**, sueltos con la placa: es el mismo fusible de la placa (LCSC C6384960, 89 en stock el 23 oct). El .23 era el mismo en otro empaque |
+| U1 · R-78CK3.3-0.5 de repuesto | No se pide |
+| U3 · ATM90E26 de repuesto | No se pide (se puede sumar como extra de PCBWay, LCSC C616398) |
+
+Se revisaron otras opciones para K1 y para el repuesto de los fusibles:
+- **K1:** el AQY414EHAX es el único NC con aislamiento reforzado certificado que cabe en el footprint. El SUPSiC GAQY414AEH (NC, LCSC C54938374) cabe, pero no declara aislamiento reforzado ni ninguna certificación. Sigma no tiene ningún PhotoMOS.
+- **Plan B, si PCBWay dice que no consigue K1:** el Panasonic AQY214EHAX (LCSC C371971). Es la misma familia, con aislamiento reforzado y el mismo footprint, pero es **NA**: sin energía, el EVSE deja de cargar. Eso invierte lo decidido en P3, así que hay que decidirlo antes de aceptarlo.
+- **Fusibles:** Sigma solo tiene fusibles 5×20 que no sirven: el de 1,6 A rápido está agotado, el de 315 mA se funde con el inrush y el de 10 A no protege.
 
 ---
 
@@ -107,8 +122,8 @@ Solo el AHT20 es sensible: es un sensor de humedad con una ventanita abierta, y 
 
 | Campo | Qué poner |
 |---|---|
-| Number of Unique Parts | **57** (líneas de la BOM que ensambla PCBWay) |
-| Number of SMD Parts | **118** |
+| Number of Unique Parts | **58** (líneas de la BOM que ensambla PCBWay; desde el 23 oct cuenta K1) |
+| Number of SMD Parts | **119** (con K1) |
 | Number of BGA/QFP Parts | **2**: U3 (ATM90E26, SSOP-28) y U4 (módulo ESP32-S3) |
 | Number of Through-Hole Parts | **8**: J1, J2, J4, J5, J6, J7, J8 y PS1 |
 
@@ -116,17 +131,21 @@ El campo «BGA/QFP» no es solo para BGA: PCBWay cuenta ahí todo integrado de m
 
 **3. Customized Services and Advanced Options**: no lo abras; todo queda como viene («Select PCBWay's PCB Order#»: No).
 
-**4. Detailed information of assembly**: es la caja de texto grande que está justo debajo de «Customized Services and Advanced Options» y encima de «PCB Specifications». Adentro dice en gris *«Please fill in detailed technical information about the PCB assembly…»*. Acepta **600 caracteres como máximo**; este texto tiene 516. Pega esto:
+**4. Detailed information of assembly**: es la caja de texto grande que está justo debajo de «Customized Services and Advanced Options» y encima de «PCB Specifications». Adentro dice en gris *«Please fill in detailed technical information about the PCB assembly…»*. Acepta **600 caracteres como máximo**; este texto tiene 597 (23 oct: K1 lo pone PCBWay y se piden 2 fusibles extra). Pega esto:
 
 ```
-1. Top side only. Do not place K1, U1 (customer hand-solders). DNP: F1B, F2B, SW2, SW3.
-2. Keep J5 (Wurth 632723300011) land pattern as designed: 0.125 mm annular ring and plated slots per manufacturer.
-3. U4, J3 and J5 overhang the board edge on purpose.
-4. BT1 center pad: no paste on purpose.
-5. U6 (AHT20 humidity sensor): no washing, no ultrasonic cleaning, no coating.
-6. All vias tented. Mains board: no copper thieving or fill (x = 45-51.7 mm is an isolation gap).
-7. Assemble 1 board; ship the other 4 bare.
+1. Top side only. Do not place U1 (customer hand-solders). DNP: F1B, F2B, SW2, SW3.
+2. K1 AQY414EHAX is not in LCSC: please buy it from DigiKey 255-6089-1-ND or Mouser and place it. No substitutes.
+3. F1/F2: buy 2 extra 3403.0274.11 and ship them loose with the boards.
+4. Keep J5 land pattern as designed (0.125 mm annular ring, plated slots).
+5. U4, J3 and J5 overhang the board edge on purpose.
+6. BT1 center pad: no paste on purpose.
+7. U6 (AHT20 sensor): no washing, no coating.
+8. All vias tented. No copper fill in x = 45-51.7 mm (isolation gap).
+9. Assemble 1 board; ship the other 4 bare.
 ```
+
+Lo mismo va en la columna «Notes» de la BOM, en las filas de K1 y de F1/F2.
 
 **5. PCB Specifications**: **marca la casilla** que está a la izquierda del título (viene **sin marcar**). Así PCBWay fabrica la PCB en el mismo pedido. Se abren estos campos:
 
@@ -183,7 +202,7 @@ Texto para **Other special request** (lo lee el ingeniero de la PCB; el de arrib
 
 Después, **Submit Order Now**. Todavía no se paga: queda en revisión.
 
-**7.** Revisa el correo de la cuenta. PCBWay puede preguntar por piezas que no encuentra, mínimos de compra o el anillo de J5. Contesta sin aceptar cambios de número de parte en U2, U3, U4, K1 ni J5.
+**7.** Revisa el correo de la cuenta. PCBWay puede preguntar por piezas que no encuentra, mínimos de compra o el anillo de J5. Contesta sin aceptar cambios de número de parte en U2, U3, U4, K1 ni J5. En la cotización, revisa que K1 aparezca con precio y que los fusibles F1/F2 digan 4 piezas. Si dicen que no consiguen K1, no aceptes un sustituto chino: el plan B (AQY214EHAX, NA) está en «Cambio del 23 oct» y hay que decidirlo antes.
 
 Se ve cómo quedaron los Gerber en el visor de PCBWay (botón «Online Gerber Viewer» del mismo formulario) o en `docs/revisiones/gerber/*.png`.
 
@@ -201,7 +220,7 @@ Mientras no esté pago, PCBWay deja borrar el pedido o pedirle a tu representant
 3. Shipping method: **DHL** (3–6 días hábiles; FedEx-FICP es más barato y tarda 4–7). Global Standard sale muy barato, pero tarda 10–20 días.
 4. Paga con tarjeta. Si alguien del grupo pide algo después, se suma desde **Awaiting Payment › Combine Shipping**.
 
-**Lo de este proyecto:** PCB US$ 36,87 + ensamble US$ 29 + componentes ≈ US$ 59 (PCBWay los confirma al revisar la BOM). El envío se reparte en el grupo. Los impuestos de importación no están incluidos.
+**Lo de este proyecto:** PCB US$ 36,87 + ensamble US$ 29 + componentes ≈ US$ 67, con K1 y los 2 fusibles de repuesto (PCBWay los confirma al revisar la BOM). El envío se reparte en el grupo. Los impuestos de importación no están incluidos.
 
 ### Sobre el ESP32
 
@@ -213,43 +232,9 @@ TP1–TP6 eran Keystone 5016, que hoy está en 0 en LCSC. Quedan como **ronghe R
 
 ---
 
-## B. DigiKey (carrito común del curso, cupo de US$ 40)
+## B. DigiKey: ya no se usa (23 oct)
 
-**Por qué es tan poco:** los 126 componentes que van soldados los compra PCBWay con la BOM. DigiKey solo trae lo que PCBWay no consigue (K1) y unos repuestos de lo que más se puede dañar en las pruebas con la red. Revisé el 22 oct otras piezas que podrían ir de repuesto: el AMC3330 (U2) no tiene stock en DigiKey hasta el 29 oct.
-
-| Línea | DigiKey PN | Cant. | US$ c/u | US$ | Para qué |
-|---|---|---:|---:|---:|---|
-| K1 · Panasonic AQY414EHAX | 255-6089-1-ND | 2 | 3,29 | 6,58 | El relé de la placa (se suelda a mano) y uno de repuesto |
-| F1/F2 · Schurter UMT-H T1A 3403.0274.23 | 486-3065-1-ND | 2 | 3,03 | 6,06 | Repuesto de los fusibles: el mismo de la placa, en cinta (PCBWay pone el .11, en bolsa) |
-| U1 · RECOM R-78CK3.3-0.5 | 945-R-78CK3.3-0.5-ND | 1 | 3,57 | 3,57 | Repuesto del regulador del profesor |
-| U3 · Microchip ATM90E26-YU-R | ATM90E26-YU-RCT-ND | 1 | 1,66 | 1,66 | Repuesto del medidor (el chip del lado de la red) |
-| | | | **Total** | **17,87** | Sobran US$ 22 del cupo |
-
-Todas son en **Cut Tape (CT)**, no Digi-Reel (que cobra US$ 7 más).
-
-### B1. Si tú armas el carrito y lo compartes
-
-1. Entra a https://www.digikey.com con tu cuenta, con país **Colombia** (bandera arriba a la derecha) y moneda **USD**.
-2. Abre el carrito (ícono arriba a la derecha). En la caja **Bulk Add** («One product per line…») pega esto y haz clic en **Add to Cart**:
-
-   ```
-   2,255-6089-1-ND,Nicolas EVSE K1
-   2,486-3065-1-ND,Nicolas EVSE F1 F2 repuesto
-   1,945-R-78CK3.3-0.5-ND,Nicolas EVSE U1 repuesto
-   1,ATM90E26-YU-RCT-ND,Nicolas EVSE U3 repuesto
-   ```
-
-   Cada línea es cantidad, número de parte de DigiKey y **Customer Reference**. DigiKey imprime la referencia en cada bolsita, así cada quien sabe qué es suyo cuando llegue la caja. (También está en `DigiKey_bulk_add.txt`.)
-3. Revisa que queden 4 líneas y **US$ 17,87**. Si alguna no entra (al ATM90E26 le pasó el 22 oct), agrégala en **Manual Entry**, debajo de la lista: Quantity `1`, Part Number `ATM90E26-YU-RCT-ND`, Customer Reference y **Add to Cart**. También se puede desde su página, https://www.digikey.com/en/products/detail/microchip-technology/ATM90E26-YU-R/4899918, con **Cut Tape (CT)** y cantidad 1. Ese día tenía 8.729 en stock, a US$ 1,66.
-4. Arriba a la derecha del carrito, haz clic en **Share Copy**. DigiKey crea un enlace con una copia del carrito. Ese enlace es el que mandas a la clase.
-
-### B2. Si otra persona arma el carrito del curso
-
-Pásale las 4 líneas de arriba para que las pegue en su **Bulk Add**.
-
-### B3. Pagar
-
-Quien paga revisa el total (el envío a Colombia son US$ 100 fijos para todo el carrito), pone la dirección y paga con tarjeta. Los impuestos dependen del valor total del pedido del curso.
+El carrito común del curso no se hizo: nadie más pidió, y DigiKey cobra US$ 100 fijos de envío a Colombia. K1 y los fusibles de repuesto pasaron al pedido de PCBWay (ver «Cambio del 23 oct», arriba). Ya no hay nada que pegar en Bulk Add.
 
 ---
 

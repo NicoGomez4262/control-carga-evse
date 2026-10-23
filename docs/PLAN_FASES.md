@@ -18,7 +18,7 @@
 | F6 | `06_ACTUACION.SchDoc` | driver Q3, PhotoMOS K1 (NC, aislamiento reforzado), salida J2 a los bornes de habilitación del EVSE | cerrada (2026-10-12) |
 | F7 | todas las hojas | compilación, footprints, clases de red, librería del proyecto, BOM con proveedores (PCBWay, DigiKey; Sigma último recurso) | cerrada (2026-10-19) |
 | F8 | `EVSE_Monitor.PcbDoc` | contorno, stackup, reglas de aislamiento, ubicación, ruteo, DRC, archivos para PCBWay y carrito | cerrada (2026-10-22) |
-| F9 | pedido y banco de pruebas | pedido a PCBWay, DigiKey y Sigma; recepción, soldadura a mano (K1, U1) y primeras pruebas | pendiente |
+| F9 | pedido y banco de pruebas | pedido a PCBWay (K1 incluido desde el 23 oct) y Sigma; recepción, soldadura a mano (U1) y primeras pruebas | pendiente |
 
 Estados posibles: pendiente · en curso · cerrada.
 
@@ -589,3 +589,5 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 **Estado:** en preparación. Lista de tareas en `NEXT_SESSION.md`.
 
 **22 oct:** pedido preparado con la clase (`docs/fabricacion/GUIA_PEDIDO.md`). Los formularios de PCBWay están revisados campo por campo. TP1–TP6 pasan a ronghe RH-5016 (el Keystone 5016 quedó en 0 en LCSC). DigiKey lleva K1 y repuestos por US$ 17,87, dentro del cupo de US$ 40. Carrito: US$ 220,02 ≈ 702.192 COP.
+
+**23 oct:** sin pedido de DigiKey (nadie más del curso pidió). K1 (AQY414EHAX) lo compra PCBWay en DigiKey o Mouser y lo suelda; F1/F2 llevan 2 fusibles 3403.0274.11 de repuesto sueltos. BOM, Pick & Place, notas del pedido, carrito y parámetros de Altium actualizados (D19 en `docs/DECISIONES.md`).

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-"""F8: carrito de compras total (PCBWay + DigiKey + Sigma) en USD y COP.
+"""F8: carrito de compras total (PCBWay + Sigma) en USD y COP. DigiKey salió el 23 oct (D19).
 
 Lee las líneas de bom_f7.LINEAS (la fuente única de la BOM) y los extras de abajo, y escribe:
 - docs/fabricacion/Carrito_F8.html: la página del artifact (casillas para marcar lo comprado, guardadas en el
   `db` del artifact, documento `compras/estado`);
 - docs/fabricacion/CARRITO_F8.md: el mismo resumen en texto para GitHub.
 
-Precios: PCBWay del cotizador (20 oct 2026), LCSC del 19 oct (BOM de F7), DigiKey y Sigma revisados el 22 oct.
-TRM del 22 oct 2026 (dolarhoy.co).
+Precios: PCBWay del cotizador (20 oct 2026), LCSC del 19 oct (BOM de F7), Sigma del 22 oct; K1 al precio de DigiKey
+(23 oct), que es donde lo compra PCBWay. TRM del 23 oct 2026 (dolarhoy.co).
 
 Uso: python docs/tools/carrito_f8.py
 """
@@ -21,33 +21,23 @@ import bom_f7  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parents[2]
 FAB = RAIZ / "docs" / "fabricacion"
-TRM = 3191.47
-FECHA = "22 de octubre de 2026"
+TRM = 3181.01
+FECHA = "23 de octubre de 2026"
 
 PCBWAY = [  # id, concepto, detalle, cantidad, US$ c/u, enlace
     ("pcb", "Fabricación de la PCB", "2 capas, FR-4 1,6 mm, 1 oz, HASL sin plomo, 130 × 100 mm, vías tapadas", 5,
      36.87 / 5, "https://www.pcbway.com/orderonline.aspx"),
-    ("ensamble", "Ensamble turnkey (1 placa)", "Una cara: 57 referencias, 118 SMD + 8 THT, 2 BGA/QFP (U3, U4); el stencil se cotiza con el ensamble", 1, 29.00,
+    ("ensamble", "Ensamble turnkey (1 placa)", "Una cara: 58 referencias, 119 SMD + 8 THT, 2 BGA/QFP (U3, U4); el stencil se cotiza con el ensamble", 1, 29.00,
      "https://www.pcbway.com/pcb-assembly.html"),
-    ("componentes", "Componentes que compra PCBWay (1 placa)", "126 piezas de LCSC, detalle abajo", 1, None,
+    ("componentes", "Componentes que compra PCBWay (1 placa)", "127 piezas (de LCSC; K1 lo compra PCBWay en DigiKey o Mouser) + 2 fusibles de repuesto, detalle abajo", 1, None,
      "https://www.pcbway.com/pcb-assembly.html"),
     ("envio", "Envío DHL a Colombia", "0,5 kg: US$ 74,41 menos US$ 30 de descuento (cotización del 22 oct); en el pedido del grupo se divide", 1, 44.41,
      "https://www.pcbway.com/"),
 ]
 ARANCEL = 0.10   # envío urgente desde China por debajo de US$ 200 (estimado; confirmar en la cotización de DHL)
-DIGIKEY = [  # 22 oct: K1 es lo único que PCBWay no consigue; lo demás son repuestos (cupo del curso: US$ 40)
-    ("k1", "K1 · PhotoMOS AQY414EHAX (Panasonic)", "255-6089-1-ND · se suelda a mano (570 en stock)", 1, 3.29,
-     "https://www.digikey.com/en/products/result?keywords=255-6089-1-ND"),
-    ("k1_repuesto", "K1 de repuesto (recomendado)", "255-6089-1-ND · por si se daña al soldar", 1, 3.29,
-     "https://www.digikey.com/en/products/result?keywords=255-6089-1-ND"),
-    ("fusibles", "Repuesto F1/F2 · fusible UMT-H T1A (Schurter 3403.0274.23)", "486-3065-1-ND · el mismo de la placa, "
-     "en cinta; si uno se funde se cambia sin los portafusibles F1B/F2B", 2, 3.03,
-     "https://www.digikey.com/en/products/result?keywords=486-3065-1-ND"),
-    ("u1_repuesto", "Repuesto U1 · RECOM R-78CK3.3-0.5", "945-R-78CK3.3-0.5-ND · por si se daña el del profesor", 1, 3.57,
-     "https://www.digikey.com/en/products/result?keywords=945-R-78CK3.3-0.5-ND"),
-    ("u3_repuesto", "Repuesto U3 · medidor ATM90E26-YU-R (Microchip)", "ATM90E26-YU-RCT-ND · el chip del lado de la red, "
-     "el que más se arriesga en las pruebas", 1, 1.66,
-     "https://www.digikey.com/en/products/result?keywords=ATM90E26-YU-RCT-ND"),
+# 23 oct (D19): sin DigiKey. K1 lo compra PCBWay; el repuesto de F1/F2 va como extra del turnkey
+EXTRAS = [  # designadores, fabricante, MPN, PN del proveedor, cantidad, US$ c/u
+    ("F1, F2 · repuesto suelto", "Schurter", "3403.0274.11", "LCSC C6384960", 2, 2.572),
 ]
 SIGMA = [  # id, concepto, detalle, cantidad, COP c/u, enlace
     ("ct", "CT de J3 · YHDC SCT-013-000V", "100 A : 50 mA (20 u. en stock). En DigiKey (Seeed 101990029) no hay hasta el "
@@ -65,11 +55,18 @@ def lineas_pcbway():
         if len(ln) < 8 or ln[5] != "PCBWay":
             continue
         des = [d.strip() for d in ln[0].split(",")]
-        lcsc = ln[4].replace("LCSC ", "")
-        out.append(dict(designadores=", ".join(des), fabricante=ln[1], mpn=ln[2], lcsc=lcsc, cantidad=len(des),
-                        usd=ln[6], subtotal=round(ln[6] * len(des), 4),
-                        enlace=f"https://www.lcsc.com/product-detail/{lcsc}.html"))
+        out.append(fila_comp(", ".join(des), ln[1], ln[2], ln[4], len(des), ln[6]))
+    out += [fila_comp(*x) for x in EXTRAS]
     return out
+
+
+def fila_comp(designadores, fabricante, mpn, pn, cantidad, precio):
+    """PN «LCSC C…» enlaza a LCSC; otro («DigiKey …», K1) enlaza a la búsqueda de ese distribuidor."""
+    tienda, codigo = pn.split(" ", 1)
+    enlace = (f"https://www.lcsc.com/product-detail/{codigo}.html" if tienda == "LCSC"
+              else f"https://www.digikey.com/en/products/result?keywords={codigo}")
+    return dict(designadores=designadores, fabricante=fabricante, mpn=mpn, lcsc=pn if tienda != "LCSC" else codigo,
+                cantidad=cantidad, usd=precio, subtotal=round(precio * cantidad, 4), enlace=enlace)
 
 
 def calcular():
@@ -84,16 +81,13 @@ def calcular():
     pcbway.append(dict(id="arancel", concepto="Arancel de importación (estimado)",
                        detalle="10 % sobre mercancía + envío; si el valor declarado pasa de US$ 200 se suma IVA 19 %",
                        cantidad=1, usd=arancel, subtotal=arancel, enlace=""))
-    digikey = [dict(id=i, concepto=c, detalle=d, cantidad=n, usd=u, subtotal=round(u * n, 2), enlace=e)
-               for i, c, d, n, u, e in DIGIKEY]
     sigma = [dict(id=i, concepto=c, detalle=d, cantidad=n, cop=u, subtotal_cop=u * n,
                   subtotal=round(u * n / TRM, 2), enlace=e) for i, c, d, n, u, e in SIGMA]
-    tot = dict(pcbway=round(sum(x["subtotal"] for x in pcbway), 2), digikey=round(sum(x["subtotal"] for x in digikey), 2),
-               sigma_cop=sum(x["subtotal_cop"] for x in sigma))
+    tot = dict(pcbway=round(sum(x["subtotal"] for x in pcbway), 2), sigma_cop=sum(x["subtotal_cop"] for x in sigma))
     tot["sigma"] = round(tot["sigma_cop"] / TRM, 2)
-    tot["usd"] = round(tot["pcbway"] + tot["digikey"] + tot["sigma"], 2)
-    tot["cop"] = round(tot["pcbway"] * TRM + tot["digikey"] * TRM + tot["sigma_cop"])
-    return dict(trm=TRM, fecha=FECHA, pcbway=pcbway, componentes=comp, digikey=digikey, sigma=sigma, totales=tot)
+    tot["usd"] = round(tot["pcbway"] + tot["sigma"], 2)
+    tot["cop"] = round(tot["pcbway"] * TRM + tot["sigma_cop"])
+    return dict(trm=TRM, fecha=FECHA, pcbway=pcbway, componentes=comp, sigma=sigma, totales=tot)
 
 
 def cop(v):
@@ -111,26 +105,21 @@ def markdown(d):
          "`NEXT_SESSION.md`. Generado por `docs/tools/carrito_f8.py`.", "",
          "| Proveedor | US$ | COP |", "|---|---:|---:|",
          f"| PCBWay (PCB, ensamble, componentes, envío, arancel estimado) | {usd(t['pcbway'])} | {cop(t['pcbway'] * d['trm'])} |",
-         f"| DigiKey (carrito del curso) | {usd(t['digikey'])} | {cop(t['digikey'] * d['trm'])} |",
          f"| Sigma Electrónica | {usd(t['sigma'])} | {cop(t['sigma_cop'])} |",
          f"| **Total** | **{usd(t['usd'])}** | **{cop(t['cop'])}** |", "", "## PCBWay", "",
          "| Concepto | Detalle | Cant. | US$ c/u | US$ |", "|---|---|---:|---:|---:|"]
     L += [f"| {x['concepto']} | {x['detalle']} | {x['cantidad']} | {usd(x['usd'])} | {usd(x['subtotal'])} |" for x in d["pcbway"]]
-    L += ["", "## DigiKey (carrito del curso, ≤ US$ 40)", "", "| Concepto | Detalle | Cant. | US$ c/u | US$ |",
-          "|---|---|---:|---:|---:|"]
-    L += [f"| {x['concepto']} | {x['detalle']} | {x['cantidad']} | {usd(x['usd'])} | {usd(x['subtotal'])} |" for x in d["digikey"]]
     L += ["", "## Sigma Electrónica (Bogotá)", "", "| Concepto | Detalle | Cant. | COP c/u | COP |", "|---|---|---:|---:|---:|"]
     L += [f"| {x['concepto']} | {x['detalle']} | {x['cantidad']} | {cop(x['cop'])} | {cop(x['subtotal_cop'])} |" for x in d["sigma"]]
     L += ["", "Ya disponible, no se compra: U1 (RECOM R-78CK3.3-0.5, la del profesor).", "",
-          "Por qué DigiKey trae tan poco: los otros 126 componentes de la placa los compra PCBWay con la BOM y llegan "
-          "soldados (línea «Componentes que compra PCBWay»). En DigiKey va solo K1, que PCBWay no consigue, más "
-          "repuestos.", "",
+          "Sin DigiKey (23 oct): nadie más del curso pidió. K1 (AQY414EHAX, en 0 en LCSC) lo compra PCBWay en "
+          "DigiKey o Mouser y lo suelda; los 2 fusibles de repuesto van sueltos en el mismo pedido. Los repuestos "
+          "de U1 y U3 no se piden.", "",
           "Supuestos: el precio de PCBWay es el del cotizador del 20 oct (el final sale al revisar los archivos); los "
           "componentes turnkey usan el precio de LCSC por unidad (PCBWay puede cobrar mínimos de compra en pasivos); el "
           "envío y el arancel son estimados.", "",
           "Pedido en grupo: el envío de PCBWay se divide entre quienes pidan en la misma cuenta (el total es el máximo, "
-          "como si se pidiera solo) y DigiKey cobra US$ 100 fijos de envío a Colombia por todo el carrito del curso (tu "
-          "parte no está sumada). Paso a paso: `docs/fabricacion/GUIA_PEDIDO.md`."]
+          "como si se pidiera solo). Paso a paso: `docs/fabricacion/GUIA_PEDIDO.md`."]
     return "\n".join(L) + "\n"
 
 
@@ -161,7 +150,7 @@ h1 { font-size: clamp(1.9rem, 4vw, 2.6rem) }
 h2 { font-size: 1.45rem; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap }
 h2 .sub { font: 600 .95rem var(--mono); color: var(--copper) }
 .meta { color: var(--muted); margin: 6px 0 0 }
-.resumen { margin-top: 22px; display: grid; grid-template-columns: 1.3fr repeat(3, 1fr); gap: 1px; background: var(--line);
+.resumen { margin-top: 22px; display: grid; grid-template-columns: 1.3fr repeat(2, 1fr); gap: 1px; background: var(--line);
   border: 1px solid var(--line); border-radius: 10px; overflow: hidden }
 .resumen > div { background: var(--panel); padding: 14px 16px; min-width: 0 }
 .resumen .eti { font: 600 .72rem var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted) }
@@ -205,9 +194,8 @@ summary { cursor: pointer; font-weight: 600; color: var(--mask) }
   <div class="resumen" id="resumen"></div>
   <div class="progreso"><span id="cuenta">0 de 0 comprados</span><div class="barra"><i id="barra"></i></div><span class="estado" id="estado">Cargando lo marcado…</span></div>
   <section><h2>PCBWay <span class="sub">un solo pedido: PCB + ensamble</span></h2><div class="tabla"><table id="t-pcbway"></table></div>
-    <details><summary>Ver los 57 componentes que compra PCBWay (LCSC)</summary><div class="tabla"><table class="comp" id="t-comp"></table></div></details></section>
-  <section><h2>DigiKey <span class="sub">carrito común del curso · ≤ US$ 40</span></h2><div class="tabla"><table id="t-digikey"></table></div></section>
-  <section><h2>Sigma Electrónica <span class="sub">Bogotá · lo que va fuera de la placa y DigiKey no tiene o no envía</span></h2><div class="tabla"><table id="t-sigma"></table></div></section>
+    <details><summary id="resumen-comp">Ver los componentes que compra PCBWay</summary><div class="tabla"><table class="comp" id="t-comp"></table></div></details></section>
+  <section><h2>Sigma Electrónica <span class="sub">Bogotá · lo que va fuera de la placa</span></h2><div class="tabla"><table id="t-sigma"></table></div></section>
   <div class="nota" id="nota"></div>
 </div>
 <script id="datos" type="application/json">__DATOS__</script>
@@ -217,7 +205,7 @@ const marcados = {};
 const fmtUsd = v => "US$ " + v.toLocaleString("es-CO", {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const fmtCop = v => "$ " + Math.round(v).toLocaleString("es-CO") + " COP";
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
-const items = [...D.pcbway, ...D.digikey, ...D.sigma];
+const items = [...D.pcbway, ...D.sigma];
 
 document.getElementById("meta").textContent =
   `Precios al ${D.fecha} · TRM ${D.trm.toLocaleString("es-CO")} COP/USD · placa Rev 1.0, 130 × 100 mm`;
@@ -225,7 +213,6 @@ const T = D.totales;
 document.getElementById("resumen").innerHTML = `
   <div class="total"><div class="eti">Total</div><div class="num">${fmtUsd(T.usd)}</div><div class="cop">${fmtCop(T.cop)}</div></div>
   <div><div class="eti">PCBWay</div><div class="num">${fmtUsd(T.pcbway)}</div><div class="cop">${fmtCop(T.pcbway * D.trm)}</div></div>
-  <div><div class="eti">DigiKey</div><div class="num">${fmtUsd(T.digikey)}</div><div class="cop">${fmtCop(T.digikey * D.trm)}</div></div>
   <div><div class="eti">Sigma</div><div class="num">${fmtUsd(T.sigma)}</div><div class="cop">${fmtCop(T.sigma_cop)}</div></div>`;
 
 function filas(lista, enCop) {
@@ -242,17 +229,18 @@ function filas(lista, enCop) {
   return cab + "<tbody>" + cuerpo + "</tbody>" + pie;
 }
 document.getElementById("t-pcbway").innerHTML = filas(D.pcbway, false);
-document.getElementById("t-digikey").innerHTML = filas(D.digikey, false);
+document.getElementById("resumen-comp").textContent =
+  `Ver las ${D.componentes.length} líneas de componentes que compra PCBWay (LCSC; K1 en DigiKey o Mouser)`;
 document.getElementById("t-sigma").innerHTML = filas(D.sigma, true);
-document.getElementById("t-comp").innerHTML = `<thead><tr><th>Designadores</th><th>Fabricante</th><th>MPN</th><th>LCSC</th><th class="n">Cant.</th><th class="n">US$ c/u</th><th class="n">US$</th></tr></thead><tbody>` +
+document.getElementById("t-comp").innerHTML = `<thead><tr><th>Designadores</th><th>Fabricante</th><th>MPN</th><th>Proveedor</th><th class="n">Cant.</th><th class="n">US$ c/u</th><th class="n">US$</th></tr></thead><tbody>` +
   D.componentes.map(c => `<tr><td>${esc(c.designadores)}</td><td>${esc(c.fabricante)}</td><td><code>${esc(c.mpn)}</code></td>
     <td><a href="${esc(c.enlace)}" target="_blank" rel="noopener">${esc(c.lcsc)}</a></td><td class="n">${c.cantidad}</td>
     <td class="n">${c.usd.toFixed(4)}</td><td class="n">${c.subtotal.toFixed(2)}</td></tr>`).join("") + "</tbody>";
 document.getElementById("nota").innerHTML = `
   <p><strong>Ya disponible, no se compra:</strong> U1, el regulador RECOM R-78CK3.3-0.5 del profesor.</p>
-  <p><strong>Por qué DigiKey trae tan poco:</strong> los otros 126 componentes de la placa los compra PCBWay con la BOM y llegan soldados (es la línea «Componentes que compra PCBWay»). En DigiKey va solo K1, que PCBWay no consigue, más repuestos.</p>
+  <p><strong>Sin DigiKey (23 oct):</strong> nadie más del curso pidió. K1 (AQY414EHAX, en 0 en LCSC) lo compra PCBWay en DigiKey o Mouser y lo suelda; los 2 fusibles de repuesto de F1/F2 llegan sueltos en el mismo pedido. Los repuestos de U1 y U3 no se piden.</p>
   <p><strong>Supuestos:</strong> PCB y ensamble salen del cotizador de PCBWay del 20 oct; el precio final llega cuando PCBWay revisa los archivos. Los componentes usan el precio de LCSC por unidad (PCBWay puede cobrar mínimos de compra en pasivos). Envío y arancel son estimados: confírmalos en la cotización de DHL.</p>
-  <p><strong>Pedido en grupo:</strong> el envío de PCBWay se divide entre quienes pidan en la misma cuenta, así que el total de arriba es el máximo (como si pidieras solo). DigiKey cobra US$ 100 fijos de envío a Colombia por todo el carrito del curso; tu parte no está sumada. El paso a paso está en docs/fabricacion/GUIA_PEDIDO.md.</p>
+  <p><strong>Pedido en grupo:</strong> el envío de PCBWay se divide entre quienes pidan en la misma cuenta, así que el total de arriba es el máximo (como si pidieras solo). El paso a paso está en docs/fabricacion/GUIA_PEDIDO.md.</p>
   <p><strong>Archivos para subir:</strong> EVSE_Monitor_Gerber.zip, BOM_PCBWay.xlsx y PickPlace_PCBWay.csv (carpeta docs/fabricacion del repositorio).</p>`;
 
 function pintar() {
@@ -321,7 +309,7 @@ def main():
     (FAB / "Carrito_F8.html").write_text(PAGINA.replace("__DATOS__", datos), encoding="utf-8")
     (FAB / "CARRITO_F8.md").write_text(markdown(d), encoding="utf-8")
     t = d["totales"]
-    print(f"PCBWay US$ {t['pcbway']} · DigiKey US$ {t['digikey']} · Sigma {t['sigma_cop']} COP (US$ {t['sigma']}) · "
+    print(f"PCBWay US$ {t['pcbway']} · Sigma {t['sigma_cop']} COP (US$ {t['sigma']}) · "
           f"total US$ {t['usd']} = {cop(t['cop'])} COP; componentes {len(d['componentes'])} líneas")
 
 
