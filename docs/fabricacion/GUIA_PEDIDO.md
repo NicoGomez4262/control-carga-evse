@@ -52,6 +52,26 @@ Los archivos de `docs/fabricacion/` que había antes son de la placa vieja.
 
 Un relleno de la zona de silencio del QR había quedado corrido 0,635 mm (un paso de la grilla) al mover los símbolos en Altium. Se devolvió a su lugar en el PcbDoc (`marcas_f9.py --reponer`) y en el GBO (una coordenada, X155374 → X157874), así que no hubo que volver a correr el OutJob.
 
+**23 oct: otra vez, por BT1 y las gotas.** El usuario giró BT1 90° para que la pila pueda entrar: ahora entra por un lado y a la derecha no hay nada. Por eso rehízo las pistas de `RTC_VBAT`. `gotas_f9.py` encontró dos problemas:
+- **El cobre de GND quedó sin volver a verter** y se monta hasta 0,3 mm sobre tres pistas de `RTC_VBAT`. Son las 6 violaciones del DRC: en el Gerber eso sería un corto de la pila a GND.
+- **178 de 609 uniones de pista con pad o vía no tienen gota.** Las dos de BT1 son nuevas. Las demás quedaron sin gota desde la primera vez, sobre todo porque Altium tomó el GND ya vertido como obstáculo.
+
+Pasos en Altium, en este orden:
+1. Abre el proyecto y `EVSE_Monitor.PcbDoc`.
+2. **Tools › Polygon Pours › Shelve 2 Polygons.** Guarda los dos polígonos de GND sin cobre, para que no estorben a las gotas.
+3. **Tools › Teardrops…** y llena el cuadro así:
+   - Working Mode: **Add**;
+   - Objects: **All**;
+   - Options: Teardrop style **Curved**, **Force Teardrops sin marcar**, **Adjust Teardrop Size marcado** y Generate report marcado;
+   - Scope: marca **Via / TH Pad** y **SMD Pad**, y deja Tracks y T-Junction sin marcar.
+
+   Dale **OK**. El reporte dice cuáles no cupieron: con Force sin marcar, Altium no pone gotas que violen una regla.
+4. **Tools › Polygon Pours › Restore 2 Shelved Polygons**, y después **Tools › Polygon Pours › Repour All**. Esto quita el cobre de GND que está encima de las pistas de la pila.
+5. **Tools › Design Rule Check › Run Design Rule Check.** Debe dar 0 violaciones de Clearance, sin las 6 de `Poligono_GND`. Marca **Create Report File** para que quede el reporte nuevo.
+6. **Ctrl+S**, OutJob (**Generate Content** en cada contenedor), cierra Altium y avísale a Claude.
+
+Como cambian el Gerber y el Pick & Place (BT1 rotado), el pedido que ya está en PCBWay se reemplaza: ver A2.
+
 ### A1. Llenar el formulario
 
 Entra a https://www.pcbway.com y crea la cuenta del grupo o inicia sesión. En *My Account › Shipping address* pon la dirección de Colombia donde llega todo. Después abre https://www.pcbway.com/quotesmt.aspx y llena los campos en este orden (el mismo de la página).
@@ -161,7 +181,14 @@ Después, **Submit Order Now**. Todavía no se paga: queda en revisión.
 
 Se ve cómo quedaron los Gerber en el visor de PCBWay (botón «Online Gerber Viewer» del mismo formulario) o en `docs/revisiones/gerber/*.png`.
 
-### A2. Pagar (el día de la compra)
+### A2. Si ya subiste archivos y cambian (23 oct)
+
+Mientras no esté pago, PCBWay deja borrar el pedido o pedirle a tu representante que cambie los Gerber ([cancelar o cambiar un pedido sin pagar](https://www.pcbway.com/helpcenter/checkingorders/How_do_I_cancel_an_order_.html), [actualizar Gerber o BOM de un ensamble](https://www.pcbway.com/helpcenter/pcb_assembly_ordering/How_should_I_do_if_I_want_to_update_Gerber_or_BOM_.html)). Como esta vez cambian el Gerber y el Pick & Place, lo más limpio es:
+1. *My PCBWay › Shopping Cart*: borra el pedido viejo con **Delete**.
+2. Vuelve a hacer A1 con los archivos nuevos. Son los mismos valores del formulario, y los tres textos están arriba.
+3. Si PCBWay ya te escribió por ese pedido, contéstale al correo: *«Please cancel order ___, I submitted a new one with updated files (rotated BT1, teardrops)»*.
+
+### A3. Pagar (el día de la compra)
 
 1. *My PCBWay › Shopping Cart*: los pedidos de todo el grupo tienen que estar en **Pass and Payment**.
 2. Marca todos los pedidos del grupo → **Proceed to Checkout**.

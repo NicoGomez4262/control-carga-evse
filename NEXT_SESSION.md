@@ -68,6 +68,7 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 - [x] Esquinas redondeadas de R 4 mm y bloque de identificación en la serigrafía (`esquinas_f9.py`, `serigrafia_f9.py`, 22 oct).
 - [x] Símbolos de alta tensión, RAEE y ESD en la zona de red, y tarjeta con el QR a nicolasgomez.dev atrás (`marcas_f9.py`, 22 oct).
 - [x] En Altium (`GUIA_PEDIDO.md`, A0): Repour All, revisar esquinas, serigrafía y QR, DRC y OutJob. Después `paquete_pcbway_f8.py` y `revisar_gerber_f8.py` (22 oct, 21:39: todo bien y el QR se lee desde el GBO).
+- [ ] 23 oct: BT1 girado. En Altium (A0, pasos del 23 oct): Shelve, Teardrops, Restore, Repour All, DRC y OutJob. Claude revisa con `gotas_f9.py`, `revisar_ruteo_f8.py` y `revisar_gerber_f8.py` y arma el paquete. Después se reemplaza el pedido en PCBWay (A2).
 
 - [ ] PCBWay, PCB: subir `EVSE_Monitor_Gerber.zip` y revisar las 9 capas en su visor de Gerber; tienen que verse como `docs/revisiones/gerber/*.png`. Llenar el formulario según `GUIA_PEDIDO.md` (5 placas, 5/5 mil, casilla «PCB Specifications» marcada).
 - [ ] PCBWay, ensamble: turnkey de 1 placa, con `BOM_PCBWay.xlsx` y `PickPlace_PCBWay.csv`. Pegar los tres textos de `GUIA_PEDIDO.md` (sensitive components, Detailed information of assembly y Other special request).

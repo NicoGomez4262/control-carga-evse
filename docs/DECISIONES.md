@@ -499,6 +499,18 @@ Carrito actualizado (TRM 3.191,47): PCBWay US$ 186,23 · DigiKey US$ 17,87 · Si
   - Un relleno del QR había quedado corrido 0,635 mm y se devolvió a su lugar en el PcbDoc y en el GBO.
   - Resultado de `revisar_gerber_f8.py`: el contorno tiene los arcos, no hay cobre fuera ni en la barrera, los 304 taladros coinciden, la máscara y la pasta están bien y el QR se lee.
   - Resultado de `revisar_ruteo_f8.py`: 0 cortos y GND en un solo grupo (394 objetos). El cobre vertido queda a ≥ 0,49 mm de los arcos de las esquinas.
+- **BT1 girado 90° (23 oct, usuario).** Con las patas a izquierda y derecha, la pila tenía que entrar por arriba o por abajo, y ahí estaban R35 (a 0,2 mm) y C4 (a 1,7 mm). Ahora las patas quedan arriba y abajo (pads 1 y 2 en y 36,5 y 57,5) y la pila entra de lado: a la derecha no hay nada, y a la izquierda C38 está a 4,5 mm.
+  - El usuario rehízo las pistas de `RTC_VBAT`.
+  - El cobre de GND quedó sin volver a verter y se montaba hasta 0,3 mm sobre tres de esas pistas: eran las 6 violaciones `Poligono_GND` del DRC y en el Gerber habrían sido un corto de la pila a GND.
+  - Se arregla con Repour All (GUIA_PEDIDO, A0).
+- **Gotas (23 oct, `gotas_f9.py`):** 431 de 609 uniones de pista con pad o vía tienen gota. De las 178 que no:
+  - 2 son las pistas nuevas de BT1;
+  - 22 son pistas anchas;
+  - 23 son pads de paso fino;
+  - 45 tienen poco espacio;
+  - 86 deberían caber: Altium las saltó porque el GND ya vertido estaba al lado.
+
+  Se rehacen guardando los polígonos (Shelve), con Teardrops en Add, Adjust Teardrop Size y sin Force, y volviendo a verter.
 - **Formulario de ensamble:** «Detailed information of assembly» acepta 600 caracteres como máximo; las notas quedaron en 516.
 
 ## Componentes elegidos
