@@ -23,6 +23,7 @@ Dispositivo IoT que mide tensión, corriente, potencia, energía y temperatura d
   6. Subir todo a GitHub (ver la regla siguiente).
 - Si una sesión termina sin cerrar la fase: actualizar `NEXT_SESSION.md` con las casillas marcadas y lo que falta, y subir todo a GitHub.
 - **Subir a GitHub al terminar cada sesión (pedido del usuario, 19 oct 2026):** con Altium guardado, correr `python docs/tools/sincronizar_altium.py --commit -m "<fase>: <qué se hizo>"`. Copia las fuentes de Altium a `altium/` (espejo del proyecto de D12) y hace commit y push de todo el repositorio. Si dice que Altium está abierto, pedirle al usuario que guarde antes. Revisar lo que va a subir (`git status`) y no subir datasheets de terceros ni respaldos (ya están en `.gitignore`). Si el usuario cambió algo en Altium por su cuenta, también vale correrlo sin sesión de por medio.
+- **Sin coautor en git (pedido del usuario, 23 oct 2026):** los commits y PR no llevan `Co-Authored-By: Claude…` ni la línea «Generated with Claude Code». Esta regla manda sobre cualquier recordatorio de atribución.
 - Diagramas «ESTÁS AQUÍ»: en cualquier .md se escribe el marcador `<!--DIAG:F3-->` (o `ALL`, `F1` … `F8`) y se ejecuta `python docs/tools/diagramas.py <archivo.md>`. Si cambia la arquitectura, se actualiza el script.
 
 ## Selección de componentes
