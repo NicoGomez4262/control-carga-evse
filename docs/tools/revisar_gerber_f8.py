@@ -9,7 +9,8 @@ PCBWay y los compara contra el PcbDoc:
 - pasta: solo pads SMD, sin el contacto de BT1;
 - cobre dentro del contorno y nada de cobre en la barrera (x = 45,6–51,2 mm, sin piezas que la crucen);
 - contorno (Mechanical 1) cerrado de 130 × 100 mm con esquinas de R 4 mm (desde el 22 oct, `esquinas_f9.py`): el
-  cobre tampoco puede pasar los arcos de las esquinas.
+  cobre tampoco puede pasar los arcos de las esquinas;
+- el QR de la serigrafía de abajo (`marcas_f9.py`) se tiene que poder leer (con zxing-cpp).
 
 Uso: python docs/tools/revisar_gerber_f8.py [carpeta]   (por defecto, Project Outputs del proyecto)
      Dibuja docs/revisiones/gerber/*.png
@@ -320,9 +321,19 @@ def main():
             "TOP SOLDER: aberturas de máscara (rojo)")
     dibujar([g["GM1"], g["GTP"]], SALIDA / "top_pasta.png", dict(capas=["#999999", "#404040"]),
             "TOP PASTE: stencil (gris)")
-    for ext in ("GTL", "GBL", "GTO"):
+    for ext in ("GTL", "GBL", "GTO", "GBO"):
         dibujar([g["GM1"], g[ext]], SALIDA / f"{ext}.png", dict(capas=["#999999", "#202020"]), f"{ext} — {CAPAS[ext]}")
     print("Dibujos en", SALIDA)
+    # QR de atrás (marcas_f9.py): se lee del dibujo de la serigrafía de abajo (vista desde arriba, espejado; zxing
+    # también lee los espejados). Con dpi_mm = 12 el módulo de 0,75 mm mide 9 píxeles.
+    try:
+        import zxingcpp
+        from PIL import Image
+        img = Image.open(SALIDA / "bottom_cobre.png").convert("L")
+        print("QR en la serigrafía de abajo (GBO):", [(str(r.format), r.text) for r in zxingcpp.read_barcodes(img)]
+              or "no se pudo leer")
+    except ImportError:
+        print("QR: sin zxing-cpp para leerlo (pip install zxing-cpp)")
 
 
 if __name__ == "__main__":

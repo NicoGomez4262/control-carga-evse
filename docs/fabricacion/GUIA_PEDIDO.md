@@ -24,9 +24,24 @@ PCBWay solo junta el envío de pedidos que estén **en la misma cuenta**. Una pe
 
 **Hazlo hoy, no mañana:** PCBWay revisa los archivos antes de dejarte pagar (de unas horas a 1–2 días con turnkey, porque revisa la BOM). Mientras tanto el pedido queda en «Under review»; cuando dice «Pass and Payment», ya se puede pagar.
 
-### A1. Llenar el formulario
+### A0. Generar los archivos finales en Altium (una vez)
 
-> **Antes de subir archivos:** el 22 oct en la noche se redondearon las esquinas (R 4 mm) y se agregó el bloque con tu nombre en la serigrafía. Los archivos de `docs/fabricacion/` que había hasta entonces son de la placa vieja. Se vuelven a generar en Altium (Repour All, DRC y OutJob), Claude los revisa y solo después se suben.
+El 22 oct en la noche cambiaron tres cosas:
+- las esquinas quedaron redondeadas (R 4 mm);
+- se agregaron a la serigrafía el bloque con tu nombre, los símbolos de la zona de red y la tarjeta con el QR atrás;
+- los textos se agrandaron al mínimo de PCBWay.
+
+Los archivos de `docs/fabricacion/` que había antes son de la placa vieja.
+
+1. Abre `Control de Carga IoT.PrjPcb` y después `EVSE_Monitor.PcbDoc`.
+2. **Tools › Polygon Pours › Repour All.** Así desaparecen las puntas rectas de cobre de las esquinas derechas: era el cobre de GND sin volver a verter.
+3. Revisa con la tecla **3** (vista 3D) que las cuatro esquinas queden redondas, sin cobre que se salga. Con **V, B** (View › Flip Board) ves la cara de atrás, con la tarjeta del QR. Ahí, escanéalo desde la pantalla con el celular: tiene que abrir nicolasgomez.dev. Con **V, B** otra vez vuelves a la cara de arriba.
+4. **Tools › Design Rule Check › Run Design Rule Check.** Debe dar 0 violaciones eléctricas. Los avisos de serigrafía que ya estaban se quedan.
+5. **Ctrl+S** para guardar.
+6. Abre `Control de Carga IoT.OutJob` y, en cada contenedor de la derecha (PDF y carpetas de salida), haz clic en **Generate Content**, como el 22 oct.
+7. Cierra Altium y avísale a Claude. Él corre `paquete_pcbway_f8.py` y `revisar_gerber_f8.py`, que revisa el cobre contra las esquinas redondeadas, el contorno, los taladros, la máscara y la pasta. Después te dice que ya puedes subir.
+
+### A1. Llenar el formulario
 
 Entra a https://www.pcbway.com y crea la cuenta del grupo o inicia sesión. En *My Account › Shipping address* pon la dirección de Colombia donde llega todo. Después abre https://www.pcbway.com/quotesmt.aspx y llena los campos en este orden (el mismo de la página).
 

@@ -479,7 +479,21 @@ Carrito actualizado (TRM 3.191,47): PCBWay US$ 186,23 · DigiKey US$ 17,87 · Si
   - el texto «EVSE MONITOR REV 1.0 2026» del borde inferior pasó a ser la primera línea.
 - **Mínimos de PCBWay para la serigrafía:** letra de 0,8 mm de alto y 0,15 mm de trazo. Los textos libres «ZONA DE RED…», «HABILITACION EVSE (J2)» y «PELIGRO!! 240 VAC» estaban en 0,508–0,762 mm con 0,127 mm de trazo y pasaron a 1,0 / 0,15 mm.
 
-  Los 132 designadores siguen en 0,508 / 0,127 mm (decisión pendiente del usuario). Llevarlos a 0,8 mm haría chocar 29 con pads u otros textos, frente a los 6 de hoy.
+  Los 132 designadores siguen en 0,508 / 0,127 mm: el usuario no pidió cambiarlos. Llevarlos a 0,8 mm haría chocar 29 con pads u otros textos, frente a los 6 de hoy.
+- **El usuario editó el bloque en Altium:** «EVSE IoT CONTROL», «OCT-2026 … PUJ», «Nicolás Gómez Ramírez», «Hardware en IoT», con el marco en y 4,5–16,6. También agregó atrás «Made by: Nicopro3000...», que `marcas_f9.py` subió de 0,75 a 0,8 mm de alto.
+- **Marcas de la zona de red** (`marcas_f9.py`, Top Overlay, en la franja libre sobre «PELIGRO!! 240 VAC», x 11–37, y 76–83 mm): tres símbolos de 7,2 mm de alto con trazos de 0,15–0,55 mm, el texto «PELIGRO!!» sin cambios.
+  - alta tensión (ISO 7010 W012, triángulo con rayo sólido);
+  - RAEE / WEEE (EN 50419, contenedor tachado con barra);
+  - sensible a ESD (ANSI/ESD S8.1).
+
+  No se ponen CE, FCC, UL ni RoHS: son declaraciones de conformidad que exigen ensayos y documentación.
+- **Tarjeta del QR atrás** (Bottom Overlay, zona de red: no hay vías, pistas ni pads; x 16,8–42,4, y 7,0–39,5 mm), con marco redondeado y textos en TrueType Arial Bold espejados:
+  - «Para más información»;
+  - un QR estático a `HTTPS://NICOLASGOMEZ.DEV`: mayúsculas para el modo alfanumérico, versión 2 de 25 × 25 módulos, corrección Q del 25 %, módulo de 0,75 mm y 3 módulos de zona de silencio, así que mide 23,25 mm. Va en positivo: blanco lo claro y la zona de silencio, máscara verde lo oscuro. No depende de ningún servicio, así que no vence. zxing-cpp lo decodificó desde los mismos rellenos que se escriben;
+  - «Circuitos y diseños»;
+  - «nicolasgomez.dev».
+- **Esquinas «rectas» que vio el usuario en 3D:** eran el cobre vertido viejo de los polígonos de GND, que todavía tenía las esquinas cuadradas. El contorno del polígono ya tiene los arcos y Altium los conservó al guardar. Se arregla con Repour All.
+- Silk to Silk sigue en 0 mm (F8), así que las piezas del QR y de los símbolos que se tocan no son violación.
 - **Formulario de ensamble:** «Detailed information of assembly» acepta 600 caracteres como máximo; las notas quedaron en 516.
 
 ## Componentes elegidos
