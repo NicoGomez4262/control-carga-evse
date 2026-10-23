@@ -15,7 +15,7 @@ proveedor, montaje, precio (US$, cantidad 1) y nota. Con ella el script:
 4. --hojas repite solo el paso 2 (la librería ya tiene las piezas nuevas): sirve cuando cambia una pieza que
    vive solo en la hoja (TP, J5). Guarda solo las hojas que cambian, con respaldo.
 
-Uso: python docs/tools/bom_f7.py [--probar <carpeta>] [--md] [--hojas]
+Uso: python docs/tools/bom_f7.py --md | --hojas | --probar <carpeta> | --todo (pasos 1 y 2 en el proyecto)
      --probar copia la librería y las hojas a <carpeta> y trabaja ahí (no toca el proyecto).
 """
 import re
@@ -431,5 +431,8 @@ if __name__ == "__main__":
         for ext in ("SchLib", "PcbLib"):
             shutil.copy2(PROY / "lib" / f"SamacSys.{ext}", destino / "lib" / f"SamacSys.{ext}")
         main(destino, True)
-    else:
+    elif "--todo" in a:
+        # 22 oct: ya no sirve (las piezas reemplazadas se borraron de la librería; falla antes de escribir)
         main(PROY, False)
+    else:
+        sys.exit(__doc__)

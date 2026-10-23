@@ -65,6 +65,10 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 
 **9A · Pedido**
 
+- [x] Esquinas redondeadas de R 4 mm y bloque de identificación en la serigrafía (`esquinas_f9.py`, `serigrafia_f9.py`, 22 oct).
+- [ ] Decidir el tamaño de los designadores: hoy 0,508 mm, y el mínimo de PCBWay es 0,8 mm.
+- [ ] En Altium: Repour All, revisar esquinas y bloque, DRC, OutJob. Después `paquete_pcbway_f8.py` y `revisar_gerber_f8.py`.
+
 - [ ] PCBWay, PCB: subir `EVSE_Monitor_Gerber.zip` y revisar las 9 capas en su visor de Gerber; tienen que verse como `docs/revisiones/gerber/*.png`. Llenar el formulario según `GUIA_PEDIDO.md` (5 placas, 5/5 mil, casilla «PCB Specifications» marcada).
 - [ ] PCBWay, ensamble: turnkey de 1 placa, con `BOM_PCBWay.xlsx` y `PickPlace_PCBWay.csv`. Pegar los tres textos de `GUIA_PEDIDO.md` (sensitive components, Detailed information of assembly y Other special request).
 - [ ] Revisar la cotización de PCBWay:

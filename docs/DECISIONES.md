@@ -464,6 +464,24 @@ El precio de PCBWay es el del cotizador del 20 oct; DigiKey y Sigma se revisaron
 
 Carrito actualizado (TRM 3.191,47): PCBWay US$ 186,23 · DigiKey US$ 17,87 · Sigma 50.813 COP · **total US$ 220,02 ≈ 702.192 COP**.
 
+**Esquinas y serigrafía (22 oct, en la noche; pedido del usuario).**
+- **Esquinas redondeadas de R 4 mm** (`esquinas_f9.py`). Son concéntricas con los agujeros de montaje M1–M4 (Ø 3,2 mm a 4 mm de cada borde), así que alrededor de cada agujero quedan 2,4 mm de material, igual que hacia los bordes rectos. Cambiaron cuatro cosas:
+  - el contorno en `Board6` y `BoardRegions`, con el formato de la placa redondeada del ejemplo «Mini PC - WiFi» de AD25;
+  - Mechanical 1: 4 pistas acortadas y 4 arcos, que es lo que sale en el GM1;
+  - los polígonos de GND, con las esquinas derechas en arco de 3,5 mm;
+  - una vía de costura, de (128,5; 2,0) a (127,77; 2,23), porque quedaba a 0,4 mm del borde nuevo.
+
+  Lo más cercano a los arcos queda a ≥ 1,1 mm. Falta en Altium: Repour All, DRC y OutJob. `revisar_gerber_f8.py` ya revisa el cobre contra las esquinas redondeadas.
+- **Bloque de identificación** (`serigrafia_f9.py`), en Top Overlay, en el rincón libre del SELV de abajo a la derecha (x 104,6–123,2, y 5,9–18,0 mm):
+  - contenido: «EVSE MONITOR», «Rev 1.0 · 2026-10», «Nicolás Gómez» y «Hardware en IoT»;
+  - fuente: TrueType Arial Bold de 1,2–2,0 mm, porque la de trazo no tiene tildes;
+  - marco de 0,2 mm;
+  - el texto «EVSE MONITOR REV 1.0 2026» del borde inferior pasó a ser la primera línea.
+- **Mínimos de PCBWay para la serigrafía:** letra de 0,8 mm de alto y 0,15 mm de trazo. Los textos libres «ZONA DE RED…», «HABILITACION EVSE (J2)» y «PELIGRO!! 240 VAC» estaban en 0,508–0,762 mm con 0,127 mm de trazo y pasaron a 1,0 / 0,15 mm.
+
+  Los 132 designadores siguen en 0,508 / 0,127 mm (decisión pendiente del usuario). Llevarlos a 0,8 mm haría chocar 29 con pads u otros textos, frente a los 6 de hoy.
+- **Formulario de ensamble:** «Detailed information of assembly» acepta 600 caracteres como máximo; las notas quedaron en 516.
+
 ## Componentes elegidos
 
 Se llena al cerrar cada fase.

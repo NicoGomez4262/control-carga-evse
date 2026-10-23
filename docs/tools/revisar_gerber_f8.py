@@ -8,7 +8,8 @@ PCBWay y los compara contra el PcbDoc:
 - máscara: aberturas solo en pads (las vías van tapadas) y en los fiduciales;
 - pasta: solo pads SMD, sin el contacto de BT1;
 - cobre dentro del contorno y nada de cobre en la barrera (x = 45,6–51,2 mm, sin piezas que la crucen);
-- contorno (Mechanical 1) cerrado de 130 × 100 mm.
+- contorno (Mechanical 1) cerrado de 130 × 100 mm con esquinas de R 4 mm (desde el 22 oct, `esquinas_f9.py`): el
+  cobre tampoco puede pasar los arcos de las esquinas.
 
 Uso: python docs/tools/revisar_gerber_f8.py [carpeta]   (por defecto, Project Outputs del proyecto)
      Dibuja docs/revisiones/gerber/*.png
@@ -33,6 +34,18 @@ CAPAS = {"GTL": "Top Layer", "GBL": "Bottom Layer", "GTO": "Top Overlay", "GBO":
          "GTS": "Top Solder", "GBS": "Bottom Solder", "GTP": "Top Paste", "GBP": "Bottom Paste",
          "GM1": "Mechanical 1"}
 MM = 25.4
+R_ESQUINA = 4.0
+CENTROS = [(R_ESQUINA, R_ESQUINA), (130 - R_ESQUINA, R_ESQUINA), (130 - R_ESQUINA, 100 - R_ESQUINA),
+           (R_ESQUINA, 100 - R_ESQUINA)]
+
+
+def fuera_de_esquina(x, y, r=0.0):
+    """True si el punto (con radio r) pasa el arco de alguna esquina."""
+    for cx, cy in CENTROS:
+        sx, sy = (1 if cx > 65 else -1), (1 if cy > 50 else -1)
+        if (x - cx) * sx > 0 and (y - cy) * sy > 0 and math.hypot(x - cx, y - cy) + r > R_ESQUINA + 0.01:
+            return True
+    return False
 
 
 # ---------------------------------------------------------------- RS-274X
@@ -215,6 +228,9 @@ def main():
     pts = [p for t, _, d in prims if t == "trazo" for p in d[1]]
     xs, ys = [p[0] for p in pts], [p[1] for p in pts]
     print(f"Contorno: x {min(xs):.3f}–{max(xs):.3f}  y {min(ys):.3f}–{max(ys):.3f} mm, {len(prims)} trazos")
+    en_esquina = [p for p in pts if any(abs(p[0] - cx) < R_ESQUINA and abs(p[1] - cy) < R_ESQUINA and
+                                        abs(math.hypot(p[0] - cx, p[1] - cy) - R_ESQUINA) < 0.02 for cx, cy in CENTROS)]
+    print(f"Contorno: {len(en_esquina)} puntos sobre los arcos de R {R_ESQUINA:g} mm de las esquinas")
 
     # taladros
     holes = []
@@ -279,7 +295,12 @@ def main():
             else:
                 xs, ys = [q[0] for q in d], [q[1] for q in d]
                 caja = (min(xs), min(ys), max(xs), max(ys))
-            if caja[0] < -0.01 or caja[1] < -0.01 or caja[2] > 130.01 or caja[3] > 100.01:
+            if t == "flash":
+                puntos, rad = [(caja[0], caja[1]), (caja[2], caja[1]), (caja[2], caja[3]), (caja[0], caja[3])], 0.0
+            else:
+                puntos, rad = (d[1], w) if t == "trazo" else (d, 0.0)
+            if (caja[0] < -0.01 or caja[1] < -0.01 or caja[2] > 130.01 or caja[3] > 100.01
+                    or any(fuera_de_esquina(x, y, rad) for x, y in puntos)):
                 fuera += 1
             if caja[0] < 51.2 and caja[2] > 45.6:
                 barrera.append((t, [round(v, 2) for v in caja]))

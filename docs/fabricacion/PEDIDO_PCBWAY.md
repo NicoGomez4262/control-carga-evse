@@ -51,27 +51,22 @@ J3 tiene 2 huecos de 1,8 mm sin anillo de cobre, que son para sus pines plástic
 **Detailed information of assembly** (formulario de ensamble):
 
 ```
-1. Do not modify J5 (Wurth 632723300011 USB-C) land pattern: 0.40 mm holes with 0.65 mm pads (0.125 mm
-   annular ring) and 0.6 x 1.2 mm plated slots, as specified by the manufacturer.
-2. U4 (ESP32-S3 antenna), J3 (3.5 mm jack) and J5 overhang the top board edge on purpose. Please keep them.
-3. All vias are tented (covered with solder mask) on both sides.
-4. Mains-voltage board: the strip x = 45-51.7 mm is an isolation gap with no copper. Please do not add copper
-   thieving or fill anywhere.
-5. Assembly on top side only. Do not place K1 and U1 (customer will hand-solder). DNP: F1B, F2B, SW2, SW3.
-6. BT1 center pad (battery contact) has no solder paste on purpose.
-7. Sensitive part: U6 (AHT20 humidity sensor). No washing or ultrasonic cleaning after soldering, no coating.
-8. Assemble 1 board; ship the other 4 PCBs bare.
+1. Top side only. Do not place K1, U1 (customer hand-solders). DNP: F1B, F2B, SW2, SW3.
+2. Keep J5 (Wurth 632723300011) land pattern as designed: 0.125 mm annular ring and plated slots per manufacturer.
+3. U4, J3 and J5 overhang the board edge on purpose.
+4. BT1 center pad: no paste on purpose.
+5. U6 (AHT20 humidity sensor): no washing, no ultrasonic cleaning, no coating.
+6. All vias tented. Mains board: no copper thieving or fill (x = 45-51.7 mm is an isolation gap).
+7. Assemble 1 board; ship the other 4 bare.
 ```
 
 **Other special request** (PCB Specifications):
 
 ```
-1. Do not modify J5 (Wurth 632723300011 USB-C) land pattern: 0.40 mm holes with 0.65 mm pads, 0.6 x 1.2 mm
-   plated slots and 0.145 mm gaps between its SMD pads, as specified by the manufacturer.
-2. U4, J3 and J5 overhang the top board edge on purpose. Board outline: Mechanical 1 layer (GM1), 130 x 100 mm.
-3. All vias are tented (covered with solder mask) on both sides.
-4. Mains-voltage board: the strip x = 45-51.7 mm is an isolation gap with no copper. Please do not add copper
-   thieving or fill anywhere.
+1. Keep J5 (Wurth 632723300011 USB-C) land pattern as designed: 0.40 mm holes, 0.65 mm pads, 0.6 x 1.2 mm plated slots, 0.145 mm pad gaps.
+2. U4, J3 and J5 overhang the top edge on purpose. Outline: GM1 layer, 130 x 100 mm, 4 mm corner radius.
+3. All vias tented on both sides.
+4. Mains board: x = 45-51.7 mm is an isolation gap. No copper thieving or fill anywhere.
 ```
 
 **Sensitive components** (la caja que se abre con «Yes», máx. 500 caracteres):

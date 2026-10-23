@@ -26,6 +26,8 @@ PCBWay solo junta el envío de pedidos que estén **en la misma cuenta**. Una pe
 
 ### A1. Llenar el formulario
 
+> **Antes de subir archivos:** el 22 oct en la noche se redondearon las esquinas (R 4 mm) y se agregó el bloque con tu nombre en la serigrafía. Los archivos de `docs/fabricacion/` que había hasta entonces son de la placa vieja. Se vuelven a generar en Altium (Repour All, DRC y OutJob), Claude los revisa y solo después se suben.
+
 Entra a https://www.pcbway.com y crea la cuenta del grupo o inicia sesión. En *My Account › Shipping address* pon la dirección de Colombia donde llega todo. Después abre https://www.pcbway.com/quotesmt.aspx y llena los campos en este orden (el mismo de la página).
 
 **1. Assembly Service**
@@ -62,19 +64,16 @@ El campo «BGA/QFP» no es solo para BGA: PCBWay cuenta ahí todo integrado de m
 
 **3. Customized Services and Advanced Options**: no lo abras; todo queda como viene («Select PCBWay's PCB Order#»: No).
 
-**4. Detailed information of assembly**: es la caja de texto grande que está justo debajo de «Customized Services and Advanced Options» y encima de «PCB Specifications». Adentro dice en gris *«Please fill in detailed technical information about the PCB assembly…»*. Pega esto:
+**4. Detailed information of assembly**: es la caja de texto grande que está justo debajo de «Customized Services and Advanced Options» y encima de «PCB Specifications». Adentro dice en gris *«Please fill in detailed technical information about the PCB assembly…»*. Acepta **600 caracteres como máximo**; este texto tiene 516. Pega esto:
 
 ```
-1. Do not modify J5 (Wurth 632723300011 USB-C) land pattern: 0.40 mm holes with 0.65 mm pads (0.125 mm
-   annular ring) and 0.6 x 1.2 mm plated slots, as specified by the manufacturer.
-2. U4 (ESP32-S3 antenna), J3 (3.5 mm jack) and J5 overhang the top board edge on purpose. Please keep them.
-3. All vias are tented (covered with solder mask) on both sides.
-4. Mains-voltage board: the strip x = 45-51.7 mm is an isolation gap with no copper. Please do not add copper
-   thieving or fill anywhere.
-5. Assembly on top side only. Do not place K1 and U1 (customer will hand-solder). DNP: F1B, F2B, SW2, SW3.
-6. BT1 center pad (battery contact) has no solder paste on purpose.
-7. Sensitive part: U6 (AHT20 humidity sensor). No washing or ultrasonic cleaning after soldering, no coating.
-8. Assemble 1 board; ship the other 4 PCBs bare.
+1. Top side only. Do not place K1, U1 (customer hand-solders). DNP: F1B, F2B, SW2, SW3.
+2. Keep J5 (Wurth 632723300011) land pattern as designed: 0.125 mm annular ring and plated slots per manufacturer.
+3. U4, J3 and J5 overhang the board edge on purpose.
+4. BT1 center pad: no paste on purpose.
+5. U6 (AHT20 humidity sensor): no washing, no ultrasonic cleaning, no coating.
+6. All vias tented. Mains board: no copper thieving or fill (x = 45-51.7 mm is an isolation gap).
+7. Assemble 1 board; ship the other 4 bare.
 ```
 
 **5. PCB Specifications**: **marca la casilla** que está a la izquierda del título (viene **sin marcar**). Así PCBWay fabrica la PCB en el mismo pedido. Se abren estos campos:
@@ -102,15 +101,13 @@ El campo «BGA/QFP» no es solo para BGA: PCBWay cuenta ahí todo integrado de m
 | Remove product No. | **No** (gratis) | PCBWay imprime un número de pedido pequeño en una zona libre de la serigrafía. «Yes» lo quita por US$ 1,50; «Specify a location» exige poner el texto «WayWayWay» en la serigrafía (no lo tenemos) |
 | Other special request | pega el texto de abajo | |
 
-Texto para **Other special request** (lo lee el ingeniero de la PCB; el de arriba lo lee el de ensamble):
+Texto para **Other special request** (lo lee el ingeniero de la PCB; el de arriba lo lee el de ensamble). Tiene 366 caracteres:
 
 ```
-1. Do not modify J5 (Wurth 632723300011 USB-C) land pattern: 0.40 mm holes with 0.65 mm pads, 0.6 x 1.2 mm
-   plated slots and 0.145 mm gaps between its SMD pads, as specified by the manufacturer.
-2. U4, J3 and J5 overhang the top board edge on purpose. Board outline: Mechanical 1 layer (GM1), 130 x 100 mm.
-3. All vias are tented (covered with solder mask) on both sides.
-4. Mains-voltage board: the strip x = 45-51.7 mm is an isolation gap with no copper. Please do not add copper
-   thieving or fill anywhere.
+1. Keep J5 (Wurth 632723300011 USB-C) land pattern as designed: 0.40 mm holes, 0.65 mm pads, 0.6 x 1.2 mm plated slots, 0.145 mm pad gaps.
+2. U4, J3 and J5 overhang the top edge on purpose. Outline: GM1 layer, 130 x 100 mm, 4 mm corner radius.
+3. All vias tented on both sides.
+4. Mains board: x = 45-51.7 mm is an isolation gap. No copper thieving or fill anywhere.
 ```
 
 **Color de la máscara.** Se puede pedir azul o negra con letras blancas. Lo revisé en la cotización (22 oct, 5 placas de 130 × 100 mm):
@@ -184,7 +181,7 @@ Todas son en **Cut Tape (CT)**, no Digi-Reel (que cobra US$ 7 más).
    ```
 
    Cada línea es cantidad, número de parte de DigiKey y **Customer Reference**. DigiKey imprime la referencia en cada bolsita, así cada quien sabe qué es suyo cuando llegue la caja. (También está en `DigiKey_bulk_add.txt`.)
-3. Revisa que queden 4 líneas y **US$ 17,87**.
+3. Revisa que queden 4 líneas y **US$ 17,87**. Si alguna no entra (al ATM90E26 le pasó el 22 oct), agrégala en **Manual Entry**, debajo de la lista: Quantity `1`, Part Number `ATM90E26-YU-RCT-ND`, Customer Reference y **Add to Cart**. También se puede desde su página, https://www.digikey.com/en/products/detail/microchip-technology/ATM90E26-YU-R/4899918, con **Cut Tape (CT)** y cantidad 1. Ese día tenía 8.729 en stock, a US$ 1,66.
 4. Arriba a la derecha del carrito, haz clic en **Share Copy**. DigiKey crea un enlace con una copia del carrito. Ese enlace es el que mandas a la clase.
 
 ### B2. Si otra persona arma el carrito del curso
@@ -208,7 +205,7 @@ Sí hay que comprarlo, pero **aparte y no ahora**: son accesorios que se conecta
 | Pila CR2032, para BT1: https://www.sigmaelectronica.net/producto/cr2032/ | 3.213 | DigiKey no manda pilas de litio en avión, y por tierra no llega a Colombia |
 | **Total** | **50.813** | |
 
-La sonda y la pila son genéricas: sirven las de cualquier tienda.
+La sonda y la pila son genéricas: sirven las de cualquier tienda. El CT de Sigma (SKU SCT-013-000V) es el del diseño: YHDC SCT013 de **100 A : 50 mA con salida en corriente** y plug de 3,5 mm, que entra en J3. La carga de 2 × 10 Ω (R11, R13) está en la placa y da 0,5 V a 50 A. No sirve uno de salida en voltaje (los que dicen «30A:1V», por ejemplo). Como todo CT de salida en corriente, no lo dejes abrazando un cable con corriente mientras está desconectado del jack.
 
 ## Carrito con casillas
 
