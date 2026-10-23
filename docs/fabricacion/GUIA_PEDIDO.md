@@ -1,12 +1,20 @@
 # Guía del pedido en grupo — PCBWay y DigiKey
 
-Para dejar todo listo y que al final solo falte pagar. Precios revisados en las dos tiendas el 22 oct 2026. Los archivos están en esta carpeta (`docs/fabricacion/`).
+Para dejar todo listo y que al final solo falte pagar. Precios y formularios revisados en las dos tiendas el 22 oct 2026. Los archivos están en esta carpeta (`docs/fabricacion/`).
 
 **Tiendas:**
 - PCBWay, cotización de PCB + ensamble: https://www.pcbway.com/quotesmt.aspx
-- DigiKey, el PhotoMOS K1: https://www.digikey.com/en/products/detail/panasonic-industry/AQY414EHAX/646365
+- DigiKey: https://www.digikey.com (la lista para pegar está en la parte B)
 
 **Por qué en grupo:** DigiKey cobra **US$ 100 fijos** de envío a Colombia por pedido (DHL, FedEx o UPS), y PCBWay cobra el envío según el peso de todo el paquete (DHL ≈ US$ 60 solo con las PCB, ≈ US$ 74 con ensamble). Juntando a la clase, ese costo se divide.
+
+**Qué se compra dónde:**
+
+| Dónde | Qué | Por qué |
+|---|---|---|
+| PCBWay | 5 PCB + ensamble de 1 + los 126 componentes que van soldados | Turnkey: PCBWay compra las piezas con la BOM y las suelda. No hay que comprarlas aparte |
+| DigiKey | K1 y repuestos (US$ 17,87) | K1 (AQY414EHAX) es lo único de la placa que PCBWay no consigue. Lo demás son repuestos |
+| Sigma | CT, sonda DS18B20 y pila CR2032 (50.813 COP) | Van fuera de la placa y DigiKey no los tiene o no los envía. No es urgente: se compran antes de probar |
 
 ---
 
@@ -16,44 +24,117 @@ PCBWay solo junta el envío de pedidos que estén **en la misma cuenta**. Una pe
 
 **Hazlo hoy, no mañana:** PCBWay revisa los archivos antes de dejarte pagar (de unas horas a 1–2 días con turnkey, porque revisa la BOM). Mientras tanto el pedido queda en «Under review»; cuando dice «Pass and Payment», ya se puede pagar.
 
-### A1. Subir el pedido
+### A1. Llenar el formulario
 
-1. Entra a https://www.pcbway.com y crea la cuenta del grupo o inicia sesión. En *My Account › Shipping address* pon la dirección de Colombia donde llega todo.
-2. Abre https://www.pcbway.com/quotesmt.aspx (PCB Assembly). Llena **Assembly Service**:
-   - **Turnkey** (PCBWay compra las piezas).
-   - Board type: **Single pieces** · Assembly side(s): **Top side** · Quantity: **1**.
-   - Contains sensitive components/parts: **Yes**. Va en la nota del paso 5: el AHT20 es un sensor de humedad y no se puede lavar.
-   - Do you accept alternatives/substitutes made in China?: **No**.
-   - Function test: **No** · Firmware loading: **No**.
-3. Abre **Other Parameters** y pon: Number of unique parts **57**, Number of SMD parts **117**, Number of BGA/QFP parts **0**, Number of through-hole parts **9**.
-4. En **PCB Specifications** (la casilla ya viene marcada):
-   - Board type: **Single pieces** · Size: **130 × 100 mm** · Quantity: **5**. Se fabrican 5 PCB, se ensambla 1 y las otras 4 llegan vacías.
-   - Layers **2** · FR-4 · TG por defecto (PCBWay sube gratis a S1000H TG150).
-   - Thickness **1.6** · Min track/spacing **6/6 mil** · Min hole size **0.3 mm**.
-   - Solder mask **Green** · Silkscreen **White** · Edge connector **No**.
-   - Surface finish **HASL lead free** · Via process **Tenting vias** · Finished copper **1 oz**.
-   - Remove product No.: **No**. PCBWay imprime su número en la serigrafía; quitarlo cuesta US$ 1,50.
-5. En **Detailed information of assembly** pega este texto:
+Entra a https://www.pcbway.com y crea la cuenta del grupo o inicia sesión. En *My Account › Shipping address* pon la dirección de Colombia donde llega todo. Después abre https://www.pcbway.com/quotesmt.aspx y llena los campos en este orden (el mismo de la página).
 
-   ```
-   1. Do not modify J5 (Wurth 632723300011 USB-C) land pattern: 0.40 mm holes with 0.65 mm pads (0.125 mm
-      annular ring) and 0.6 x 1.2 mm plated slots, as specified by the manufacturer.
-   2. U4 (ESP32-S3 antenna), J3 (3.5 mm jack) and J5 overhang the top board edge on purpose. Please keep them.
-   3. All vias are tented (covered with solder mask) on both sides.
-   4. Mains-voltage board: the strip x = 45-51.7 mm is an isolation gap with no copper. Please do not add copper
-      thieving or fill anywhere.
-   5. Assembly on top side only. Do not place K1 and U1 (customer will hand-solder). DNP: F1B, F2B, SW2, SW3.
-   6. BT1 center pad (battery contact) has no solder paste on purpose.
-   7. Sensitive part: U6 (AHT20 humidity sensor). No washing or ultrasonic cleaning after soldering, no coating.
-   8. Assemble 1 board; ship the other 4 PCBs bare.
-   ```
-6. **Calculate** › **Save to Cart**. En el carrito, sube los archivos que pide cada parte:
-   - Gerber: `EVSE_Monitor_Gerber.zip`
-   - BOM: `BOM_PCBWay.xlsx`
-   - Centroid / Pick and Place: `PickPlace_PCBWay.csv`
+**1. Assembly Service**
 
-   Después, **Submit Order Now**. Todavía no se paga: queda en revisión.
-7. Revisa el correo de la cuenta. PCBWay puede preguntar por piezas que no encuentra, mínimos de compra o el anillo de J5. Contesta sin aceptar cambios de número de parte en U2, U3, U4, K1 ni J5.
+| Campo | Qué poner |
+|---|---|
+| 3 flexible options | **Turnkey** (PCBWay compra las piezas) |
+| Board type | **Single pieces** |
+| Assembly side(s) | **Top side** |
+| Quantity | **1** |
+| Contains sensitive components/parts | **Yes**. Se abre una caja: pega el texto de abajo |
+| Do you accept alternatives/substitutes made in China? | **No** (que no cambien ningún número de parte de la BOM) |
+| Function test | **No** |
+| Firmware loading | **No** |
+
+Texto para la caja de **sensitive components** (máximo 500 caracteres; este tiene 170):
+
+```
+AHT20 (U6, Aosong humidity and temperature sensor): do not wash after soldering (no water, no ultrasonic cleaning), no conformal coating, do not cover the sensor opening.
+```
+
+Solo el AHT20 es sensible: es un sensor de humedad con una ventanita abierta, y el lavado o el barniz lo dañan.
+
+**2. Other Parameters** (clic en **More** a la derecha)
+
+| Campo | Qué poner |
+|---|---|
+| Number of Unique Parts | **57** (líneas de la BOM que ensambla PCBWay) |
+| Number of SMD Parts | **118** |
+| Number of BGA/QFP Parts | **2**: U3 (ATM90E26, SSOP-28) y U4 (módulo ESP32-S3) |
+| Number of Through-Hole Parts | **8**: J1, J2, J4, J5, J6, J7, J8 y PS1 |
+
+El campo «BGA/QFP» no es solo para BGA: PCBWay cuenta ahí todo integrado de más de 16 pines (SOP, QFP, QFN, BGA). En esta placa no hay ningún BGA.
+
+**3. Customized Services and Advanced Options**: no lo abras; todo queda como viene («Select PCBWay's PCB Order#»: No).
+
+**4. Detailed information of assembly**: es la caja de texto grande que está justo debajo de «Customized Services and Advanced Options» y encima de «PCB Specifications». Adentro dice en gris *«Please fill in detailed technical information about the PCB assembly…»*. Pega esto:
+
+```
+1. Do not modify J5 (Wurth 632723300011 USB-C) land pattern: 0.40 mm holes with 0.65 mm pads (0.125 mm
+   annular ring) and 0.6 x 1.2 mm plated slots, as specified by the manufacturer.
+2. U4 (ESP32-S3 antenna), J3 (3.5 mm jack) and J5 overhang the top board edge on purpose. Please keep them.
+3. All vias are tented (covered with solder mask) on both sides.
+4. Mains-voltage board: the strip x = 45-51.7 mm is an isolation gap with no copper. Please do not add copper
+   thieving or fill anywhere.
+5. Assembly on top side only. Do not place K1 and U1 (customer will hand-solder). DNP: F1B, F2B, SW2, SW3.
+6. BT1 center pad (battery contact) has no solder paste on purpose.
+7. Sensitive part: U6 (AHT20 humidity sensor). No washing or ultrasonic cleaning after soldering, no coating.
+8. Assemble 1 board; ship the other 4 PCBs bare.
+```
+
+**5. PCB Specifications**: **marca la casilla** que está a la izquierda del título (viene **sin marcar**). Así PCBWay fabrica la PCB en el mismo pedido. Se abren estos campos:
+
+| Campo | Qué poner | Nota |
+|---|---|---|
+| Board type | **Single pieces** | «Panel» es para pedidos de más de 30 placas o placas pequeñas |
+| Different design in panel | **1** | |
+| Size (single) | **130 × 100** mm | |
+| Quantity (single) | **5** | Se fabrican 5, se ensambla 1 y las otras 4 llegan vacías |
+| Layers | **2 Layers** | |
+| Material | **FR-4** | |
+| FR4-TG | **TG 150-160** (viene marcado) | Temperatura a la que el FR-4 se ablanda; 150–160 °C aguanta bien la soldadura sin plomo |
+| Thickness | **1.6** | |
+| Min track/spacing | **5/5mil** | Mismo precio que 6/6 (revisado). Los pads de J5 están a 0,145 mm (5,7 mil): con 6/6 PCBWay lo marcaría |
+| Min hole size | **0.3mm** | |
+| Solder mask | **Green** (o Blue / Black, ver abajo) | |
+| Silkscreen | **White** | |
+| UV printing Multi-color | **None** | |
+| Edge connector | **No** | Es para placas con «dedos dorados» que se enchufan en una ranura (como una tarjeta PCIe). Esta no tiene |
+| Surface finish | **HASL lead free** | |
+| Thickness of Immersion Gold | déjalo en **1U"** como viene | Solo aplica con acabado ENIG (oro) o dedos dorados; con HASL no se usa y no cambia el precio |
+| Via process | **Tenting vias** | |
+| Finished copper | **1 oz Cu** | |
+| Remove product No. | **No** (gratis) | PCBWay imprime un número de pedido pequeño en una zona libre de la serigrafía. «Yes» lo quita por US$ 1,50; «Specify a location» exige poner el texto «WayWayWay» en la serigrafía (no lo tenemos) |
+| Other special request | pega el texto de abajo | |
+
+Texto para **Other special request** (lo lee el ingeniero de la PCB; el de arriba lo lee el de ensamble):
+
+```
+1. Do not modify J5 (Wurth 632723300011 USB-C) land pattern: 0.40 mm holes with 0.65 mm pads, 0.6 x 1.2 mm
+   plated slots and 0.145 mm gaps between its SMD pads, as specified by the manufacturer.
+2. U4, J3 and J5 overhang the top board edge on purpose. Board outline: Mechanical 1 layer (GM1), 130 x 100 mm.
+3. All vias are tented (covered with solder mask) on both sides.
+4. Mains-voltage board: the strip x = 45-51.7 mm is an isolation gap with no copper. Please do not add copper
+   thieving or fill anywhere.
+```
+
+**Color de la máscara.** Se puede pedir azul o negra con letras blancas. Lo revisé en la cotización (22 oct, 5 placas de 130 × 100 mm):
+
+| Máscara | Precio | Tiempo de fabricación de la PCB |
+|---|---|---|
+| Green | US$ 36,87 | 24 h |
+| Blue o Black (brillante) | US$ 36,87 | 3–4 días (en 48 h cuesta US$ 61,53) |
+| Matte black | US$ 61,53 | 3–4 días |
+
+- El precio no sube con azul o negro brillante, pero la PCB tarda 2–3 días más. Mientras tanto PCBWay compra los componentes, así que parte de esa demora se pierde en la espera, pero cuenta con hasta 3 días más.
+- **Negro:** se ve muy bien, pero tapa las pistas. Es difícil seguirlas con la vista, buscar un corto o revisar una soldadura, y en una placa con red eléctrica eso sirve. También se le notan el polvo y las huellas.
+- **Azul:** buen punto medio. Las pistas se siguen viendo y el blanco contrasta bien.
+- **Verde:** la más rápida y la más fácil de inspeccionar. Es la que dejo por defecto.
+- No elijas «Matte black»: cuesta US$ 24,66 más.
+
+**6. Calculate › Save to Cart.** En el carrito sube los archivos que pide cada parte:
+- Gerber: `EVSE_Monitor_Gerber.zip`
+- BOM: `BOM_PCBWay.xlsx`
+- Centroid / Pick and Place: `PickPlace_PCBWay.csv`
+
+Después, **Submit Order Now**. Todavía no se paga: queda en revisión.
+
+**7.** Revisa el correo de la cuenta. PCBWay puede preguntar por piezas que no encuentra, mínimos de compra o el anillo de J5. Contesta sin aceptar cambios de número de parte en U2, U3, U4, K1 ni J5.
 
 Se ve cómo quedaron los Gerber en el visor de PCBWay (botón «Online Gerber Viewer» del mismo formulario) o en `docs/revisiones/gerber/*.png`.
 
@@ -64,30 +145,51 @@ Se ve cómo quedaron los Gerber en el visor de PCBWay (botón «Online Gerber Vi
 3. Shipping method: **DHL** (3–6 días hábiles; FedEx-FICP es más barato y tarda 4–7). Global Standard sale muy barato, pero tarda 10–20 días.
 4. Paga con tarjeta. Si alguien del grupo pide algo después, se suma desde **Awaiting Payment › Combine Shipping**.
 
-**Lo de este proyecto:** PCB US$ 36,87 + ensamble US$ 29 + componentes ≈ US$ 60 (PCBWay los confirma al revisar la BOM). El envío se reparte en el grupo. Los impuestos de importación no están incluidos.
+**Lo de este proyecto:** PCB US$ 36,87 + ensamble US$ 29 + componentes ≈ US$ 59 (PCBWay los confirma al revisar la BOM). El envío se reparte en el grupo. Los impuestos de importación no están incluidos.
+
+### Sobre el ESP32
+
+U4 (ESP32-S3-WROOM-1-N16R2) **no es BGA**: es un módulo con pads en el borde y abajo, que se suelda con pasta y horno como el resto. **PCBWay lo suelda** (va en la BOM como turnkey). El 22 oct LCSC tenía 289 en stock, y PCBWay también compra en otros distribuidores si hace falta.
+
+### Cambio del 22 oct: puntos de prueba
+
+TP1–TP6 eran Keystone 5016, que hoy está en 0 en LCSC. Quedan como **ronghe RH-5016** (LCSC C5199799, 36.015 en stock), que tiene el mismo plano (3,81 × 2,84 mm) y el mismo footprint. PCBWay los suelda igual; no hay que comprarlos aparte. Ya está en la BOM, el Pick & Place y las hojas de Altium.
 
 ---
 
-## B. DigiKey (carrito común del curso)
+## B. DigiKey (carrito común del curso, cupo de US$ 40)
 
-Lo de este proyecto en DigiKey es solo K1, el PhotoMOS AQY414EHAX: **2 unidades** (una de repuesto) a US$ 3,29 = **US$ 6,58**. Hoy hay 570 en stock.
+**Por qué es tan poco:** los 126 componentes que van soldados los compra PCBWay con la BOM. DigiKey solo trae lo que PCBWay no consigue (K1) y unos repuestos de lo que más se puede dañar en las pruebas con la red. Revisé el 22 oct otras piezas que podrían ir de repuesto: el AMC3330 (U2) no tiene stock en DigiKey hasta el 29 oct.
+
+| Línea | DigiKey PN | Cant. | US$ c/u | US$ | Para qué |
+|---|---|---:|---:|---:|---|
+| K1 · Panasonic AQY414EHAX | 255-6089-1-ND | 2 | 3,29 | 6,58 | El relé de la placa (se suelda a mano) y uno de repuesto |
+| F1/F2 · Schurter UMT-H T1A 3403.0274.23 | 486-3065-1-ND | 2 | 3,03 | 6,06 | Repuesto de los fusibles: el mismo de la placa, en cinta (PCBWay pone el .11, en bolsa) |
+| U1 · RECOM R-78CK3.3-0.5 | 945-R-78CK3.3-0.5-ND | 1 | 3,57 | 3,57 | Repuesto del regulador del profesor |
+| U3 · Microchip ATM90E26-YU-R | ATM90E26-YU-RCT-ND | 1 | 1,66 | 1,66 | Repuesto del medidor (el chip del lado de la red) |
+| | | | **Total** | **17,87** | Sobran US$ 22 del cupo |
+
+Todas son en **Cut Tape (CT)**, no Digi-Reel (que cobra US$ 7 más).
 
 ### B1. Si tú armas el carrito y lo compartes
 
 1. Entra a https://www.digikey.com con tu cuenta, con país **Colombia** (bandera arriba a la derecha) y moneda **USD**.
-2. Abre https://www.digikey.com/en/products/detail/panasonic-industry/AQY414EHAX/646365. Pon Quantity **2**, deja **Cut Tape (CT)** (no Digi-Reel, que cobra US$ 7) y haz clic en **Add to Cart**.
-3. Abre el carrito (ícono arriba a la derecha). En **Customer Reference** de la línea escribe `Nicolas EVSE K1`. DigiKey lo imprime en la bolsita, así cada quien sabe qué es suyo cuando llegue la caja.
+2. Abre el carrito (ícono arriba a la derecha). En la caja **Bulk Add** («One product per line…») pega esto y haz clic en **Add to Cart**:
+
+   ```
+   2,255-6089-1-ND,Nicolas EVSE K1
+   2,486-3065-1-ND,Nicolas EVSE F1 F2 repuesto
+   1,945-R-78CK3.3-0.5-ND,Nicolas EVSE U1 repuesto
+   1,ATM90E26-YU-RCT-ND,Nicolas EVSE U3 repuesto
+   ```
+
+   Cada línea es cantidad, número de parte de DigiKey y **Customer Reference**. DigiKey imprime la referencia en cada bolsita, así cada quien sabe qué es suyo cuando llegue la caja. (También está en `DigiKey_bulk_add.txt`.)
+3. Revisa que queden 4 líneas y **US$ 17,87**.
 4. Arriba a la derecha del carrito, haz clic en **Share Copy**. DigiKey crea un enlace con una copia del carrito. Ese enlace es el que mandas a la clase.
 
 ### B2. Si otra persona arma el carrito del curso
 
-Pásale esta línea. En su carrito, en **Bulk Add** («One product per line…»), la pega y le da **Add to Cart**:
-
-```
-2,255-6089-1-ND,Nicolas EVSE K1
-```
-
-(cantidad, número de parte de DigiKey y referencia; también está en `DigiKey_bulk_add.txt`).
+Pásale las 4 líneas de arriba para que las pegue en su **Bulk Add**.
 
 ### B3. Pagar
 
@@ -95,12 +197,18 @@ Quien paga revisa el total (el envío a Colombia son US$ 100 fijos para todo el 
 
 ---
 
-## C. Sigma (Bogotá) — lo que va fuera de la placa
+## C. Sigma (Bogotá): fuera de la placa, sin afán
 
-No es parte del pedido del grupo. Se compra aparte:
-- CT SCT-013-000V, 35.700 COP: https://www.sigmaelectronica.net/producto/sct-013-000/
-- Sonda DS18B20 2 m, 11.900 COP: https://www.sigmaelectronica.net/producto/sen-ds18b20-2m/
-- Pila CR2032, 3.213 COP: https://www.sigmaelectronica.net/producto/cr2032/
+Sí hay que comprarlo, pero **aparte y no ahora**: son accesorios que se conectan a la placa ya hecha, y se necesitan cuando llegue, para probarla. DigiKey no sirve para estos tres:
+
+| Pieza | COP | Por qué no DigiKey |
+|---|---:|---|
+| CT SCT-013-000 (100 A : 50 mA), para J3: https://www.sigmaelectronica.net/producto/sct-013-000/ | 35.700 | El de DigiKey (Seeed 101990029) no tiene stock hasta el 18 de diciembre |
+| Sonda DS18B20 de 2 m, para J4: https://www.sigmaelectronica.net/producto/sen-ds18b20-2m/ | 11.900 | En DigiKey (DFR0198) cuesta US$ 6,90, casi el doble |
+| Pila CR2032, para BT1: https://www.sigmaelectronica.net/producto/cr2032/ | 3.213 | DigiKey no manda pilas de litio en avión, y por tierra no llega a Colombia |
+| **Total** | **50.813** | |
+
+La sonda y la pila son genéricas: sirven las de cualquier tienda.
 
 ## Carrito con casillas
 

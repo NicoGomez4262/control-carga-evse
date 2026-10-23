@@ -60,7 +60,7 @@ Generada con `python docs/tools/bom_f7.py --md` (la lista `LINEAS` de ese script
 | R38 | 1 | Yageo | `RC0805FR-07330RL` | PCBWay | LCSC C105878 | PCBWay | 0,0060 | 0,01 |  |
 | RV1 | 1 | Ruilon | `RL4032P471KJ` | PCBWay | LCSC C2935514 | PCBWay | 0,2595 | 0,26 | cambio: TDK B72660M0301K072 sin stock en LCSC; 300 VAC, 2500 A, 30 J, mismos pads |
 | SW1 | 1 | XKB Connectivity | `TS-1187A-B-A-B` | PCBWay | LCSC C318884 | PCBWay | 0,0206 | 0,02 |  |
-| TP1, TP2, TP3, TP4, TP5, TP6 | 6 | Keystone Electronics | `5016` | PCBWay | LCSC C238129 | PCBWay | 0,2590 | 1,55 |  |
+| TP1, TP2, TP3, TP4, TP5, TP6 | 6 | ronghe | `RH-5016` | PCBWay | LCSC C5199799 | PCBWay | 0,0926 | 0,56 | cambio (22 oct): el Keystone 5016 está en 0 en LCSC; el RH-5016 es el mismo plano (3,81 × 2,84 mm) |
 | U2 | 1 | Texas Instruments | `AMC3330DWER` | PCBWay | LCSC C2999368 | PCBWay | 5,0242 | 5,02 | cambio de MPN: DWE (tubo) en 0; DWER es la misma pieza en carrete |
 | U3 | 1 | Microchip | `ATM90E26-YU-R` | PCBWay | LCSC C616398 | PCBWay | 2,2320 | 2,23 |  |
 | U4 | 1 | Espressif Systems | `ESP32-S3-WROOM-1-N16R2` | PCBWay | LCSC C2913205 | PCBWay | 5,2673 | 5,27 | antes Mouser |
@@ -69,7 +69,7 @@ Generada con `python docs/tools/bom_f7.py --md` (la lista `LINEAS` de ese script
 | U7 | 1 | Analog Devices | `DS3231SN#T&R` | PCBWay | LCSC C9866 | PCBWay | 9,9329 | 9,93 |  |
 | Y1 | 1 | ECS | `ECS-81.92-12-30Q-EN-TR` | PCBWay | LCSC C2450755 | PCBWay | 1,7128 | 1,71 |  |
 
-**Subtotal A: US$ 60,02 por placa**
+**Subtotal A: US$ 59,02 por placa**
 
 ## B · DigiKey (carrito del curso), se suelda a mano: PCBWay no lo tiene
 
@@ -112,10 +112,10 @@ Generada con `python docs/tools/bom_f7.py --md` (la lista `LINEAS` de ese script
 
 | Grupo | US$ | COP |
 |---|---|---|
-| A · PCBWay (LCSC) | 60,02 | 190.545 |
+| A · PCBWay (LCSC) | 59,02 | 187.375 |
 | B · DigiKey, carrito del curso | 3,29 | 10.445 |
 | E · Sigma, fuera de la PCB | 16,01 | 50.813 |
-| **Total en componentes** | **79,32** | **251.802** |
+| **Total en componentes** | **78,32** | **248.633** |
 
 Sin la PCB, el costo de ensamble de PCBWay (SMD y THT), el envío ni los impuestos: eso va en el carrito de compras de F8.
 

@@ -586,4 +586,6 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 
 ## Fase 9 — Pedido, montaje y primeras pruebas
 
-**Estado:** pendiente. Lista de tareas en `NEXT_SESSION.md`.
+**Estado:** en preparación. Lista de tareas en `NEXT_SESSION.md`.
+
+**22 oct:** pedido preparado con la clase (`docs/fabricacion/GUIA_PEDIDO.md`). Los formularios de PCBWay están revisados campo por campo. TP1–TP6 pasan a ronghe RH-5016 (el Keystone 5016 quedó en 0 en LCSC). DigiKey lleva K1 y repuestos por US$ 17,87, dentro del cupo de US$ 40. Carrito: US$ 220,02 ≈ 702.192 COP.

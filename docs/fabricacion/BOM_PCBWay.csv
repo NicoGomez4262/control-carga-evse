@@ -19,7 +19,7 @@
 18,"F1, F2",2,Schurter,3403.0274.11,"Fusible SMD UMT-H T1A 277 VAC, ruptura 1500 A (bolsa)",3403027423,SMD,PCBWay,PCBWay,LCSC C6384960,cambio: el mismo UMT-H T1A en bolsa; el .23 (carrete) está en 0 en LCSC
 19,FB1,1,Murata,BLM21PG221SN1D,Ferrite Bead,BEADC2012X105N,SMD,PCBWay,PCBWay,LCSC C85840,
 20,"J1, J2",2,Xinlaiya,XY301V-A-5.0-2P,"Bornera de tornillo 2 polos, paso 5.0 mm, 300 V 15 A, 22-14 AWG",TB001-500-02BE,THT,PCBWay,PCBWay,LCSC C557651,"cambio: TB001-500-02BE sin stock; 300 V 15 A, pin de 1,0 mm, mismo footprint (THT)"
-21,J3,1,Same Sky,SJ1-3515-SMT-TR,Connector,SJ13515SMTTR,THT,PCBWay,PCBWay,LCSC C22359767,antes Sigma
+21,J3,1,Same Sky,SJ1-3515-SMT-TR,Connector,SJ13515SMTTR,SMD,PCBWay,PCBWay,LCSC C22359767,antes Sigma
 22,J4,1,Phoenix Contact,1751251,Connector,1751251,THT,PCBWay,PCBWay,LCSC C91152,antes Sigma (THT)
 23,J5,1,Wurth Elektronik,632723300011,Conn USB 3.1 Type C RCP 24 POS 0.5mm/0.4mm Solder RA SMD/Thru-Hole 24 Terminal 1 Port T/R,632723300011,THT,PCBWay,PCBWay,LCSC C2830802,"antes Mouser; DigiKey 732-9618-1-ND a US$ 4,37"
 24,"J6, J7",2,Phoenix Contact,1751248,Connector,1751248,THT,PCBWay,PCBWay,LCSC C89122,antes Sigma (THT)
@@ -48,7 +48,7 @@
 47,"R9, R12",2,Panasonic,ERA-6AEB203V,Resistor,RESC2012X60N,SMD,PCBWay,PCBWay,LCSC C473304,
 48,RV1,1,Ruilon,RL4032P471KJ,"Varistor SMD 300 VAC, 470 V, 2500 A (8/20 us), 30 J, 4032",CU4032,SMD,PCBWay,PCBWay,LCSC C2935514,"cambio: TDK B72660M0301K072 sin stock en LCSC; 300 VAC, 2500 A, 30 J, mismos pads"
 49,SW1,1,XKB Connectivity,TS-1187A-B-A-B,"Tact switch 5.1 x 5.1 x 1.5 mm, 160 gf, 50 mA 12 VDC",TS1187ABAB,SMD,PCBWay,PCBWay,LCSC C318884,
-50,"TP1, TP2, TP3, TP4, TP5, TP6",6,Keystone Electronics,5016,"Test Point, 1-Pin SMT, RoHS, Tape and Reel",KEYSTONE-5016_V,SMD,PCBWay,PCBWay,LCSC C238129,
+50,"TP1, TP2, TP3, TP4, TP5, TP6",6,ronghe,RH-5016,"Test Point, 1-Pin SMT, RoHS, Tape and Reel",KEYSTONE-5016_V,SMD,PCBWay,PCBWay,LCSC C5199799,"cambio (22 oct): el Keystone 5016 está en 0 en LCSC; el RH-5016 es el mismo plano (3,81 × 2,84 mm)"
 51,U2,1,Texas Instruments,AMC3330DWER,"Amplificador aislado +-1 V con DC/DC integrado, aislamiento reforzado, SOIC-16 DWE (carrete)",SOIC127P1030X265-16N,SMD,PCBWay,PCBWay,LCSC C2999368,cambio de MPN: DWE (tubo) en 0; DWER es la misma pieza en carrete
 52,U3,1,Microchip,ATM90E26-YU-R,Integrated Circuit,SOP65P778X199-28N,SMD,PCBWay,PCBWay,LCSC C616398,
 53,U4,1,Espressif Systems,ESP32-S3-WROOM-1-N16R2,Integrated Circuit,ESP32S3WROOM1N16R2,SMD,PCBWay,PCBWay,LCSC C2913205,antes Mouser

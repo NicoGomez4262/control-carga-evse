@@ -4,7 +4,8 @@
 - Gerber + taladros → docs/fabricacion/EVSE_Monitor_Gerber.zip. Revisa que estén las 9 capas y los taladros
   (PTH y NPTH) y que no venga la capa Keep-Out.
 - Pick & Place → docs/fabricacion/PickPlace_PCBWay.csv solo con lo que ensambla PCBWay (sin K1 y U1, que van a mano,
-  ni F1B, F2B, SW2 y SW3, que no se montan), y la cantidad tiene que coincidir con la BOM.
+  ni F1B, F2B, SW2 y SW3, que no se montan), y la cantidad tiene que coincidir con la BOM. La columna Comment lleva
+  el MPN de bom_f7.LINEAS, el mismo de la BOM (en la PCB TP1–TP6 dicen «5016» y la BOM, RH-5016).
 - Plano de ensamble (PDF) y STEP: se copian.
 
 Uso: python docs/tools/paquete_pcbway_f8.py
@@ -16,6 +17,7 @@ import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import bom_f7  # noqa: E402
 import revisar_pcb as rv  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -54,6 +56,9 @@ def main():
         filas = list(csv.reader(lineas[i:]))
         cab, datos = filas[0], [f for f in filas[1:] if f]
         quedan = [f for f in datos if f[0] not in NO_ENSAMBLA]
+        mpn = {d: ln[2] for d, ln in bom_f7.lineas_por_designador().items()}
+        for f in quedan:
+            f[cab.index("Comment")] = mpn[f[0]]
         with open(FAB / "PickPlace_PCBWay.csv", "w", newline="", encoding="utf-8") as fh:
             w = csv.writer(fh)
             w.writerow(cab)

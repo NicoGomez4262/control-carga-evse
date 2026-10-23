@@ -15,7 +15,7 @@
 3. docs/fabricacion/BOM_PCBWay.xlsx y .csv: a partir de bom_f7.LINEAS (la fuente única), con footprint y SMD/THT
    leídos de la PCB y agrupada por montaje (PCBWay / a mano / no se monta).
 
-Uso: python docs/tools/salidas_f8.py [--escribir | --solo-outjob]
+Uso: python docs/tools/salidas_f8.py [--escribir | --solo-outjob | --solo-bom]
 """
 import csv
 import struct
@@ -190,7 +190,8 @@ def bom():
     orden = [ao.valor(c, "SOURCEDESIGNATOR") for c in comps]
     tht = defaultdict(bool)
     for p in rv.pads():
-        if p["comp"] != 0xFFFF and p["hueco"] > 0:
+        # THT solo si el hueco tiene anillo de cobre: los 2 huecos de J3 (1,8 mm, pad 0,9) son para sus pines plásticos
+        if p["comp"] != 0xFFFF and 0 < p["hueco"] < min(p["sx"], p["sy"]):
             tht[orden[p["comp"]]] = True
     filas, vistos = [], set()
     for ln in bom_f7.LINEAS:
@@ -250,6 +251,15 @@ def main():
     for f in filas:
         por[f["montaje"]] += f["cantidad"]
     print(f"BOM: {len(filas)} líneas, {sum(f['cantidad'] for f in filas)} piezas {dict(por)}; sin línea: {faltan}")
+    pcbway = [f for f in filas if f["montaje"] == "PCBWay"]
+    print("Para el formulario de PCBWay: unique", len(pcbway),
+          "· SMD", sum(f["cantidad"] for f in pcbway if f["tipo"] == "SMD"),
+          "· THT", sum(f["cantidad"] for f in pcbway if f["tipo"] == "THT"),
+          [f["designadores"] for f in pcbway if f["tipo"] == "THT"])
+    if "--solo-bom" in sys.argv:             # 22 oct: rehacer solo la BOM de PCBWay (no toca el PcbDoc)
+        escribir_bom(filas)
+        print("Escrito:", FAB / "BOM_PCBWay.xlsx")
+        return
     tr = ap.registros(ao.leer_stream(rv.PCB, "Tracks6/Data"), 1)
     nuevas = contorno_mech1(tr)
     pads = ap.registros(ao.leer_stream(rv.PCB, "Pads6/Data"), 6)

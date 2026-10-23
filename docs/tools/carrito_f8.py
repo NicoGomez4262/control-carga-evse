@@ -27,7 +27,7 @@ FECHA = "22 de octubre de 2026"
 PCBWAY = [  # id, concepto, detalle, cantidad, US$ c/u, enlace
     ("pcb", "Fabricación de la PCB", "2 capas, FR-4 1,6 mm, 1 oz, HASL sin plomo, 130 × 100 mm, vías tapadas", 5,
      36.87 / 5, "https://www.pcbway.com/orderonline.aspx"),
-    ("ensamble", "Ensamble turnkey (1 placa)", "Una cara: 57 referencias, 117 SMD + 9 THT (el stencil se cotiza con el ensamble)", 1, 29.00,
+    ("ensamble", "Ensamble turnkey (1 placa)", "Una cara: 57 referencias, 118 SMD + 8 THT, 2 BGA/QFP (U3, U4); el stencil se cotiza con el ensamble", 1, 29.00,
      "https://www.pcbway.com/pcb-assembly.html"),
     ("componentes", "Componentes que compra PCBWay (1 placa)", "126 piezas de LCSC, detalle abajo", 1, None,
      "https://www.pcbway.com/pcb-assembly.html"),
@@ -35,18 +35,27 @@ PCBWAY = [  # id, concepto, detalle, cantidad, US$ c/u, enlace
      "https://www.pcbway.com/"),
 ]
 ARANCEL = 0.10   # envío urgente desde China por debajo de US$ 200 (estimado; confirmar en la cotización de DHL)
-DIGIKEY = [
-    ("k1", "K1 · PhotoMOS AQY414EHAX (Panasonic)", "255-6089-1-ND · se suelda a mano", 1, 3.29,
+DIGIKEY = [  # 22 oct: K1 es lo único que PCBWay no consigue; lo demás son repuestos (cupo del curso: US$ 40)
+    ("k1", "K1 · PhotoMOS AQY414EHAX (Panasonic)", "255-6089-1-ND · se suelda a mano (570 en stock)", 1, 3.29,
      "https://www.digikey.com/en/products/result?keywords=255-6089-1-ND"),
     ("k1_repuesto", "K1 de repuesto (recomendado)", "255-6089-1-ND · por si se daña al soldar", 1, 3.29,
      "https://www.digikey.com/en/products/result?keywords=255-6089-1-ND"),
+    ("fusibles", "Repuesto F1/F2 · fusible UMT-H T1A (Schurter 3403.0274.23)", "486-3065-1-ND · el mismo de la placa, "
+     "en cinta; si uno se funde se cambia sin los portafusibles F1B/F2B", 2, 3.03,
+     "https://www.digikey.com/en/products/result?keywords=486-3065-1-ND"),
+    ("u1_repuesto", "Repuesto U1 · RECOM R-78CK3.3-0.5", "945-R-78CK3.3-0.5-ND · por si se daña el del profesor", 1, 3.57,
+     "https://www.digikey.com/en/products/result?keywords=945-R-78CK3.3-0.5-ND"),
+    ("u3_repuesto", "Repuesto U3 · medidor ATM90E26-YU-R (Microchip)", "ATM90E26-YU-RCT-ND · el chip del lado de la red, "
+     "el que más se arriesga en las pruebas", 1, 1.66,
+     "https://www.digikey.com/en/products/result?keywords=ATM90E26-YU-RCT-ND"),
 ]
 SIGMA = [  # id, concepto, detalle, cantidad, COP c/u, enlace
-    ("ct", "CT de J3 · YHDC SCT-013-000V", "Transformador de corriente 100 A : 50 mA (20 u. en stock)", 1, 35700,
-     "https://www.sigmaelectronica.net/producto/sct-013-000/"),
-    ("sonda", "Sonda de J4 · DS18B20 de 2 m", "SEN DS18B20 2M (43 u. en stock)", 1, 11900,
-     "https://www.sigmaelectronica.net/producto/sen-ds18b20-2m/"),
-    ("pila", "Pila de BT1 · CR2032", "13 u. en stock", 1, 3213, "https://www.sigmaelectronica.net/producto/cr2032/"),
+    ("ct", "CT de J3 · YHDC SCT-013-000V", "100 A : 50 mA (20 u. en stock). En DigiKey (Seeed 101990029) no hay hasta el "
+     "18 de diciembre", 1, 35700, "https://www.sigmaelectronica.net/producto/sct-013-000/"),
+    ("sonda", "Sonda de J4 · DS18B20 de 2 m", "SEN DS18B20 2M (43 u. en stock). En DigiKey (DFR0198) cuesta US$ 6,90",
+     1, 11900, "https://www.sigmaelectronica.net/producto/sen-ds18b20-2m/"),
+    ("pila", "Pila de BT1 · CR2032", "13 u. en stock. DigiKey no la manda a Colombia: las pilas de litio solo van "
+     "por tierra", 1, 3213, "https://www.sigmaelectronica.net/producto/cr2032/"),
 ]
 
 
@@ -107,12 +116,15 @@ def markdown(d):
          f"| **Total** | **{usd(t['usd'])}** | **{cop(t['cop'])}** |", "", "## PCBWay", "",
          "| Concepto | Detalle | Cant. | US$ c/u | US$ |", "|---|---|---:|---:|---:|"]
     L += [f"| {x['concepto']} | {x['detalle']} | {x['cantidad']} | {usd(x['usd'])} | {usd(x['subtotal'])} |" for x in d["pcbway"]]
-    L += ["", "## DigiKey (carrito del curso, ≤ US$ 50)", "", "| Concepto | Detalle | Cant. | US$ c/u | US$ |",
+    L += ["", "## DigiKey (carrito del curso, ≤ US$ 40)", "", "| Concepto | Detalle | Cant. | US$ c/u | US$ |",
           "|---|---|---:|---:|---:|"]
     L += [f"| {x['concepto']} | {x['detalle']} | {x['cantidad']} | {usd(x['usd'])} | {usd(x['subtotal'])} |" for x in d["digikey"]]
     L += ["", "## Sigma Electrónica (Bogotá)", "", "| Concepto | Detalle | Cant. | COP c/u | COP |", "|---|---|---:|---:|---:|"]
     L += [f"| {x['concepto']} | {x['detalle']} | {x['cantidad']} | {cop(x['cop'])} | {cop(x['subtotal_cop'])} |" for x in d["sigma"]]
     L += ["", "Ya disponible, no se compra: U1 (RECOM R-78CK3.3-0.5, la del profesor).", "",
+          "Por qué DigiKey trae tan poco: los otros 126 componentes de la placa los compra PCBWay con la BOM y llegan "
+          "soldados (línea «Componentes que compra PCBWay»). En DigiKey va solo K1, que PCBWay no consigue, más "
+          "repuestos.", "",
           "Supuestos: el precio de PCBWay es el del cotizador del 20 oct (el final sale al revisar los archivos); los "
           "componentes turnkey usan el precio de LCSC por unidad (PCBWay puede cobrar mínimos de compra en pasivos); el "
           "envío y el arancel son estimados.", "",
@@ -194,8 +206,8 @@ summary { cursor: pointer; font-weight: 600; color: var(--mask) }
   <div class="progreso"><span id="cuenta">0 de 0 comprados</span><div class="barra"><i id="barra"></i></div><span class="estado" id="estado">Cargando lo marcado…</span></div>
   <section><h2>PCBWay <span class="sub">un solo pedido: PCB + ensamble</span></h2><div class="tabla"><table id="t-pcbway"></table></div>
     <details><summary>Ver los 57 componentes que compra PCBWay (LCSC)</summary><div class="tabla"><table class="comp" id="t-comp"></table></div></details></section>
-  <section><h2>DigiKey <span class="sub">carrito común del curso · ≤ US$ 50</span></h2><div class="tabla"><table id="t-digikey"></table></div></section>
-  <section><h2>Sigma Electrónica <span class="sub">Bogotá · lo que va fuera de la placa</span></h2><div class="tabla"><table id="t-sigma"></table></div></section>
+  <section><h2>DigiKey <span class="sub">carrito común del curso · ≤ US$ 40</span></h2><div class="tabla"><table id="t-digikey"></table></div></section>
+  <section><h2>Sigma Electrónica <span class="sub">Bogotá · lo que va fuera de la placa y DigiKey no tiene o no envía</span></h2><div class="tabla"><table id="t-sigma"></table></div></section>
   <div class="nota" id="nota"></div>
 </div>
 <script id="datos" type="application/json">__DATOS__</script>
@@ -238,6 +250,7 @@ document.getElementById("t-comp").innerHTML = `<thead><tr><th>Designadores</th><
     <td class="n">${c.usd.toFixed(4)}</td><td class="n">${c.subtotal.toFixed(2)}</td></tr>`).join("") + "</tbody>";
 document.getElementById("nota").innerHTML = `
   <p><strong>Ya disponible, no se compra:</strong> U1, el regulador RECOM R-78CK3.3-0.5 del profesor.</p>
+  <p><strong>Por qué DigiKey trae tan poco:</strong> los otros 126 componentes de la placa los compra PCBWay con la BOM y llegan soldados (es la línea «Componentes que compra PCBWay»). En DigiKey va solo K1, que PCBWay no consigue, más repuestos.</p>
   <p><strong>Supuestos:</strong> PCB y ensamble salen del cotizador de PCBWay del 20 oct; el precio final llega cuando PCBWay revisa los archivos. Los componentes usan el precio de LCSC por unidad (PCBWay puede cobrar mínimos de compra en pasivos). Envío y arancel son estimados: confírmalos en la cotización de DHL.</p>
   <p><strong>Pedido en grupo:</strong> el envío de PCBWay se divide entre quienes pidan en la misma cuenta, así que el total de arriba es el máximo (como si pidieras solo). DigiKey cobra US$ 100 fijos de envío a Colombia por todo el carrito del curso; tu parte no está sumada. El paso a paso está en docs/fabricacion/GUIA_PEDIDO.md.</p>
   <p><strong>Archivos para subir:</strong> EVSE_Monitor_Gerber.zip, BOM_PCBWay.xlsx y PickPlace_PCBWay.csv (carpeta docs/fabricacion del repositorio).</p>`;

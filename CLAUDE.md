@@ -34,7 +34,7 @@ Dispositivo IoT que mide tensión, corriente, potencia, energía y temperatura d
 
 ## Compras y fabricación
 
-- **Regla de compras (pedido del usuario, 19 oct 2026, D16):** la PCB se pide en **PCBWay** y, ojalá, **ya ensamblada**: todo lo que PCBWay tenga en stock lo ensambla (turnkey), lo que ahorra tiempo de soldadura. Lo que PCBWay no tenga se compra en **DigiKey** (https://www.digikey.com) en un carrito que se suma al pedido conjunto del curso y que idealmente **no pasa de US$50**; esas piezas se mandan consignadas a PCBWay o se sueldan a mano. **Sigma Electrónica** (Bogotá, https://www.sigmaelectronica.net) es el **último recurso**. Mouser ya no se usa.
+- **Regla de compras (pedido del usuario, 19 oct 2026, D16):** la PCB se pide en **PCBWay** y, ojalá, **ya ensamblada**: todo lo que PCBWay tenga en stock lo ensambla (turnkey), lo que ahorra tiempo de soldadura. Lo que PCBWay no tenga se compra en **DigiKey** (https://www.digikey.com) en un carrito que se suma al pedido conjunto del curso, con un cupo de **US$ 40** como máximo (dato del usuario, 22 oct); esas piezas se mandan consignadas a PCBWay o se sueldan a mano. **Sigma Electrónica** (Bogotá, https://www.sigmaelectronica.net) es el **último recurso**. Mouser ya no se usa.
 - Orden de búsqueda: 1) PCBWay (ensamble) → 2) equivalente que PCBWay sí tenga → 3) DigiKey → 4) Sigma.
 - Preferir SMD comunes (0603/0805, SOT-23, SOIC/TSSOP), todos en la cara superior. Lo que se suelde a mano: agrupado, con pads cómodos y espacio para el cautín.
 - Esta versión es **PCB desnuda** (sin gabinete); el gabinete queda para la próxima versión de la PCB y no es tarea de ninguna fase.

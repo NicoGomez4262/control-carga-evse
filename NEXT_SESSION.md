@@ -23,7 +23,8 @@ docs/fabricacion/PEDIDO_PCBWAY.md y docs/EXPLICACION_PCB_F8.md.
 - **Ruteo:** a mano, por el usuario. Lo que faltaba se terminó por script (`rutear_f8.py`), con planos de GND en Top y Bottom, una vía junto a cada pad de GND y vías de costura. Las vías van tapadas.
 - **Verificación:** DRC de Altium con 0 violaciones eléctricas (quedan 31 avisos de serigrafía, aceptados). Revisión propia del cobre (`revisar_ruteo_f8.py`) y de los Gerber (`revisar_gerber_f8.py`: 304 taladros, máscara, pasta y cobre iguales al PcbDoc).
 - **Paquete en `docs/fabricacion/`:** `EVSE_Monitor_Gerber.zip`, `BOM_PCBWay.xlsx`, `PickPlace_PCBWay.csv`, `Ensamble_EVSE_Monitor.pdf` y `PEDIDO_PCBWAY.md` (formulario y notas en inglés para el «Remark»). El STEP se regenera con el OutJob y no va a GitHub.
-- **Carrito:** https://claude.ai/artifact/Vf8NPamJJd74KN2qhytMVX. **US$ 209,38 ≈ 668.235 COP** (TRM 3.191,47 del 22 oct): PCBWay US$ 186,88 (estimado), DigiKey US$ 6,58 y Sigma 50.813 COP.
+- **Carrito:** https://claude.ai/artifact/Vf8NPamJJd74KN2qhytMVX. **US$ 220,02 ≈ 702.192 COP** (TRM 3.191,47 del 22 oct): PCBWay US$ 186,23 (estimado), DigiKey US$ 17,87 (K1 y repuestos) y Sigma 50.813 COP.
+- **Preparación del pedido (22 oct, ya en F9):** `docs/fabricacion/GUIA_PEDIDO.md` tiene el paso a paso del pedido en grupo, con cada campo de PCBWay revisado en su formulario. TP1–TP6 pasaron a ronghe RH-5016, porque el Keystone 5016 quedó en 0 en LCSC. Conteo para el formulario: 57 referencias, 118 SMD, 8 THT y 2 BGA/QFP.
 
 ## Dónde estamos
 
@@ -64,8 +65,8 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 
 **9A · Pedido**
 
-- [ ] PCBWay, PCB: subir `EVSE_Monitor_Gerber.zip` y revisar las 9 capas en su visor de Gerber; tienen que verse como `docs/revisiones/gerber/*.png`. Llenar el formulario según `PEDIDO_PCBWAY.md` (5 placas).
-- [ ] PCBWay, ensamble: turnkey de 1 placa (o 2), con `BOM_PCBWay.xlsx` y `PickPlace_PCBWay.csv`. Pegar las notas del «Remark».
+- [ ] PCBWay, PCB: subir `EVSE_Monitor_Gerber.zip` y revisar las 9 capas en su visor de Gerber; tienen que verse como `docs/revisiones/gerber/*.png`. Llenar el formulario según `GUIA_PEDIDO.md` (5 placas, 5/5 mil, casilla «PCB Specifications» marcada).
+- [ ] PCBWay, ensamble: turnkey de 1 placa, con `BOM_PCBWay.xlsx` y `PickPlace_PCBWay.csv`. Pegar los tres textos de `GUIA_PEDIDO.md` (sensitive components, Detailed information of assembly y Other special request).
 - [ ] Revisar la cotización de PCBWay:
   - piezas que propongan cambiar (aceptar solo equivalentes exactos);
   - mínimos de compra de pasivos;
@@ -74,8 +75,8 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
   Actualizar `carrito_f8.py` con los valores reales y volver a publicar el carrito.
 - [ ] Responder el DFM de PCBWay: anillo de 0,125 mm de J5 (es el patrón de Würth: no cambiar); 5/5 mil si lo piden.
 - [ ] Pagar y marcar en el carrito.
-- [ ] DigiKey (carrito común del curso): AQY414EHAX, 255-6089-1-ND, 2 u. (una de repuesto).
-- [ ] Sigma: SCT-013-000V, SEN DS18B20 2M y CR2032.
+- [ ] DigiKey (carrito común del curso, cupo US$ 40): las 4 líneas de `DigiKey_bulk_add.txt` por **Bulk Add**, que suman US$ 17,87: K1 ×2, fusibles UMT-H ×2, R-78CK ×1 y ATM90E26 ×1.
+- [ ] Sigma, sin afán (antes de las pruebas): SCT-013-000V, SEN DS18B20 2M y CR2032.
 
 **9B · Recepción y montaje**
 

@@ -12,8 +12,10 @@ proveedor, montaje, precio (US$, cantidad 1) y nota. Con ella el script:
    parámetros de la librería); en todos los componentes se ponen los cinco parámetros de la BOM por
    designador (SW2/SW3 y F1B/F2B quedan DNP) y se quitan los campos de Mouser, Arrow y RS.
 3. --md escribe docs/BOM_F7.md (la tabla para leer). No toca Altium.
+4. --hojas repite solo el paso 2 (la librería ya tiene las piezas nuevas): sirve cuando cambia una pieza que
+   vive solo en la hoja (TP, J5). Guarda solo las hojas que cambian, con respaldo.
 
-Uso: python docs/tools/bom_f7.py [--probar <carpeta>] [--md]
+Uso: python docs/tools/bom_f7.py [--probar <carpeta>] [--md] [--hojas]
      --probar copia la librería y las hojas a <carpeta> y trabaja ahí (no toca el proyecto).
 """
 import re
@@ -95,7 +97,8 @@ LINEAS = [
     ("RV1", "Ruilon", "RL4032P471KJ", "PCBWay", "LCSC C2935514", "PCBWay", 0.2595,
      "cambio: TDK B72660M0301K072 sin stock en LCSC; 300 VAC, 2500 A, 30 J, mismos pads"),
     ("SW1", "XKB Connectivity", "TS-1187A-B-A-B", "PCBWay", "LCSC C318884", "PCBWay", 0.0206, ""),
-    ("TP1,TP2,TP3,TP4,TP5,TP6", "Keystone Electronics", "5016", "PCBWay", "LCSC C238129", "PCBWay", 0.259, ""),
+    ("TP1,TP2,TP3,TP4,TP5,TP6", "ronghe", "RH-5016", "PCBWay", "LCSC C5199799", "PCBWay", 0.0926,
+     "cambio (22 oct): el Keystone 5016 está en 0 en LCSC; el RH-5016 es el mismo plano (3,81 × 2,84 mm)"),
     ("U2", "Texas Instruments", "AMC3330DWER", "PCBWay", "LCSC C2999368", "PCBWay", 5.0242,
      "cambio de MPN: DWE (tubo) en 0; DWER es la misma pieza en carrete"),
     ("U3", "Microchip", "ATM90E26-YU-R", "PCBWay", "LCSC C616398", "PCBWay", 2.232, ""),
@@ -325,6 +328,21 @@ def main(carpeta, probar):
             print("  ", x)
 
 
+def solo_hojas(carpeta):
+    if ao.altium_abierto():
+        raise SystemExit("Altium está abierto: ciérralo antes de correr el script.")
+    ps = L.piezas(carpeta / "lib" / "SamacSys.SchLib")
+    for nombre in HOJAS:
+        h = Hoja(str(carpeta / f"{nombre}.SchDoc"))
+        arreglar_hoja(h, ps)
+        if not h.cambios:
+            print(f"== {nombre}: sin cambios")
+            continue
+        print(f"== {nombre} (respaldo: {h.guardar('antes_bom_hojas')})")
+        for x in h.cambios:
+            print("  ", x)
+
+
 # ---------------------------------------------------------------- docs/BOM_F7.md
 def grupo(ln):
     if ln[5] == "DNP":
@@ -403,6 +421,8 @@ if __name__ == "__main__":
     a = sys.argv[1:]
     if "--md" in a:
         md(Path(__file__).resolve().parents[1] / "BOM_F7.md")
+    elif "--hojas" in a:
+        solo_hojas(PROY)
     elif "--probar" in a:
         destino = Path(a[a.index("--probar") + 1])
         (destino / "lib").mkdir(parents=True, exist_ok=True)

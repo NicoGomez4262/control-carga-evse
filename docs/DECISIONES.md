@@ -449,6 +449,21 @@ El precio de PCBWay es el del cotizador del 20 oct; DigiKey y Sigma se revisaron
 
 **Cierre de F8 (22 oct).** Placa ruteada y verificada: 0 violaciones eléctricas, GND en un solo grupo y Gerber comparados contra el PcbDoc. El pedido, la compra y las pruebas pasan a F9. Explicación del diseño para el portafolio: `docs/EXPLICACION_PCB_F8.md`.
 
+## Fase 9 — Pedido, montaje y primeras pruebas (en curso)
+
+**Preparación del pedido (22 oct).** Paso a paso en `docs/fabricacion/GUIA_PEDIDO.md`, con cada campo de los formularios de PCBWay en el orden de la página (revisados ese día). El pedido es en grupo con la clase: en PCBWay, todos los pedidos en una misma cuenta para juntar el envío; en DigiKey, un carrito común con un cupo de **US$ 40** por persona. Decisiones:
+- **TP1–TP6 → ronghe RH-5016** (LCSC C5199799, 36.015 en stock, US$ 0,093). El Keystone 5016 quedó en 0 en LCSC. El RH-5016 tiene el mismo plano (3,81 × 2,84 mm) y el mismo footprint, así que PCBWay lo sigue soldando. Es el paso 2 de la regla D16 (un equivalente que PCBWay tenga antes de DigiKey). Cambiado en `bom_f7.LINEAS`, en las hojas 02 y 03 (`bom_f7.py --hojas`), en la BOM y en el Pick & Place.
+- **Conteo para el formulario de ensamble:** 57 referencias, 118 SMD, 8 THT, 2 BGA/QFP. PCBWay cuenta como «BGA/QFP» todo integrado de más de 16 pines: U3 (SSOP-28) y U4 (módulo ESP32-S3, que no es BGA). J3 pasó de THT a SMD: sus 2 huecos de 1,8 mm no tienen anillo y son para los pines plásticos (`salidas_f8.py` ya distingue los huecos sin cobre).
+- **Formulario de la PCB:**
+  - 5/5 mil cuesta lo mismo que 6/6 y cubre los pads de J5 a 0,145 mm.
+  - Azul o negro brillante cuestan lo mismo que el verde, pero la PCB tarda 3–4 días en vez de 24 h (negro mate: US$ 61,53). Queda verde por defecto: es lo más rápido y deja ver las pistas al inspeccionar.
+  - La casilla «PCB Specifications» del formulario de ensamble viene sin marcar.
+  - Las notas van divididas: las de fabricación en «Other special request» y todas en «Detailed information of assembly».
+- **DigiKey:** K1 (2 u.) más repuestos de lo que más se arriesga en las pruebas con red: 2 fusibles UMT-H 3403.0274.23 (486-3065-1-ND), 1 R-78CK3.3-0.5 y 1 ATM90E26-YU-R (ATM90E26-YU-RCT-ND, US$ 1,66). Total **US$ 17,87**. El AMC3330 no tiene stock en DigiKey hasta el 29 oct. Con los fusibles de repuesto no hace falta comprar los portafusibles F1B/F2B.
+- **Sigma** sigue solo para lo que va fuera de la placa y DigiKey no tiene o no envía: el CT (Seeed sin stock hasta el 18 dic), la pila CR2032 (DigiKey no manda litio en avión) y la sonda DS18B20 (en DigiKey cuesta US$ 6,90).
+
+Carrito actualizado (TRM 3.191,47): PCBWay US$ 186,23 · DigiKey US$ 17,87 · Sigma 50.813 COP · **total US$ 220,02 ≈ 702.192 COP**.
+
 ## Componentes elegidos
 
 Se llena al cerrar cada fase.
@@ -469,7 +484,7 @@ Se llena al cerrar cada fase.
 | Alimentación | Filtro LC de `+3V3` | L2 Bourns SRR4028-2R2Y + C4 CL21A106KAYNNNE + C5/C6 CL21A226MAQNNNE + C7 EEE-FK1C101P | ferrita de potencia, solo condensadores | PCBWay | PCBWay | F2 |
 | Alimentación | Filtro `+3V3A` | FB1 Murata BLM21PG221SN1D + C8 CL21A106KAYNNNE | RC 10 Ω, LDO | PCBWay | PCBWay | F2 |
 | Alimentación | LED de encendido | LED1 Kingbright APT2012SGC + R1 RC0805FR-071KL (en `+3V3`) | — | PCBWay | PCBWay | F2 |
-| Alimentación | Puntos de prueba | Keystone 5016 (librería de Altium) | Keystone 5015, pad propio | PCBWay | PCBWay | F2 |
+| Alimentación | Puntos de prueba | ronghe RH-5016 (mismo plano que el Keystone 5016 de la librería de Altium; el Keystone quedó en 0 en LCSC el 22 oct) | Keystone 5015, pad propio | PCBWay (LCSC C5199799) | PCBWay | F2, F9 |
 | Medición | Amplificador aislado U2 | TI AMC3330DWER (carrete) | AMC1350, ACPL-C87B | PCBWay (LCSC C2999368) | PCBWay | F3, F7 |
 | Medición | Divisor R2–R5 + R6 | 4 × Panasonic ERJ-P08F1004V + ERA-6AEB103V | 6 × RC1206 680 kΩ | PCBWay | PCBWay | F3 |
 | Medición | IC de medición U3 | Microchip ATM90E26-YU-R + Y1 ECS-81.92-12-30Q-EN-TR | ADE7953 | PCBWay | PCBWay | F3 |
