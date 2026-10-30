@@ -591,3 +591,5 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 **22 oct:** pedido preparado con la clase (`docs/fabricacion/GUIA_PEDIDO.md`). Los formularios de PCBWay están revisados campo por campo. TP1–TP6 pasan a ronghe RH-5016 (el Keystone 5016 quedó en 0 en LCSC). DigiKey lleva K1 y repuestos por US$ 17,87, dentro del cupo de US$ 40. Carrito: US$ 220,02 ≈ 702.192 COP.
 
 **23 oct:** sin pedido de DigiKey (nadie más del curso pidió). K1 (AQY414EHAX) lo compra PCBWay en DigiKey o Mouser y lo suelda; F1/F2 llevan 2 fusibles 3403.0274.11 de repuesto sueltos. BOM, Pick & Place, notas del pedido, carrito y parámetros de Altium actualizados (D19 en `docs/DECISIONES.md`).
+
+**30 oct:** el pedido pasa a **JLCPCB** (D20): PCBWay podía tardar más de un mes y la clase pide en JLC. La PCB no cambia. Ensamble Economic de 2 placas (mínimo de JLC) con piezas de su stock; K1 pasa a AQY214EHAX (NA, invierte P3) porque el AQY414EHAX está en 0 y por Global Sourcing tarda 9–15 días; 11 líneas genéricas pasan a piezas Basic. Archivos con `paquete_jlc_f9.py` y paso a paso en `docs/fabricacion/GUIA_PEDIDO_JLC.md`.

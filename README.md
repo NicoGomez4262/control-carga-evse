@@ -6,7 +6,7 @@
 
 Mide cada carga, la habilita o la detiene y lo sube todo por WiFi a una app propia.
 
-[![Estado](https://img.shields.io/badge/estado-F9%20%C2%B7%20pedido%20a%20PCBWay-f5a524)](#estado)
+[![Estado](https://img.shields.io/badge/estado-F9%20%C2%B7%20pedido%20a%20JLCPCB-f5a524)](#estado)
 [![Altium Designer 25](https://img.shields.io/badge/Altium%20Designer-25-A5915F?logo=altiumdesigner&logoColor=white)](altium/)
 [![ESP32-S3](https://img.shields.io/badge/ESP32--S3-WROOM--1-E7352C?logo=espressif&logoColor=white)](#componentes-principales)
 [![Red 120–240 VAC](https://img.shields.io/badge/red-120%E2%80%93240%20VAC-c62828)](#seguridad)
@@ -21,7 +21,7 @@ Mide cada carga, la habilita o la detiene y lo sube todo por WiFi a una app prop
 </div>
 
 > [!NOTE]
-> **En proceso.** El esquemático y la PCB están cerrados y revisados (fases 1 a 8). Sigue el pedido a PCBWay, el
+> **En proceso.** El esquemático y la PCB están cerrados y revisados (fases 1 a 8). Sigue el pedido a JLCPCB, el
 > montaje y las primeras pruebas. Las fotos de la placa real llegan cuando exista.
 
 ## Qué es
@@ -42,7 +42,7 @@ red eléctrica y la otra a 3,3 V, al alcance de un cable USB. Casi todo el dise�
 | 🧠 Cerebro | ESP32-S3 con WiFi y 16 MB de flash |
 | 🟩 Placa | 130 × 100 mm, 2 capas, FR-4 de 1,6 mm, cobre de 1 oz y HASL sin plomo |
 | 🛡️ Barrera | 6,7 mm sin cobre entre la red y el lado de baja tensión |
-| 🧩 Piezas | 58 referencias (119 SMD y 8 THT), casi todas soldadas por PCBWay |
+| 🧩 Piezas | 58 referencias (119 SMD y 8 THT), casi todas soldadas por JLCPCB |
 | ✅ Revisión | DRC con 0 violaciones eléctricas y Gerber comparados contra la PCB, taladro por taladro (304) |
 
 ## Qué tiene de interesante
@@ -50,8 +50,9 @@ red eléctrica y la otra a 3,3 V, al alcance de un cable USB. Casi todo el dise�
 - **Medición directa sobre la red, con aislamiento reforzado.** La tensión entra por un divisor resistivo y un
   amplificador aislado TI AMC3330. La corriente, por un transformador de núcleo partido que se abraza a L1 sin
   cortar el cable. Las dos llegan a un ATM90E26, un medidor de energía monofásico que entrega los resultados por SPI.
-- **Sin contactor.** La placa no corta la potencia. Un PhotoMOS Panasonic AQY414EHAX (normalmente cerrado,
-  5000 Vrms) abre los bornes de habilitación del EVSE y el cargador hace el resto.
+- **Sin contactor.** La placa no corta la potencia. Un PhotoMOS Panasonic con aislamiento reforzado de
+  5000 Vrms abre o cierra los bornes de habilitación del EVSE y el cargador hace el resto. La Rev 1.0 lleva el
+  AQY214EHAX (normalmente abierto), porque el AQY414EHAX (normalmente cerrado) no estaba en stock; usan la misma huella.
 - **Tres zonas que no se tocan.** Zona de red, isla del EVSE y lado SELV, separadas por una franja vertical sin cobre
   en ninguna capa. Solo la cruzan las tres piezas hechas para eso, la fuente AC-DC aislada, el AMC3330 y el PhotoMOS.
 - **Las protecciones no dependen de internet.** El corte por temperatura y por fallas se decide en la ESP32-S3.
@@ -59,7 +60,7 @@ red eléctrica y la otra a 3,3 V, al alcance de un cable USB. Casi todo el dise�
   Un RTC con pila (DS3231) fecha todo aunque se vaya la luz.
 - **Conexión saliente cifrada.** La ESP32 abre una conexión TLS hacia el servidor de la app, sube los datos y recibe
   las órdenes por ahí mismo. Sin VPN ni puertos abiertos en la casa.
-- **Pensada para fabricar.** SMD comunes en la cara superior para que PCBWay los ensamble, y cada componente elegido
+- **Pensada para fabricar.** SMD comunes en la cara superior para que JLCPCB los ensamble, y cada componente elegido
   comparando 2 o 3 opciones contra su datasheet y el stock real.
 - **Revisada con scripts propios.** Más de 50 scripts en Python leen los `.SchDoc` y el `.PcbDoc` de Altium para
   revisar redes, clases, reglas y ruteo, y comparan los Gerber contra la PCB antes de mandarlos a fabricar.
@@ -95,7 +96,7 @@ flowchart LR
   subgraph BARRERA["Barrera · 6,7 mm sin cobre"]
     ACDC["AC-DC aislado<br/>Mean Well IRM-20-12"]
     AMC["Amplificador aislado<br/>TI AMC3330"]
-    K1["PhotoMOS<br/>AQY414EHAX"]
+    K1["PhotoMOS<br/>AQY214EHAX"]
   end
 
   subgraph SELV["Zona SELV · 12 V y 3,3 V"]
@@ -125,7 +126,7 @@ flowchart LR
 | Tensión aislada | TI AMC3330 + divisor resistivo | Lleva la tensión de red al lado de baja tensión a través de la barrera |
 | Corriente | YHDC SCT-013 + jack de 3,5 mm | Transformador de corriente de núcleo partido, sin tocar el cableado |
 | Alimentación | Mean Well IRM-20-12 + RECOM R-78CK3.3-0.5 | 12 V aislados de la red y 3,3 V con filtro LC (y un riel analógico aparte) |
-| Actuación | Panasonic AQY414EHAX + AO3400A | Contacto seco aislado hacia los bornes de habilitación del EVSE |
+| Actuación | Panasonic AQY214EHAX + AO3400A | Contacto seco aislado hacia los bornes de habilitación del EVSE |
 | Sensores | DS18B20 · AHT20 · DS3231 | Sonda de temperatura, temperatura y humedad del ambiente, y reloj con pila |
 | Programación | USB-C + WCH CH340C + auto-reset con dos NPN | Se programa sin tocar botones |
 
@@ -153,8 +154,8 @@ La lista completa, con las alternativas comparadas, el proveedor y la forma de m
 | F5 | `05_SENSORES` | DS18B20, AHT20 y RTC con pila | ✅ |
 | F6 | `06_ACTUACION` | Driver y PhotoMOS hacia el EVSE | ✅ |
 | F7 | todas | Compilación, footprints, clases de red y BOM con proveedores | ✅ |
-| F8 | `EVSE_Monitor.PcbDoc` | Contorno, reglas de aislamiento, ubicación, ruteo, DRC y archivos para PCBWay | ✅ |
-| F9 | pedido y banco de pruebas | Pedido a PCBWay, montaje, soldadura a mano y pruebas por etapas | 🔧 en curso |
+| F8 | `EVSE_Monitor.PcbDoc` | Contorno, reglas de aislamiento, ubicación, ruteo, DRC y archivos de fabricación | ✅ |
+| F9 | pedido y banco de pruebas | Pedido a JLCPCB, montaje, soldadura a mano y pruebas por etapas | 🔧 en curso |
 
 El esquemático completo está en [`docs/revisiones/PROYECTO_F7.pdf`](docs/revisiones/PROYECTO_F7.pdf). El detalle de
 cada fase, con sus tareas, está en [`docs/PLAN_FASES.md`](docs/PLAN_FASES.md), y lo que sigue, en
@@ -162,18 +163,18 @@ cada fase, con sus tareas, está en [`docs/PLAN_FASES.md`](docs/PLAN_FASES.md), 
 
 ## Fabricación
 
-Todo lo que necesita PCBWay está en [`docs/fabricacion/`](docs/fabricacion/).
+Todo lo que necesita JLCPCB está en [`docs/fabricacion/`](docs/fabricacion/). El pedido pasó de PCBWay a JLCPCB el 30 oct 2026 (D20): la PCB es la misma y cambió la BOM.
 
 | Archivo | Para qué |
 |---|---|
 | `EVSE_Monitor_Gerber.zip` | Gerber y taladros de la placa |
-| `BOM_PCBWay.xlsx` | Lista de materiales para el ensamble turnkey |
-| `PickPlace_PCBWay.csv` | Posición y rotación de cada pieza |
+| `BOM_JLC.csv` | Lista de materiales con los códigos de JLC/LCSC |
+| `CPL_JLC.csv` | Posición y rotación de cada pieza |
 | `Ensamble_EVSE_Monitor.pdf` | Plano de ensamble |
-| `GUIA_PEDIDO.md` | El pedido paso a paso, campo por campo |
-| `PEDIDO_PCBWAY.md` | Las notas en inglés para el pedido |
+| `GUIA_PEDIDO_JLC.md` | El pedido paso a paso, campo por campo |
+| `GUIA_PEDIDO.md`, `PEDIDO_PCBWAY.md`, `*_PCBWay.*` | El pedido de PCBWay (historia) |
 
-Las vistas de cada capa de los Gerber, tal como deben verse en el visor de PCBWay, están en
+Las vistas de cada capa de los Gerber, tal como deben verse en el visor del fabricante, están en
 [`docs/revisiones/gerber/`](docs/revisiones/gerber/). El modelo STEP pesa 20 MB y se regenera con el OutJob.
 
 ## Estructura del repositorio
@@ -190,7 +191,7 @@ Las vistas de cada capa de los Gerber, tal como deben verse en el visor de PCBWa
     ├── EXPLICACION_PCB_F8.md por qué la PCB quedó así
     ├── calculos/             cálculos de alimentación y medición
     ├── esquemas/             esquemas por bloque, tal como se dibujan en Altium
-    ├── fabricacion/          paquete para PCBWay y carrito de compras
+    ├── fabricacion/          paquete para JLCPCB y carrito de compras
     ├── img/                  imágenes de este README
     ├── revisiones/           PDF del esquemático por fase, capturas de la PCB y vistas de los Gerber
     ├── sesiones/             resumen de cada fase cerrada

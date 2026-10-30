@@ -23,6 +23,7 @@
 | D17 | 2026-10-19 | BOM de F7: **una placa ensamblada**. Todo lo que PCBWay tiene (stock en LCSC) llega soldado, también los THT (PS1, J1, J2, J4, J6–J8); lo que PCBWay no tiene se compra en DigiKey y se suelda a mano (solo K1, AQY414EHAX); U1 es el R-78CK del profesor, a mano; CT, sonda y pila en Sigma (DigiKey sin stock o sin envío aéreo). Sustitutos por stock: AMC3330DWER, 3403.0274.11, XY301V-A-5.0-2P (J1, J2), Murata LQH43NH120J03L (L1), Ruilon RL4032P471KJ (RV1), Murata GRM31C5C1H104JA01L (C16) y GRM3195C1H333JA01D (C20, C23), Yageo RT0805BRD0710RL (R11, R13) | adoptada | F7 |
 | D18 | 2026-10-19 | PCB: **2 capas, FR-4 de 1,6 mm, cobre de 1 oz, HASL sin plomo** (opción A). Tamaño corregido el 20 oct a **130 × 100 mm** (US$ 36,87 las 5 placas): con los courtyards reales (66 cm² de piezas) 100 × 100 mm quedaba al ~78 % de ocupación. Distribución, distancias, anchos y reglas en `docs/GUIA_RUTEO_F8.md` | adoptada | F8 |
 | D19 | 2026-10-23 | **Sin pedido de DigiKey** (nadie más del curso pidió; solo no sale rentable). K1 sigue siendo el AQY414EHAX, pero lo **compra PCBWay** en DigiKey o Mouser dentro del turnkey y lo suelda. El repuesto de F1/F2 son 2 fusibles 3403.0274.11 extra en el mismo pedido. Los repuestos de U1 y U3 no se piden. Plan B para K1: AQY214EHAX (NA, invierte P3). Cambia D16 y D17 en lo de DigiKey | adoptada | F9 |
+| D20 | 2026-10-30 | **Pedido en JLCPCB en lugar de PCBWay** (PCBWay podía tardar más de un mes; la clase pide en JLC). La PCB no cambia (mismos Gerber). Ensamble **Economic de 2 placas** (mínimo de JLC) con piezas de su stock. **K1 = AQY214EHAX (NA)**: el AQY414EHAX está en 0 y por Global Sourcing tarda 9–15 días; misma familia, footprint y aislamiento reforzado, pero invierte P3 (sin energía el EVSE no carga; LED6 encendido = carga permitida). 11 líneas genéricas pasan a piezas Basic de JLC (resistencias 0805 1 %, 100 nF y 1 µF X7R, MMBT3904) para no pagar US$ 3,07 por referencia extendida. Sin fusibles de repuesto (la segunda placa sirve). Reemplaza D16, D17 y D19 en proveedor y montaje | adoptada | F9 |
 
 ## D2 · Verificación del R-78CK3.3-0.5
 
@@ -549,6 +550,57 @@ Cambios (23 oct):
 - `GUIA_PEDIDO.md`: la parte B (DigiKey) queda sin uso. `DigiKey_bulk_add.txt` se borró.
 - Carrito sin DigiKey, con la TRM del 23 oct (3.181,01).
 
+**Cambio a JLCPCB (30 oct, D20).** El usuario avisó que el pedido de PCBWay podía tardar más de un mes en llegar y que toda la clase iba a pedir en JLCPCB. Pidió pedir lo antes posible por JLC, con el ensamble completo y, ojalá, sin cambios.
+
+Revisión (API del buscador de JLC, 30 oct; `paquete_jlc_f9.py --stock`):
+- **Stock:** las 57 líneas que se ensamblan están en el stock de JLC con margen para 2 placas (las más justas: Y1 65, L2 56, J4 82 y F1/F2 89), menos K1.
+- **PCB:** sin cambios. Reglas de JLC para 2 capas de 1,6 mm ([capacidades](https://jlcpcb.com/capabilities/pcb-capabilities)): pista y separación de 0,10 mm, agujero de 0,15 mm, ranura con cobre de 0,5 mm, cobre al borde 0,2 mm, serigrafía de 0,15 mm y 1,0 mm de alto. Lo único por debajo es J5 (anillo de 0,125 mm frente a 0,18 mm, y pads a 0,145 mm frente a 0,15 mm), que es el plano de Würth y la misma pieza que JLC tiene en su librería (C2830802): se deja igual, como con PCBWay. Los Gerber y el Pick & Place tienen el mismo origen (GM1 de 0 a 130 × 100 mm).
+- **Ensamble:** Economic ([capacidades](https://jlcpcb.com/capabilities/pcb-assembly-capabilities)): una cara con SMD y THT, de 2 a 50 placas, hasta 1,6 mm, se arma en 1–3 días y no pide rieles ni fiduciales; JLC agrega los agujeros de herramienta. El Standard es de 4 días o más.
+- **Costo** ([precios](https://jlcpcb.com/help/article/pcb-assembly-price)): en Economic, setup de US$ 8,18, stencil de US$ 1,53 y **US$ 3,07 por cada referencia extendida**. En Standard, US$ 1,53 por cada referencia, más setup de US$ 25,56, stencil, manejo, fixture y almacenamiento. Con la BOM de PCBWay eran 52 extendidas (≈ US$ 160); con las Basic quedan 42 (US$ 129). Piezas para 2 placas ≈ US$ 118.
+
+K1 (AQY414EHAX, NC) está en el catálogo de JLC (C719668), pero con 0 en stock. Solo se consigue por Global Sourcing, que tarda 9–15 días ([fuente](https://jlcpcb.com/help/article/pcba-parts-sourcing-instruction)). Se revisó si había otro NC con aislamiento reforzado en stock (Toshiba TLP4227G y TLP4176G, Omron G3VM-401, CPC1117N, Cosmo KAQY414, SUPSiC GAQY414): todos en 0, sin «reforzado» o con otro footprint.
+
+| Opción | Contacto | Stock JLC | Tiempo | Resultado |
+|---|---|---|---|---|
+| **AQY214EHAX** (LCSC C371971, US$ 0,97) | NA | 938 | sin demora | **elegida por el usuario**. 400 V, 120 mA, Ron 26 Ω típ., fuga ≤ 1 µA, aislamiento reforzado de 5000 Vrms (EN 60950/EN 41003) ([LCSC](https://www.lcsc.com/product-detail/solid-state-relays-mos-output_panasonic-aqy214ehax_C371971.html)). Mismo footprint. Invierte P3 |
+| AQY414EHAX por Global Sourcing | NC | 0 | +9–15 días | descartada por el tiempo |
+| K1 sin montar | — | — | — | descartada: no hay de dónde comprar el AQY414EHAX (LCSC en 0, sin DigiKey) |
+
+Con el AQY214EHAX, el mando de K1 queda igual: R41 1 kΩ, LED6 y Q3, ≈ 8,4 mA, más que los 3 mA de IFon. Cambia el sentido:
+- `RELAY_EN` en alto = contacto cerrado = **carga permitida**;
+- R40 deja el contacto abierto mientras arranca la ESP32;
+- sin energía, el EVSE no carga;
+- LED6 encendido = carga permitida.
+
+El firmware lo tiene que tener en cuenta. Si más adelante se consigue el AQY414EHAX, se cambia a mano en la misma huella.
+
+Piezas Basic (mismo valor y encapsulado; datos de la ficha de LCSC de cada una):
+
+| Designadores | Antes (extendida) | Ahora (Basic) | Especificación |
+|---|---|---|---|
+| R1, R8, R15, R17, R25, R26, R28–R31, R39, R41 | Yageo RC0805FR-071KL | UNI-ROYAL 0805W8F1001T5E ([C17513](https://www.lcsc.com/product-detail/chip-resistor-surface-mount_uni-royal-uniroyal-elec-0805w8f1001t5e_C17513.html)) | 1 kΩ 1 % 100 ppm 125 mW 150 V |
+| R16, R18, R22, R27, R34, R40 | RC0805FR-0710KL | 0805W8F1002T5E ([C17414](https://www.lcsc.com/product-detail/chip-resistor-surface-mount_uni-royal-uniroyal-elec-0805w8f1002t5e_C17414.html)) | 10 kΩ, ídem |
+| R19, R20 | RC0805FR-0712KL | 0805W8F1202T5E ([C17444](https://www.lcsc.com/product-detail/chip-resistor-surface-mount_uni-royal-uniroyal-elec-0805w8f1202t5e_C17444.html)) | 12 kΩ, ídem |
+| R21, R32, R33, R35 | RC0805FR-074K7L | 0805W8F4701T5E ([C17673](https://www.lcsc.com/product-detail/chip-resistor-surface-mount_uni-royal-uniroyal-elec-0805w8f4701t5e_C17673.html)) | 4,7 kΩ, ídem |
+| R23, R24 | RC0805FR-075K1L | 0805W8F5101T5E ([C27834](https://www.lcsc.com/product-detail/chip-resistor-surface-mount_uni-royal-uniroyal-elec-0805w8f5101t5e_C27834.html)) | 5,1 kΩ, ídem |
+| R36 | RC0805FR-07100RL | 0805W8F1000T5E ([C17408](https://www.lcsc.com/product-detail/chip-resistor-surface-mount_uni-royal-uniroyal-elec-0805w8f1000t5e_C17408.html)) | 100 Ω, ídem |
+| R38 | RC0805FR-07330RL | 0805W8F3300T5E ([C17630](https://www.lcsc.com/product-detail/chip-resistor-surface-mount_uni-royal-uniroyal-elec-0805w8f3300t5e_C17630.html)) | 330 Ω, ídem |
+| R7 | RC0805FR-0747KL | 0805W8F4702T5E ([C17713](https://www.lcsc.com/product-detail/chip-resistor-surface-mount_uni-royal-uniroyal-elec-0805w8f4702t5e_C17713.html)) | 47 kΩ, ídem |
+| C12, C13, C25, C28, C29, C34–C36, C38–C40 | Samsung CL21B104KBCNNNC | Yageo CC0805KRX7R9BB104 ([C49678](https://www.lcsc.com/product-detail/multilayer-ceramic-capacitors-mlcc-smd-smt_yageo-cc0805krx7r9bb104_C49678.html)) | 100 nF 50 V X7R 10 % |
+| C10, C14, C30, C32 | Samsung CL21B105KAFNNNE (25 V) | Samsung CL21B105KBFNNNE ([C28323](https://www.lcsc.com/product-detail/multilayer-ceramic-capacitors-mlcc-smd-smt_samsung-electro-mechanics-cl21b105kbfnnne_C28323.html)) | 1 µF **50 V** X7R 10 % (mejor) |
+| Q1, Q2 | onsemi MMBT3904LT1G | CJ MMBT3904 ([C20526](https://www.lcsc.com/product-detail/bipolar-bjt_jiangsu-changjing-electronics-technology-co-ltd-mmbt3904-range-100-300_C20526.html)) | NPN 40 V 200 mA, hFE 100–300, SOT-23 |
+
+No se cambiaron:
+- D1/D2: el SS34 Basic (C8678) es SMA y el SS34-E3/57T de Vishay es SMC; no cabe en el footprint.
+- Los C0G, las resistencias de precisión y la zona de red.
+- Los LEDs: el verde Basic (KT-0805G, Vf 2,6–3,1 V) se vería muy débil con 3,3 V y 1 kΩ.
+
+Cambios (30 oct):
+- `bom_f7.LINEAS`: proveedor y montaje JLCPCB, K1 y las 11 líneas Basic, F1/F2 sin repuestos.
+- `docs/tools/paquete_jlc_f9.py`: escribe `BOM_JLC.csv` (58 líneas) y `CPL_JLC.csv` (127 piezas, posiciones del Pick & Place del 23 oct, rotación de Altium) y, con `--stock`, revisa el stock.
+- `docs/fabricacion/GUIA_PEDIDO_JLC.md`: formulario, revisión de la ubicación pieza por pieza y respuestas al DFM. `GUIA_PEDIDO.md` y `PEDIDO_PCBWAY.md` quedan como historia.
+- No se pudo revisar la rotación por script contra los footprints de JLC: la API de EasyEDA rechaza la consulta. Se revisa en el visor «Component Placements» de JLC, con «Confirm Parts Placement».
+
 ## Componentes elegidos
 
 Se llena al cerrar cada fase.
@@ -577,19 +629,19 @@ Se llena al cerrar cada fase.
 | Medición | Acople y carga de precisión | Panasonic ERA-6A (0,1 %), Yageo RT0805BRD0710RL (R11/R13), Murata GRM C0G 1206 (C16, C20, C23), C0G/X7R 0805 | RC0805 1 % | PCBWay | PCBWay | F3 |
 | MCU | Módulo U4 | Espressif ESP32-S3-WROOM-1-N16R2 | N8R2, N16R8 | PCBWay (LCSC C2913205) | PCBWay | F4, F7 |
 | MCU | Puente USB-UART U5 | WCH CH340C | CP2102N, CH340G | PCBWay | PCBWay | F4 |
-| MCU | Auto-reset | 2 × onsemi MMBT3904LT1G + RC0805 12 k, 4,7 k | S8050, MMDT3904 | PCBWay | PCBWay | F4 |
+| MCU | Auto-reset | 2 × MMBT3904 (onsemi MMBT3904LT1G hasta el 30 oct; desde D20, CJ MMBT3904, Basic de JLC) + 0805 12 k, 4,7 k | S8050, MMDT3904 | JLCPCB (LCSC C20526) | JLCPCB | F4, F9 |
 | MCU | USB-C J5 + ESD D5 | Würth 632723300011 + ST USBLC6-2SC6 + 2 × 5,1 k | HRO TYPE-C-31-M-12, GCT USB4105/4085, micro-USB Molex 105017-0001 | PCBWay (LCSC C2830802) | PCBWay | F4, F7 |
 | MCU | Pulsadores SW1–SW3 | XKB TS-1187A-B-A-B (SW2, SW3 DNP) + botón de panel SW730RD en J7 | KFC-A04-02, SW-761SMD | PCBWay / Sigma | PCBWay / manual | F4 |
 | MCU | LEDs y conectores | APT2012SGC ×2, APT2012SURCK; J7 Phoenix 1751248; J8 Würth 61300611121 | — | PCBWay | PCBWay (J7, J8 THT) | F4, F7 |
 | Sensores | Sensor de ambiente U6 | Aosong AHT20 + R38/C37/C38 | SHT40-AD1B-R2, TMP117 | PCBWay (LCSC C2757850) | PCBWay | F5 |
 | Sensores | RTC U7 + pila BT1 | DS3231SN#T&R + TE BAT-HLD-001 + CR2032 | RV-3028-C7, PCF85063A, MCP7940N; BH-106, BK-913 | PCBWay (LCSC C9866, C7501066) / Sigma (pila) | PCBWay / pila a mano | F5 |
-| Actuación | Salida a los bornes del EVSE K1 | Panasonic PhotoMOS AQY414EHAX (NC) | Finder 34.51.7.012.5010, Phoenix 2961163, Panasonic APF30212; NA: AQY214EHAX; SUPSiC GAQY414AEH (sin aislamiento reforzado certificado) | PCBWay (lo compra en DigiKey 255-6089-1-ND o Mouser; LCSC en 0) | PCBWay (desde el 23 oct; antes manual) | F6, F7, F9 |
+| Actuación | Salida a los bornes del EVSE K1 | **Panasonic PhotoMOS AQY214EHAX (NA)** desde el 30 oct (D20); hasta entonces AQY414EHAX (NC), que se puede volver a poner a mano | Finder 34.51.7.012.5010, Phoenix 2961163, Panasonic APF30212; AQY414EHAX por Global Sourcing de JLC (+9–15 días); SUPSiC GAQY414AEH (sin aislamiento reforzado certificado) | JLCPCB (LCSC C371971) | JLCPCB | F6, F7, F9 |
 | Actuación | Driver Q3 + R39/R40 | AO3400A + RC0805 1 k / 10 k | 2N7002, BSS138 | PCBWay | PCBWay | F6 |
 | Actuación | LED6 + R41 | Hubei KENTO KT-0805Y + RC0805 1 k | APT2012SYCK/J3-PRV | PCBWay (LCSC C2296) | PCBWay | F6 |
 | Actuación | J2 | Xinlaiya XY301V-A-5.0-2P (footprint TB001-500-02BE) | ED1610 3P, BORNE 3P EMPAL | PCBWay (LCSC C557651) | PCBWay (THT) | F6, F7 |
 | Sensores | Sonda DS18B20 J4 + ESD D6 | Phoenix 1751251 + USBLC6-2SC6 + R35–R37, C40 | JST XH, SMAJ5.0CA | PCBWay (LCSC C91152) / Sigma (sonda SEN DS18B20 2M) | PCBWay (THT); sonda externa | F5, F7 |
 
-Desde F7 (D17) el proveedor, el número de parte del proveedor y el montaje de cada línea están en `docs/BOM_F7.md`.
+Desde F7 (D17) el proveedor, el número de parte del proveedor y el montaje de cada línea están en `docs/BOM_F7.md`. Desde el 30 oct (D20), donde esta tabla dice PCBWay se lee **JLCPCB**: mismas piezas y mismos códigos LCSC, salvo K1, Q1/Q2 y las 11 líneas Basic de la sección «Fase 9».
 
 Regla desde F2: pasivos y LEDs en 0805 o más grandes; 0603 solo si no existe en 0805.
 

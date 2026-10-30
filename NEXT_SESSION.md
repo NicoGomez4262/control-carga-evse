@@ -1,20 +1,20 @@
 # Siguiente sesión → Fase 9: pedido, montaje y primeras pruebas
 
-F8 se cerró el 22 oct 2026. La PCB está ruteada y verificada: 0 violaciones eléctricas, GND en un solo grupo y Gerber comparados contra el PcbDoc. Los archivos para PCBWay están listos y el carrito está armado. Lo que sigue ya no es diseño: es pedir, recibir, soldar lo que va a mano y probar la placa por etapas.
+F8 se cerró el 22 oct 2026. La PCB está ruteada y verificada: 0 violaciones eléctricas, GND en un solo grupo y Gerber comparados contra el PcbDoc. Desde el 30 oct el pedido va por JLCPCB (D20): la BOM y el CPL de JLC están listos. Lo que sigue ya no es diseño: es pedir, recibir, soldar lo que va a mano y probar la placa por etapas.
 
 ## Prompt para iniciar
 
 ```text
 Seguimos con la FASE 9 del proyecto "Control de carga EVSE" (pedido, montaje y primeras pruebas).
 
-Lee CLAUDE.md, NEXT_SESSION.md, docs/PLAN_FASES.md (Fases 8 y 9), docs/DECISIONES.md (sección «Fase 8»),
-docs/fabricacion/PEDIDO_PCBWAY.md y docs/EXPLICACION_PCB_F8.md.
+Lee CLAUDE.md, NEXT_SESSION.md, docs/PLAN_FASES.md (Fases 8 y 9), docs/DECISIONES.md (secciones «Fase 8» y «Fase 9», D20),
+docs/fabricacion/GUIA_PEDIDO_JLC.md y docs/EXPLICACION_PCB_F8.md.
 
 1. Muéstrame el diagrama general (como gráfico) y la lista de tareas de F9.
-2. Acompáñame en el pedido de PCBWay paso a paso (formulario de PCB y de ensamble, archivos, notas, revisión
-   de la cotización y del DFM). El pago lo hago yo.
-3. Deja listo el carrito de DigiKey del curso y la compra en Sigma, y actualiza el carrito si cambian precios.
-4. Cuando llegue la placa: plan de inspección, soldadura a mano de K1 y U1 y pruebas por etapas, primero sin red.
+2. Acompáñame en el pedido de JLCPCB paso a paso (docs/fabricacion/GUIA_PEDIDO_JLC.md: formulario, BOM y CPL,
+   revisión de la ubicación, cotización y DFM). El pago lo hago yo.
+3. Actualiza el carrito con la cotización real de JLC y deja lista la compra en Sigma.
+4. Cuando lleguen las placas: plan de inspección, soldadura a mano de U1 y pruebas por etapas, primero sin red.
 ```
 
 ## Qué se hizo en F8
@@ -70,34 +70,30 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 - [x] En Altium (`GUIA_PEDIDO.md`, A0): Repour All, revisar esquinas, serigrafía y QR, DRC y OutJob. Después `paquete_pcbway_f8.py` y `revisar_gerber_f8.py` (22 oct, 21:39: todo bien y el QR se lee desde el GBO).
 - [x] 23 oct: BT1 girado, Repour y OutJob (14:04). Paquete revisado: sin corto en `RTC_VBAT`, Gerber y QR bien. Las gotas nuevas no se aplicaron; se sube sin ellas.
 - [x] 23 oct: sin DigiKey (nadie más del curso pidió). K1 (AQY414EHAX) lo compra PCBWay en DigiKey o Mouser y lo suelda, y F1/F2 llevan 2 fusibles 3403.0274.11 de repuesto sueltos. BOM, Pick & Place (127 piezas), notas (597 de 600 caracteres), parámetros de Altium y carrito actualizados. Formulario: **58 referencias, 119 SMD**, 8 THT, 2 BGA/QFP (D19).
-- [ ] Reemplazar el pedido en PCBWay con el paquete del 23 oct (`GUIA_PEDIDO.md`, A2 y A1).
-
-- [ ] PCBWay, PCB: subir `EVSE_Monitor_Gerber.zip` y revisar las 9 capas en su visor de Gerber; tienen que verse como `docs/revisiones/gerber/*.png`. Llenar el formulario según `GUIA_PEDIDO.md` (5 placas, 5/5 mil, casilla «PCB Specifications» marcada).
-- [ ] PCBWay, ensamble: turnkey de 1 placa, con `BOM_PCBWay.xlsx` y `PickPlace_PCBWay.csv`. Pegar los tres textos de `GUIA_PEDIDO.md` (sensitive components, Detailed information of assembly y Other special request).
-- [ ] Revisar la cotización de PCBWay:
-  - piezas que propongan cambiar (aceptar solo equivalentes exactos);
-  - que K1 salga con precio (lo compran en DigiKey o Mouser) y F1/F2 con 4 piezas. Si no consiguen K1: plan B AQY214EHAX (NA, invierte P3), a decidir;
-  - mínimos de compra de pasivos;
-  - envío y arancel reales.
-
-  Actualizar `carrito_f8.py` con los valores reales y volver a publicar el carrito.
-- [ ] Responder el DFM de PCBWay: anillo de 0,125 mm de J5 (es el patrón de Würth: no cambiar); 5/5 mil si lo piden.
-- [ ] Pagar y marcar en el carrito.
-- [x] ~~DigiKey~~: no se pide (23 oct, D19). K1 y los fusibles de repuesto van en el pedido de PCBWay; los repuestos de U1 y U3 no se piden.
+- [x] 30 oct (D20): **el pedido pasa a JLCPCB** (PCBWay podía tardar más de un mes; la clase pide en JLC). Stock revisado: todo en JLC menos el AQY414EHAX. K1 → **AQY214EHAX (NA)**, elegido por el usuario, y 11 líneas genéricas → piezas Basic. `BOM_JLC.csv`, `CPL_JLC.csv` y `GUIA_PEDIDO_JLC.md` listos; la PCB no cambia.
+- [ ] Si quedó un pedido sin pagar en PCBWay, cancelarlo.
+- [ ] JLC, PCB: subir `EVSE_Monitor_Gerber.zip`, revisar el visor y llenar el formulario (`GUIA_PEDIDO_JLC.md`, paso 1: 5 placas, verde, HASL sin plomo, vías tapadas, «Confirm Production File» = Yes).
+- [ ] JLC, ensamble: Economic, Top, **2 placas**, «Confirm Parts Placement» = Yes; subir `BOM_JLC.csv` y `CPL_JLC.csv` (paso 2). Las 58 líneas tienen que salir confirmadas, 16 Basic y 42 extendidas (paso 3).
+- [ ] Revisar la ubicación pieza por pieza en «Component Placements» (paso 4): polaridad, pin 1 y la entrada de cables de las borneras. Se puede hacer con Claude en el navegador del panel.
+- [ ] Revisar la cotización (paso 5): piezas ≈ US$ 118 y extendidas ≈ US$ 129 para 2 placas, más PCB, envío DHL/FedEx y arancel. Actualizar el carrito (`carrito_f8.py` todavía es de PCBWay) con los valores reales.
+- [ ] Responder el DFM de JLC (paso 6): J5 se deja como está (anillo de 0,125 mm, pads a 0,145 mm); el voladizo de U4, J3 y J5 es a propósito; agujeros de herramienta lejos de la red. Aprobar la ubicación final que manda JLC.
+- [ ] Pagar y anotar el número de pedido.
+- [ ] Altium: poner en la librería y en las hojas los nuevos MPN (K1 y las 11 Basic) y `Supplier`/`Assembly` = JLCPCB (`bom_f7.LINEAS` ya los tiene). No cambia el Gerber.
+- [x] ~~DigiKey~~: no se pide (23 oct, D19). Desde el 30 oct, K1 va en el ensamble de JLC (AQY214EHAX) y no hay fusibles de repuesto sueltos: la segunda placa sirve de repuesto.
 - [ ] Sigma, sin afán (antes de las pruebas): SCT-013-000V, SEN DS18B20 2M y CR2032.
 
 **9B · Recepción y montaje**
 
-- [ ] Inspección visual: puentes de soldadura en U3, J5 y U4, polaridad de diodos, LEDs y electrolíticos (C2, C3), orientación de K1 (pin 1), que F1B, F2B, SW2 y SW3 estén vacíos y que lleguen los 2 fusibles de repuesto sueltos.
+- [ ] Inspección visual de las 2 placas: puentes de soldadura en U3, J5 y U4, polaridad de diodos, LEDs y electrolíticos (C2, C3), orientación de K1 (pin 1), que las borneras tengan la entrada hacia afuera y que F1B, F2B, SW2 y SW3 estén vacíos.
 - [ ] Sin alimentar, con el multímetro: ningún corto entre `+VIN`, `+3V3`, `+3V3A` y GND; ninguna continuidad entre la red (J1) y cualquier punto del SELV (GND, J5, J6).
-- [ ] Soldar a mano U1 (R-78CK3.3-0.5). K1 ya llega soldado por PCBWay.
+- [ ] Soldar a mano U1 (R-78CK3.3-0.5) en la primera placa. K1 llega soldado por JLC.
 
 **9C · Primeras pruebas (por etapas)**
 
 - [ ] **1. Sin red:** 12 V por J6, con una fuente de banco limitada a 150–200 mA. Medir `+VIN`, `+3V3` y `+3V3A`, y anotar el consumo.
 - [ ] **2. USB:** J5 al computador. Que el CH340C aparezca; programar el ESP32-S3 con el auto-reset; encender los LEDs.
 - [ ] **3. Buses:** AHT20 y DS3231 por I²C, DS18B20 por 1-Wire (J4), `RTC_INT`.
-- [ ] **4. Medidor y actuación:** leer los registros del ATM90E26 por SPI, sin red. Conmutar K1 desde el ESP32 y medir J2 con el multímetro.
+- [ ] **4. Medidor y actuación:** leer los registros del ATM90E26 por SPI, sin red. Conmutar K1 desde el ESP32 y medir J2 con el multímetro. Con el AQY214EHAX (NA): `RELAY_EN` en alto = J2 cerrado = carga permitida, y LED6 encendido.
 - [ ] **5. Con red:** solo a través de un **transformador de aislamiento** y un breaker; nada se toca con la placa energizada. Medir V e I con una carga conocida y calibrar el ATM90E26.
 - [ ] Cerrar la Rev 1.0: etiqueta `rev1.0` en git y notas de lo que cambiaría en la Rev 1.1 (gabinete incluido).
 

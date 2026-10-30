@@ -2,7 +2,7 @@
 
 Dispositivo IoT que mide tensión, corriente, potencia, energía y temperatura durante la carga de un vehículo eléctrico, habilita o detiene la carga con un relé conectado a los bornes de habilitación del EVSE (sin contactor) y envía los datos por WiFi a una app propia en internet, desde la que se dan las órdenes. Funciona en 120 V monofásico (L–N) y en 240 V bifásico (L1–L2). Este repositorio contiene el proyecto de **Altium Designer** y su documentación, y es público en GitHub: <https://github.com/NicoGomez4262/control-carga-evse> (enlazado desde el portafolio, nicolasgomez.dev).
 
-**Objetivo final del proyecto de Altium:** enviar la PCB a fabricar y ensamblar en PCBWay y pedir los componentes.
+**Objetivo final del proyecto de Altium:** enviar la PCB a fabricar y ensamblar en JLCPCB (antes PCBWay; cambio del 30 oct 2026, D20) y pedir los componentes.
 
 ## Cómo trabajamos
 
@@ -37,6 +37,7 @@ Dispositivo IoT que mide tensión, corriente, potencia, energía y temperatura d
 
 - **Regla de compras (pedido del usuario, 19 oct 2026, D16):** la PCB se pide en **PCBWay** y, ojalá, **ya ensamblada**: todo lo que PCBWay tenga en stock lo ensambla (turnkey), lo que ahorra tiempo de soldadura. Lo que PCBWay no tenga se compra en **DigiKey** (https://www.digikey.com) en un carrito que se suma al pedido conjunto del curso, con un cupo de **US$ 40** como máximo (dato del usuario, 22 oct); esas piezas se mandan consignadas a PCBWay o se sueldan a mano. **Sigma Electrónica** (Bogotá, https://www.sigmaelectronica.net) es el **último recurso**. Mouser ya no se usa.
 - Orden de búsqueda: 1) PCBWay (ensamble) → 2) equivalente que PCBWay sí tenga → 3) DigiKey → 4) Sigma.
+- **Cambio a JLCPCB (pedido del usuario, 30 oct 2026, D20):** PCBWay podía tardar más de un mes y la clase pide en JLCPCB. Donde las reglas de arriba dicen PCBWay, ahora se lee **JLCPCB** (ensamble Economic con piezas de su stock, mínimo 2 placas). Se prefieren piezas «Basic» de JLC cuando son equivalentes, porque cada referencia «extendida» cobra US$ 3,07. El stock se revisa con `python docs/tools/paquete_jlc_f9.py --stock`, y el pedido sigue `docs/fabricacion/GUIA_PEDIDO_JLC.md`.
 - Preferir SMD comunes (0603/0805, SOT-23, SOIC/TSSOP), todos en la cara superior. Lo que se suelde a mano: agrupado, con pads cómodos y espacio para el cautín.
 - Esta versión es **PCB desnuda** (sin gabinete); el gabinete queda para la próxima versión de la PCB y no es tarea de ninguna fase.
 - Ya disponible, no se compra: **RECOM R-78CK3.3-0.5** (regulador de 3.3 V que facilitó el profesor).
