@@ -18,7 +18,8 @@
 | F6 | `06_ACTUACION.SchDoc` | driver Q3, PhotoMOS K1 (NC, aislamiento reforzado), salida J2 a los bornes de habilitación del EVSE | cerrada (2026-10-12) |
 | F7 | todas las hojas | compilación, footprints, clases de red, librería del proyecto, BOM con proveedores (PCBWay, DigiKey; Sigma último recurso) | cerrada (2026-10-19) |
 | F8 | `EVSE_Monitor.PcbDoc` | contorno, stackup, reglas de aislamiento, ubicación, ruteo, DRC, archivos para PCBWay y carrito | cerrada (2026-10-22) |
-| F9 | pedido y banco de pruebas | pedido a PCBWay (K1 incluido desde el 23 oct) y Sigma; recepción, soldadura a mano (U1) y primeras pruebas | pendiente |
+| F9 | pedido y banco de pruebas | pedido a JLCPCB (D20) y Sigma; recepción, soldadura a mano (U1) y pruebas de hardware por etapas | en curso: placas recibidas; H1–H3 aprobadas (20 nov); falta U1 |
+| F10 | `firmware/` y `app/` (fuera de Altium) | firmware de pruebas y final del ESP32-S3, protocolo de mensajes, backend, aplicación web de control e integración con la placa | pendiente |
 
 Estados posibles: pendiente · en curso · cerrada.
 
@@ -586,10 +587,37 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 
 ## Fase 9 — Pedido, montaje y primeras pruebas
 
-**Estado:** en preparación. Lista de tareas en `NEXT_SESSION.md`.
+**Estado:** en curso. Las tareas de hardware que faltan están en `NEXT_SESSION.md`.
 
 **22 oct:** pedido preparado con la clase (`docs/fabricacion/GUIA_PEDIDO.md`). Los formularios de PCBWay están revisados campo por campo. TP1–TP6 pasan a ronghe RH-5016 (el Keystone 5016 quedó en 0 en LCSC). DigiKey lleva K1 y repuestos por US$ 17,87, dentro del cupo de US$ 40. Carrito: US$ 220,02 ≈ 702.192 COP.
 
 **23 oct:** sin pedido de DigiKey (nadie más del curso pidió). K1 (AQY414EHAX) lo compra PCBWay en DigiKey o Mouser y lo suelda; F1/F2 llevan 2 fusibles 3403.0274.11 de repuesto sueltos. BOM, Pick & Place, notas del pedido, carrito y parámetros de Altium actualizados (D19 en `docs/DECISIONES.md`).
 
 **30 oct:** el pedido pasa a **JLCPCB** (D20): PCBWay podía tardar más de un mes y la clase pide en JLC. La PCB no cambia. Ensamble Economic de 2 placas (mínimo de JLC) con piezas de su stock; K1 pasa a AQY214EHAX (NA, invierte P3) porque el AQY414EHAX está en 0 y por Global Sourcing tarda 9–15 días; 11 líneas genéricas pasan a piezas Basic. Archivos con `paquete_jlc_f9.py` y paso a paso en `docs/fabricacion/GUIA_PEDIDO_JLC.md`.
+
+**20 nov:** llegaron las 2 placas de JLCPCB, ensambladas. Protocolo de pruebas por etapas en `docs/pruebas/PROTOCOLO_PRUEBAS.md`, con un mapa de 39 puntos numerados (`docs/pruebas/mapa_puntos.png`, de `docs/tools/mapa_puntos_f9.py`). Cada punto lleva su pin de Altium.
+- Polaridades revisadas con fotos contra el PcbDoc: C2, C3, D1, D2, K1, U2, U3, U5 y U7 bien. D3, D5, D6 y U6 se confirmaron midiendo.
+- Placa 1: H1 (resistencias, diodos y aislamiento), H2 (12 V sin U1) y H3 (3,3 V en TP3, incluido el lado de red del AMC3330) dentro de lo esperado.
+- U1 todavía no está. H5 y S1–S5 se pueden adelantar con 3,3 V en TP3. SW2/SW3 son opcionales: en Sigma está el KFC-A04-02, que cabe en la huella.
+
+---
+
+## Fase 10 — Software: firmware y aplicación web
+
+**Hoja o archivo:** fuera de Altium: `firmware/`, `app/`, `tools/simulador/` y `docs/software/` · **Estado:** pendiente
+
+**Objetivo.** Que la placa mida, proteja y se controle desde una aplicación web propia. Las protecciones se deciden en la ESP32 y funcionan sin internet (regla de seguridad). La conexión al servidor es saliente y cifrada (D8). Entrada: `docs/software/CONTEXTO_SOFTWARE.md`.
+
+**Tareas**
+
+- [ ] 10A · Arquitectura: comparar y elegir el framework del firmware, el transporte, el backend y la base de datos, el frontend y el hosting, la autenticación, el aprovisionamiento del WiFi, la OTA y las notificaciones. Registrar como D21+.
+- [ ] 10B · Firmware de pruebas (`firmware/prueba_placa`): S1, S2, S3, S4 y S5 del protocolo, sin WiFi, con o sin U1.
+- [ ] 10C · Protocolo de mensajes (`docs/software/PROTOCOLO_MENSAJES.md`): telemetría, eventos, órdenes con confirmación, configuración, sesiones, alarmas y OTA.
+- [ ] 10D · Firmware final (`firmware/evse_monitor`): drivers, máquina de estados con K1 NA, protecciones locales, NVS y búfer sin internet, hora NTP + DS3231, WiFi con TX ≤ 17 dBm, TLS, OTA y watchdog.
+- [ ] 10E · Simulador del equipo (`tools/simulador`).
+- [ ] 10F · Backend y base de datos: API, tiempo real y usuarios.
+- [ ] 10G · Aplicación web: panel en vivo, control, horarios y límites, historial y costos, alertas, configuración y OTA. En español y pensada primero para el celular.
+- [ ] 10H · Integración con la placa: S4–S8 (S6 y S7 con U1 soldado), calibración del ATM90E26 y prueba de punta a punta (orden en la app → K1 → J2 medido).
+- [ ] 10I · Documentación: `docs/software/ARQUITECTURA.md`, guía de instalación y uso, README.
+
+**Termina cuando:** desde la app se ve la medición real calibrada y se permite o detiene la carga, y las protecciones actúan sin internet.

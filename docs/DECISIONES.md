@@ -601,6 +601,15 @@ Cambios (30 oct):
 - `docs/fabricacion/GUIA_PEDIDO_JLC.md`: formulario, revisión de la ubicación pieza por pieza y respuestas al DFM. `GUIA_PEDIDO.md` y `PEDIDO_PCBWAY.md` quedan como historia.
 - No se pudo revisar la rotación por script contra los footprints de JLC: la API de EasyEDA rechaza la consulta. Se revisa en el visor «Component Placements» de JLC, con «Confirm Parts Placement».
 
+**Recepción y primeras pruebas (20 nov).** Llegaron las 2 placas de JLCPCB, ensambladas.
+- Protocolo por etapas (`docs/pruebas/PROTOCOLO_PRUEBAS.md`): H0–H5 de hardware sin firmware propio y S1–S8 con firmware. Cada medición va entre dos puntos del mapa `docs/pruebas/mapa_puntos.png` (39 puntos, con su pin de Altium; lo dibuja `docs/tools/mapa_puntos_f9.py` desde el PcbDoc). Incluye el ajuste del multímetro del usuario (Keysight 34461A: DCV, ACV, Ω 2W, Diode).
+- Polaridades revisadas con fotos contra los pads del PcbDoc: C2 (− a la derecha), C3 (− arriba), D1 (cátodo a la derecha), D2 (cátodo a la izquierda), K1 (pin 1 abajo a la derecha), U2 y U3 (pin 1 arriba a la izquierda), U5 (abajo a la izquierda) y U7 (muesca arriba). D3, D5, D6 y U6 no se distinguían en la foto: se confirmaron midiendo (H1-4 y H3).
+- **Orientación de U1** ([datasheet de RECOM](https://recom-power.com/pdf/Innoline/R-78CK-0.5.pdf), «Dimension Drawing»): la cara frontal tiene un punto (●) sobre el pin 1, y los pines salen a 2,0 mm de esa cara. En la huella R78CK3305, esa cara mira hacia J6 y el pin 1 va en el pad cuadrado; el cuerpo ocupa el rectángulo de serigrafía hacia BT1.
+- Placa 1: H1, H2 y H3 (incluidos HV_DCDC y HV_LDO del AMC3330 contra su tierra de red) dentro de lo esperado.
+- U1 todavía no está. Sin U1, los rieles de 12 V y 3,3 V están separados: con 3,3 V en TP3 se hacen H5 y S1–S5, y con un segundo canal de 12 V en J6 también S4. Con U1 soldado, nunca más 3,3 V en TP3.
+- **SW2/SW3 (opcionales):** el KFC-A04-02 de Sigma ([página](https://www.sigmaelectronica.net/producto/kfc-a04-02/), 5,2 × 5,2 mm, $357 COP) tiene el plano del 1187B (patas de 6,4 mm de punta a punta, 3,7 mm entre patas, pares 1-2 y 3-4 unidos por dentro). Cabe en la huella TS1187ABAB (pads a 6,0 × 3,75 mm). El SW-761SMD (6 × 6 mm) no cabe.
+- El software (firmware y aplicación web) pasa a la Fase 10. Su contexto está en `docs/software/CONTEXTO_SOFTWARE.md`, y sus decisiones se registran desde D21.
+
 ## Componentes elegidos
 
 Se llena al cerrar cada fase.
