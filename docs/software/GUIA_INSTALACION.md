@@ -53,7 +53,7 @@ Si al subir sale «Wrong boot mode detected» (falla el auto-reset): une el **38
 | S4 | `s4 k1 1` / `s4 k1 0` | Ω entre el **17** (J2-1) y el **18** (J2-2) | cerrado: 25–40 Ω y LED6 encendido; abierto: OL |
 | S5 | `s5` | sin red ni CT | paso a paso; en S5-4 el firmware escribe la polaridad de WarnOut e IRQ (A3) |
 | S5 (generador) | `s5 monitor` | seno de 60 Hz en J3 | Irms2 crece en proporción a 50, 100 y 200 mVrms |
-| S6 | `s6 scan`, `s6 con RED CLAVE`, `s6 carga` | 12 V en J6; osciloscopio en el **3** con tierra en el **1** | RSSI anotado; 60 s transmitiendo sin reiniciarse; mínimo ≥ 3,0 V en el **3** |
+| S6 | `s6 scan`, `s6 con RED CLAVE` (nombre con espacios entre comillas: `s6 con "Mi Red" CLAVE`), `s6 carga` | 12 V en J6; osciloscopio en el **3** con tierra en el **1** | RSSI anotado; 60 s transmitiendo sin reiniciarse; mínimo ≥ 3,0 V en el **3** |
 | S7-8/9 | `s5 monitor`, `s5 zx` | montaje de S7 (transformador de aislamiento) | ≈ 60,00 Hz; 120 pulsos/s de ZX |
 
 `s5 reg XX` y `s5 esc XX YYYY` leen o escriben cualquier registro del ATM90E26 (hexadecimal).
@@ -62,23 +62,23 @@ Si al subir sale «Wrong boot mode detected» (falla el auto-reset): une el **38
 
 **Qué es:** el ATM90E26 tiene dos salidas de aviso. **WarnOut** (red `MEAS_WARN`, llega al IO21) marca un error grave, como una suma de verificación mal; **IRQ** (red `MEAS_IRQ`, al IO14) avisa eventos. El datasheet no dice si se «activan» subiendo a 3,3 V o bajando a 0 V. No es grave: el firmware final detecta las fallas leyendo el registro SysStatus, no estos pines. Se anota para que quede documentado y para una versión futura que use el pin como interrupción.
 
-**Cómo se hace:** el firmware provoca el error a propósito (escribe 8765H en CalStart sin la suma correcta) y lee los dos pines antes y después.
+**Cómo se hace:** el firmware provoca el error a propósito (escribe una CS1 equivocada y 8765H en CalStart) y lee los dos pines antes y después. Sin escribir CS1 no sirve: al encender, el chip no marca error con 8765H (se vio en la placa 1 el 24 nov).
 
 1. Placa con 12 V en J6 y el USB conectado; firmware de pruebas subido (A1). Sin red ni CT.
 2. En la consola, escribe `s5` y Enter. Va de a un paso: con Enter pasas al siguiente.
 3. Al llegar a **S5-4** sale un recuadro como este:
 
 ```text
-S5-4 · escrito 8765H sin CS1 válido → SysStatus (01H) = C000H, CalErr = 11
+S5-4 · CS1 = AA34H (equivocada) y 8765H → SysStatus (01H) = C000H, CalErr = 11
   [ OK ] CalErr = 11
   [ OK ] WarnOut e IRQ cambiaron de estado
   ┌─ Copia estas dos líneas en el registro del protocolo (S5-4):
   │ WarnOut (red MEAS_WARN, IO21): normal BAJO (0 V) → con error ALTO (3,3 V) ⇒ ACTIVO EN ALTO
-  │ IRQ (red MEAS_IRQ, IO14): normal ALTO (3,3 V) → con error BAJO (0 V) ⇒ ACTIVO EN BAJO
+  │ IRQ (red MEAS_IRQ, IO14): normal BAJO (0 V) → con error ALTO (3,3 V) ⇒ ACTIVO EN ALTO
   └─ (el datasheet no dice la polaridad; el firmware final no depende de ella)
 ```
 
-   (Los niveles de arriba son un ejemplo: anota lo que salga en tu placa.)
+   (Es lo que salió en la placa 1 el 24 nov: los dos son activos en alto.)
 
 4. Copia las dos líneas del recuadro en `docs/pruebas/PROTOCOLO_PRUEBAS.md`, en la tabla de S5, fila 4, columna de resultado. O pégamelas en el chat y yo las anoto.
 5. El paso siguiente (S5-5, SoftReset) devuelve los pines a su nivel normal: así se confirma que el cambio vino del error.

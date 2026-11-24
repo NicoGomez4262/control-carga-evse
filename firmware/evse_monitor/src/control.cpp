@@ -195,7 +195,7 @@ static void medir(uint32_t ms) {
   bool ok = atm::medir(m);
   xSemaphoreGive(mtxAtm);
   // La falla se decide con los bits CalErr/AdjErr de SysStatus (lo mismo que activa WarnOut), no con el
-  // nivel del pin: el datasheet no dice su polaridad y se confirma en S5-4.
+  // nivel del pin (el datasheet no dice su polaridad; en la placa 1, S5-4 del 24 nov, WarnOut e IRQ son activos en alto).
   bool calErr = ok && (m.sys & (atm::SYS_CALERR | atm::SYS_ADJERR));
   if (ok && !calErr) {
     if (cfg.inv_ct) m.p = -m.p;

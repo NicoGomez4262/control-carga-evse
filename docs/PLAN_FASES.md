@@ -587,7 +587,7 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 
 ## Fase 9 — Pedido, montaje y primeras pruebas
 
-**Estado:** en curso. Las tareas de hardware que faltan están en `NEXT_SESSION.md`.
+**Estado:** ✅ cerrada (24 nov 2026). S7 (red y calibración) y S8 siguen en la tarea 10H de la Fase 10.
 
 **22 oct:** pedido preparado con la clase (`docs/fabricacion/GUIA_PEDIDO.md`). Los formularios de PCBWay están revisados campo por campo. TP1–TP6 pasan a ronghe RH-5016 (el Keystone 5016 quedó en 0 en LCSC). DigiKey lleva K1 y repuestos por US$ 17,87, dentro del cupo de US$ 40. Carrito: US$ 220,02 ≈ 702.192 COP.
 
@@ -600,6 +600,14 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 - Placa 1: H1 (resistencias, diodos y aislamiento), H2 (12 V sin U1) y H3 (3,3 V en TP3, incluido el lado de red del AMC3330) dentro de lo esperado.
 - U1 todavía no está. H5 y S1–S5 se pueden adelantar con 3,3 V en TP3. SW2/SW3 son opcionales: en Sigma está el KFC-A04-02, que cabe en la huella.
 
+**24 nov (cierre):** U1 soldado. En la placa 1 quedaron aprobadas H0 (lupa), H4, H5, H6 y, con `firmware/prueba_placa`, S1–S6: LEDs, SW1, SW2/SW3 (KFC-A04-02), el botón de panel en J7, I²C, AHT20, DS3231, sonda, K1/J2, ATM90E26 por SPI y WiFi. WarnOut e IRQ son activos en alto. El canal de corriente se probó sin red con `s5 inyectar`: I2 pasa de 0,008 a 2,985 A. Falta el CT con corriente real en un solo conductor, que va en S7 (10H). Notas para la Rev 1.1 y detalle en `docs/DECISIONES.md`. Etiqueta `rev1.0` en git.
+
+- [x] Pedido a JLCPCB y recepción de las 2 placas ensambladas (20 nov).
+- [x] H0–H3 (20 nov) y U1 + H4–H6 (24 nov), placa 1.
+- [x] SW2/SW3 (KFC-A04-02) soldados y el SW730RD cableado a J7.
+- [x] S1–S6 con el firmware de pruebas, más la prueba del canal de corriente sin red (24 nov).
+- [x] Cerrar la Rev 1.0: etiqueta `rev1.0` en git y notas para la Rev 1.1.
+
 ---
 
 ## Fase 10 — Software: firmware y aplicación web
@@ -611,13 +619,13 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 **Tareas**
 
 - [x] 10A · Arquitectura: D21–D32 en `docs/DECISIONES.md` y `docs/software/ARQUITECTURA.md` (23–24 nov). El 24 nov el servidor pasó a Firebase (D31, pedido del usuario) y la app tomó el diseño de tablero eléctrico (D32). Antes: Firmware Arduino-ESP32 en PlatformIO; WebSocket seguro saliente; Cloudflare Workers + Durable Objects + D1 + KV (gratis); app sin framework; Telegram. Falta que el usuario decida D28 (arranque de K1).
-- [x] 10B · Firmware de pruebas (`firmware/prueba_placa`): S1–S6 y ayudas para S5 con generador y S7 (23 nov, compila). Falta correrlo en la placa.
+- [x] 10B · Firmware de pruebas (`firmware/prueba_placa`): S1–S6 y ayudas para S5 con generador y S7 (23 nov). Corrido en la placa 1 el 24 nov: S1–S6 aprobadas. Se corrigieron CR + LF, comillas y red guardada en `s6 con`, el ritmo de `s6 carga` y S5-4, y se agregó `s5 inyectar` (canal de corriente sin red).
 - [x] 10C · Protocolo de mensajes (`docs/software/PROTOCOLO_MENSAJES.md`).
 - [x] 10D · Firmware final (`firmware/evse_monitor`): ATM90E26 con CS1/CS2 y LNSel = 0, sensores, máquina de estados con K1 NA, protecciones locales, energía en NVS, búfer de 7 MB, NTP + DS3231, WiFi a 17 dBm, TLS verificado, portal, consola, OTA con vuelta atrás y watchdog (23 nov, compila). Falta probarlo en la placa.
 - [x] 10E · Simulador del equipo (`tools/simulador/simulador.py`).
 - [x] 10F · Servidor: API, WebSocket en vivo, usuarios y roles, D1, OTA, Telegram y limpieza diaria (probado en local con el simulador).
 - [x] 10G · Aplicación web: panel en vivo, control con confirmación, horarios y límites, historial con costos y CSV, alarmas, ajustes, calibración, OTA, usuarios (probada en local en tamaño de celular).
-- [ ] 10H · Integración con la placa: publicar la app en Firebase (guía B), S1–S5 con el firmware de pruebas, U1 + H4 + S6, firmware final conectado, S7 con calibración y S8 de punta a punta (orden en la app → K1 → J2 medido).
+- [ ] 10H · Integración con la placa: ~~S1–S6 con el firmware de pruebas, U1 + H4~~ (hecho el 24 nov). Falta publicar la app en Firebase (guía B), conectar el firmware final, S7 con calibración y el CT en un solo conductor, y S8 de punta a punta (orden en la app → K1 → J2 medido).
 - [x] 10I · Documentación: `ARQUITECTURA.md`, `PROTOCOLO_MENSAJES.md`, `GUIA_INSTALACION.md`, README (23 nov).
 
 **Termina cuando:** desde la app se ve la medición real calibrada y se permite o detiene la carga, y las protecciones actúan sin internet.

@@ -13,6 +13,7 @@
 #include <OneWire.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#include <Preferences.h>
 #include <esp_system.h>
 #include <esp_mac.h>
 
@@ -54,6 +55,10 @@ static String leerLinea() {
   while (Serial.available()) {
     char c = (char)Serial.read();
     if (c == '\r' || c == '\n') {
+      // El monitor de PlatformIO manda Enter como CR + LF: se descarta el resto del fin de línea para que
+      // no lo tome como «tecla para salir» el comando que sigue (s1 parar, s5 monitor, s6 carga, pausas de s5).
+      delay(30);
+      while (Serial.available() && (Serial.peek() == '\r' || Serial.peek() == '\n')) Serial.read();
       if (buf.length() == 0) continue;
       Serial.println();
       String l = buf;
@@ -184,6 +189,8 @@ static uint8_t crc8Aht(const uint8_t *d, int n) {
   return c;
 }
 
+static uint8_t ahtCrudo[7] = {0};  // última trama del AHT20 (estado, 5 de datos, CRC), para S2-2
+
 static bool leerAht20(float &t, float &h) {
   Wire.beginTransmission(I2C_AHT20);
   Wire.write(0x71);
@@ -212,6 +219,7 @@ static bool leerAht20(float &t, float &h) {
     delay(10);
   }
   if (d[0] & 0x80) return false;
+  memcpy(ahtCrudo, d, sizeof(d));
   if (crc8Aht(d, 6) != d[6]) return false;
   uint32_t rh = ((uint32_t)d[1] << 12) | ((uint32_t)d[2] << 4) | (d[3] >> 4);
   uint32_t rt = (((uint32_t)d[3] & 0x0F) << 16) | ((uint32_t)d[4] << 8) | d[5];
@@ -221,14 +229,36 @@ static bool leerAht20(float &t, float &h) {
 }
 
 static void cmdAht() {
-  Serial.println("S2-2 · AHT20 (0x38):");
-  float t, h;
-  if (leerAht20(t, h)) {
-    Serial.printf("  Temperatura %.2f °C · humedad %.1f %%HR\n", t, h);
-    resultado(t > -10 && t < 60 && h >= 0 && h <= 100, "lectura con CRC correcto; compárala con un termómetro");
-  } else {
-    resultado(false, "el AHT20 no responde o el CRC no coincide");
+  Serial.println("S2-2 · AHT20 (0x38), cada 2 s durante 20 s. Échale el aliento: la humedad debe subir. Cualquier tecla sale.");
+  float t, h, hMin = 1000, hMax = -1;
+  bool alguna = false;
+  uint32_t t0 = millis();
+  while (millis() - t0 < 20000) {
+    if (leerAht20(t, h)) {
+      alguna = true;
+      hMin = min(hMin, h);
+      hMax = max(hMax, h);
+      Serial.printf("  Temperatura %.2f °C · humedad %.1f %%HR · trama %02X %02X %02X %02X %02X %02X %02X\n", t, h,
+                    ahtCrudo[0], ahtCrudo[1], ahtCrudo[2], ahtCrudo[3], ahtCrudo[4], ahtCrudo[5], ahtCrudo[6]);
+    } else {
+      Serial.println("  sin lectura: el AHT20 no responde o el CRC no coincide");
+    }
+    for (int i = 0; i < 200; i++) {
+      if (hayTecla()) { t0 = 0; break; }
+      delay(10);
+    }
+    if (t0 == 0) break;
   }
+  if (!alguna) {
+    resultado(false, "el AHT20 no responde o el CRC no coincide");
+    return;
+  }
+  resultado(t > -10 && t < 60, "temperatura razonable (compárala con un termómetro)");
+  resultado(hMax > 1.0f, "humedad mayor que 0 %");
+  resultado(hMax - hMin >= 5.0f, "la humedad subió 5 %HR o más con el aliento");
+  if (hMax <= 1.0f)
+    Serial.println("  Pista: 0 % con CRC bien = el sensor lee bajo (datasheet: pasa después de soldar o con vapores de"
+                   " solventes, como el alcohol). Déjalo unas horas al aire y repite.");
 }
 
 // ---------------------------------------------------------------- S2 DS3231
@@ -513,12 +543,24 @@ static void cmdAtmSecuencia() {
   if (!pausa()) return;
 
   int warnAntes = digitalRead(PIN_MEAS_WARN), irqAntes = digitalRead(PIN_MEAS_IRQ);
+  // Hay que ESCRIBIR una CS1 equivocada: al encender, el chip no marca error con 8765H (placa 1, 24 nov:
+  // SysStatus 0000H sin escribir CS1; con CS1 = 1234H, C000H y WarnOut/IRQ en 1). Se escribe la calculada
+  // por el chip (2CH) invertida, que nunca coincide. El chip revisa «regularmente»: se espera hasta 3 s.
+  uint16_t cs1Mala = (uint16_t)~atmLeer(0x2C);
+  atmEscribir(0x2C, cs1Mala);
   atmEscribir(0x20, 0x8765);
-  delay(50);
-  uint16_t st = atmLeer(0x01);
+  uint16_t st = 0;
+  uint32_t tErr = millis();
+  while (millis() - tErr < 3000) {
+    st = atmLeer(0x01);
+    if ((st & 0xC000) == 0xC000) break;
+    delay(20);
+  }
   int warn = digitalRead(PIN_MEAS_WARN), irq = digitalRead(PIN_MEAS_IRQ);
-  Serial.printf("S5-4 · escrito 8765H sin CS1 válido → SysStatus (01H) = %04XH, CalErr = %d%d\n", st, (st >> 15) & 1,
-                (st >> 14) & 1);
+  Serial.printf("  CalStart se lee %04XH · CS1 calculada por el chip (2CH) = %04XH · CalErr a los %lu ms\n", atmLeer(0x20),
+                atmLeer(0x2C), (unsigned long)(millis() - tErr));
+  Serial.printf("S5-4 · CS1 = %04XH (equivocada) y 8765H → SysStatus (01H) = %04XH, CalErr = %d%d\n", cs1Mala, st,
+                (st >> 15) & 1, (st >> 14) & 1);
   resultado((st & 0xC000) == 0xC000, "CalErr = 11");
   resultado(warn != warnAntes && irq != irqAntes, "WarnOut e IRQ cambiaron de estado");
   // Polaridad: el nivel «sin error» es el de antes; el nivel «con error» es el de ahora.
@@ -554,6 +596,53 @@ static void cmdAtmSecuencia() {
   Serial.printf("S5-6 · Urms (49H) = %.2f V · Irms2 (68H) = %.3f A (sin red ni CT)\n", urms / 100.0f, irms2 / 1000.0f);
   resultado(urms < 1000 && irms2 < 100, "≈ 0 (menos de 10 V y 0,1 A, ruido con las ganancias de fábrica)");
   Serial.println("Fin de S5. El chip quedó con CalStart = AdjStart = 5678H (medición con valores de fábrica).");
+}
+
+// Prueba del canal de corriente SIN red ni CT: IO0 (J8-5, el 38) da una cuadrada de 60 Hz, 0–3,3 V, que entra
+// por una resistencia de 1 kΩ al 19 (D4-2, CT_P). Sobre R11 (10 Ω a GND) quedan ≈ ±16 mV entre I2P e I2N, lo
+// mismo que ≈ 1,6 A en el primario del CT (2000:1 sobre 20 Ω). El filtro pasa-altos del ATM90E26 quita la continua.
+// IO0 solo se usa después del arranque; la resistencia se quita antes de reiniciar (si no, arranca en descarga).
+static void cmdInyectar() {
+  Serial.println("S5-7 · Canal de corriente sin red: cuadrada de 60 Hz en IO0 (J8-5, el 38) → 1 kΩ → el 19 (D4-2).");
+  Serial.println("  CT DESENCHUFADO de J3. 5 s sin señal, 20 s con señal y 5 s sin señal (cualquier tecla sale).");
+  atmEscribir(0x20, 0x5678);
+  atmEscribir(0x2B, 0x9022);
+  atmEscribir(0x30, 0x5678);
+  delay(1000);
+  const int canal = 7;
+  float base = 0, con = 0;
+  int nBase = 0, nCon = 0;
+  bool salir = false;
+  for (int s = 0; s < 30 && !salir; s++) {
+    bool inyecta = s >= 5 && s < 25;
+    if (s == 5) {
+      ledcSetup(canal, 60, 10);
+      ledcAttachPin(0, canal);
+      ledcWrite(canal, 512);
+      Serial.println("  → señal encendida");
+    }
+    if (s == 25) {
+      ledcDetachPin(0);
+      pinMode(0, INPUT);
+      Serial.println("  → señal apagada");
+    }
+    for (int i = 0; i < 100; i++) {
+      if (hayTecla()) { salir = true; break; }
+      delay(10);
+    }
+    float i2 = atmLeer(0x68) / 1000.0f;
+    Serial.printf("  %2d s · %s · I2 %6.3f A · Sys %04XH\n", s + 1, inyecta ? "CON señal" : "sin señal", i2, atmLeer(0x01));
+    if (s >= 7 && s < 25) { con += i2; nCon++; }
+    if (s < 5 || s >= 27) { base += i2; nBase++; }
+  }
+  ledcDetachPin(0);
+  pinMode(0, INPUT);
+  if (nBase == 0 || nCon == 0) return;
+  base /= nBase;
+  con /= nCon;
+  Serial.printf("  Promedio sin señal %.3f A · con señal %.3f A\n", base, con);
+  resultado(con > base * 5 && con > 0.05f, "I2 sube claramente con la señal: J3 → R11/R13 → R8/R15 → ATM90E26 bien");
+  Serial.println("  Quita la resistencia antes de reiniciar la placa (IO0 en bajo al arrancar = modo descarga).");
 }
 
 static void cmdAtmMonitor() {
@@ -600,12 +689,42 @@ static void cmdWifiScan() {
 }
 
 static void cmdWifiConectar(const String &arg) {
-  int sp = arg.indexOf(' ');
-  if (sp < 1) {
-    Serial.println("  Uso: s6 con NOMBRE_RED CLAVE   (no se guarda en ningún lado)");
-    return;
+  // Acepta el nombre entre comillas (obligatorio si tiene espacios): s6 con "Mi Red" clave
+  String a = arg, ssid, clave;
+  a.trim();
+  if (a.startsWith("\"")) {
+    int fin = a.indexOf('"', 1);
+    if (fin < 0) fin = a.length();
+    ssid = a.substring(1, fin);
+    clave = fin < (int)a.length() ? a.substring(fin + 1) : "";
+  } else {
+    int sp = a.indexOf(' ');
+    ssid = sp < 0 ? a : a.substring(0, sp);
+    clave = sp < 0 ? "" : a.substring(sp + 1);
   }
-  String ssid = arg.substring(0, sp), clave = arg.substring(sp + 1);
+  clave.trim();
+  // La red se guarda en la NVS de la placa (espacio «prueba», no va a git): «s6 con» solo usa la guardada y
+  // «s6 olvidar» la borra. Borrar la flash para el firmware final también la borra.
+  Preferences pref;
+  if (ssid.length() == 0) {
+    pref.begin("prueba", true);
+    ssid = pref.getString("ssid", "");
+    clave = pref.getString("clave", "");
+    pref.end();
+    if (ssid.length() == 0) {
+      Serial.println("  Uso: s6 con NOMBRE_RED CLAVE   o   s6 con \"NOMBRE CON ESPACIOS\" CLAVE   (queda guardada)");
+      Serial.println("  Después basta con «s6 con».");
+      return;
+    }
+    Serial.println("  Usando la red guardada en la placa.");
+  } else {
+    pref.begin("prueba", false);
+    pref.putString("ssid", ssid);
+    pref.putString("clave", clave);
+    pref.end();
+    Serial.println("  Red guardada en la placa: la próxima vez basta con «s6 con» («s6 olvidar» la borra).");
+  }
+  Serial.printf("  Red: «%s» (%u caracteres) · clave de %u caracteres\n", ssid.c_str(), ssid.length(), clave.length());
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), clave.c_str());
   WiFi.setTxPower(WIFI_POWER_17dBm);
@@ -617,13 +736,29 @@ static void cmdWifiConectar(const String &arg) {
   }
   Serial.println();
   if (WiFi.status() != WL_CONNECTED) {
+    wl_status_t e = WiFi.status();
     resultado(false, "no conectó en 20 s");
+    if (e == WL_NO_SSID_AVAIL)
+      Serial.println("  Motivo: no ve esa red. Revisa el nombre exacto con «s6 scan» (mayúsculas, espacios) y que sea de 2,4 GHz.");
+    else if (e == WL_CONNECT_FAILED)
+      Serial.println("  Motivo: la red rechazó la conexión (casi siempre la clave).");
+    else
+      Serial.printf("  Motivo: estado %d (6 = desconectado: suele ser la clave o una red solo de 5 GHz).\n", (int)e);
+    WiFi.disconnect(true);
     return;
   }
   digitalWrite(PIN_LED_WIFI, HIGH);
   Serial.printf("  IP %s · RSSI %d dBm · TX %d (×0,25 dBm)\n", WiFi.localIP().toString().c_str(), WiFi.RSSI(),
                 (int)WiFi.getTxPower());
   resultado(true, "conectado; anota el RSSI a 1 m y donde va a quedar la placa");
+}
+
+static void cmdWifiOlvidar() {
+  Preferences pref;
+  pref.begin("prueba", false);
+  pref.clear();
+  pref.end();
+  Serial.println("  Red borrada de la placa.");
 }
 
 static void cmdWifiCarga() {
@@ -636,20 +771,29 @@ static void cmdWifiCarga() {
   uint8_t paquete[1400];
   memset(paquete, 0xA5, sizeof(paquete));
   IPAddress difusion = WiFi.broadcastIP();
-  uint32_t t0 = millis(), n = 0, ultimo = 0;
+  uint32_t t0 = millis(), n = 0, ultimo = 0, fallos = 0;
   while (millis() - t0 < 60000) {
     udp.beginPacket(difusion, 9);  // puerto 9 = «discard»
     udp.write(paquete, sizeof(paquete));
-    if (udp.endPacket()) n++;
+    // Si la pila de red no tiene búfer libre (error 12, ENOMEM) se espera más: así no se llena la consola de
+    // «could not send data: 12» (24 nov) y la radio sigue transmitiendo casi al máximo.
+    if (udp.endPacket()) {
+      n++;
+      delay(4);
+    } else {
+      fallos++;
+      delay(50);
+    }
     if (millis() - ultimo > 5000) {
       ultimo = millis();
       Serial.printf("  %2lu s · %lu paquetes · RSSI %d dBm\n", (unsigned long)((millis() - t0) / 1000), (unsigned long)n,
                     WiFi.RSSI());
     }
     if (hayTecla()) break;
-    delay(1);
   }
-  Serial.printf("  Fin: %lu paquetes. Si la placa no se reinició, no hubo brownout (S6-3).\n", (unsigned long)n);
+  Serial.printf("  Fin: %lu paquetes enviados (%lu esperas por búfer lleno, normal). Si la placa no se reinició, no hubo"
+                " brownout (S6-3).\n",
+                (unsigned long)n, (unsigned long)fallos);
 }
 
 // ---------------------------------------------------------------- menú
@@ -660,7 +804,7 @@ static void ayuda() {
   Serial.println("  s1 leds                   LED3, LED4 y LED5 uno por uno (S1-1)");
   Serial.println("  s1 parar                  muestra PARAR durante 20 s: SW1 y J7 (S1-2, S1-3)");
   Serial.println("  s2 i2c                    escaneo I²C a 100 y 400 kHz (S2-1)");
-  Serial.println("  s2 aht                    temperatura y humedad del AHT20 (S2-2)");
+  Serial.println("  s2 aht                    temperatura y humedad del AHT20, 20 s (S2-2)");
   Serial.println("  s2 rtc                    hora y OSF del DS3231 (S2-5, S2-7)");
   Serial.println("  s2 hora AAAA-MM-DD HH:MM:SS   pone la hora (de Colombia) y borra OSF (S2-5)");
   Serial.println("  s2 1hz                    cuenta los flancos de 1 Hz en IO18 durante 10 s (S2-6)");
@@ -671,7 +815,9 @@ static void ayuda() {
   Serial.println("  s5 reg XX | s5 esc XX YYYY   lee o escribe un registro (hexadecimal)");
   Serial.println("  s5 monitor                U, I2, P, FP y frecuencia cada segundo (generador o S7)");
   Serial.println("  s5 zx                     cuenta los pulsos de cruce por cero en 5 s (S7-9)");
-  Serial.println("  s6 scan | s6 con RED CLAVE | s6 carga   WiFi: solo con U1 soldado (S6)");
+  Serial.println("  s5 inyectar               canal del CT sin red: IO0 (J8-5) → 1 kΩ → 19 (D4-2), CT desenchufado");
+  Serial.println("  s6 scan | s6 con RED CLAVE | s6 carga   WiFi (S6); la red queda guardada: luego «s6 con» solo");
+  Serial.println("                            nombre con espacios entre comillas: s6 con \"Mi Red\" CLAVE · s6 olvidar la borra");
   Serial.println("  ayuda");
   Serial.println();
 }
@@ -710,6 +856,7 @@ static void ejecutar(const String &linea) {
   else if (cmd == "s5" && sub == "leer") cmdAtmLeer();
   else if (cmd == "s5" && sub == "monitor") cmdAtmMonitor();
   else if (cmd == "s5" && sub == "zx") cmdZx();
+  else if (cmd == "s5" && sub == "inyectar") cmdInyectar();
   else if (cmd == "s5" && sub == "reg") {
     uint8_t dir = (uint8_t)strtoul(resto.c_str(), nullptr, 16);
     Serial.printf("  %02XH = %04XH\n", dir, atmLeer(dir));
@@ -723,6 +870,7 @@ static void ejecutar(const String &linea) {
     }
   } else if (cmd == "s6" && sub == "scan") cmdWifiScan();
   else if (cmd == "s6" && sub == "con") cmdWifiConectar(resto);
+  else if (cmd == "s6" && sub == "olvidar") cmdWifiOlvidar();
   else if (cmd == "s6" && sub == "carga") cmdWifiCarga();
   else Serial.println("  Comando desconocido. Escribe «ayuda».");
 }

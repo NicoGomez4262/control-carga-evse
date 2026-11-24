@@ -463,7 +463,7 @@ El precio de PCBWay es el del cotizador del 20 oct; DigiKey y Sigma se revisaron
 
 **Cierre de F8 (22 oct).** Placa ruteada y verificada: 0 violaciones eléctricas, GND en un solo grupo y Gerber comparados contra el PcbDoc. El pedido, la compra y las pruebas pasan a F9. Explicación del diseño para el portafolio: `docs/EXPLICACION_PCB_F8.md`.
 
-## Fase 9 — Pedido, montaje y primeras pruebas (en curso)
+## Fase 9 — Pedido, montaje y primeras pruebas (cerrada, 24 nov 2026)
 
 **Preparación del pedido (22 oct).** Paso a paso en `docs/fabricacion/GUIA_PEDIDO.md`, con cada campo de los formularios de PCBWay en el orden de la página (revisados ese día). El pedido es en grupo con la clase: en PCBWay, todos los pedidos en una misma cuenta para juntar el envío; en DigiKey, un carrito común con un cupo de **US$ 40** por persona. Decisiones:
 - **TP1–TP6 → ronghe RH-5016** (LCSC C5199799, 36.015 en stock, US$ 0,093). El Keystone 5016 quedó en 0 en LCSC. El RH-5016 tiene el mismo plano (3,81 × 2,84 mm) y el mismo footprint, así que PCBWay lo sigue soldando. Es el paso 2 de la regla D16 (un equivalente que PCBWay tenga antes de DigiKey). Cambiado en `bom_f7.LINEAS`, en las hojas 02 y 03 (`bom_f7.py --hojas`), en la BOM y en el Pick & Place.
@@ -622,6 +622,22 @@ Cambios (30 oct):
 - **SW2/SW3 (opcionales):** el KFC-A04-02 de Sigma ([página](https://www.sigmaelectronica.net/producto/kfc-a04-02/), 5,2 × 5,2 mm, $357 COP) tiene el plano del 1187B (patas de 6,4 mm de punta a punta, 3,7 mm entre patas, pares 1-2 y 3-4 unidos por dentro). Cabe en la huella TS1187ABAB (pads a 6,0 × 3,75 mm). El SW-761SMD (6 × 6 mm) no cabe.
 - El software (firmware y aplicación web) pasa a la Fase 10. Su contexto está en `docs/software/CONTEXTO_SOFTWARE.md`, y sus decisiones se registran desde D21.
 
+**Pruebas sin red y cierre (24 nov).** Placa 1, con `firmware/prueba_placa` subido por Claude a COM8. Detalle en el registro de `docs/pruebas/PROTOCOLO_PRUEBAS.md`.
+- U1 soldado; H0 (lupa), H4 (encendido escalonado 3 → 6 → 12 V), H5 (CH340C en COM8; ESP32-S3 rev v0.2, 16 MB + PSRAM de 2 MB; MAC 10:bd:a3:65:01:08) y H6 (pila, CT y sonda) aprobadas.
+- SW2/SW3 = KFC-A04-02 soldados a mano; el botón de panel SW730RD va cableado a J7. Funcionan los dos (S1).
+- **S1–S6 aprobadas:** LEDs; SW1 y J7 (PARAR); I²C con AHT20 (0x38) y DS3231 (0x68), hora puesta y 1 Hz; DS18B20 (28 35 92 46 51 25 0B 0B); K1/J2; ATM90E26 por SPI; WiFi (60 s transmitiendo sin reinicio, RSSI −33 dBm, pico de 75 mA en la fuente de 12 V).
+- **ATM90E26, S5-4:** WarnOut (IO21) e IRQ (IO14) son **activos en alto**. Al encender, el chip no marca CalErr con 8765H si no se ha escrito CS1; con una CS1 equivocada sí (SysStatus C000H). La CS1 de fábrica es 55CBH. La prueba ahora escribe a propósito una CS1 equivocada.
+- **Canal de corriente sin red (`s5 inyectar`):** IO0 (J8-5) da una cuadrada de 60 Hz que entra por 1 kΩ al 19 (D4-2), con el CT desenchufado. Son ≈ 16 mVrms sobre R11, lo mismo que ≈ 1,6 A en el primario. I2 pasó de 0,008 A a 2,985 A, estable. Con las ganancias de fábrica, el chip lee ≈ 1,8 veces la corriente real; se corrige con `cal_auto` en S7. Las pruebas con el CT abrazando un cable entero no sirven, porque la ida y la vuelta se anulan: va en **un solo conductor** (S7 o en la instalación, sobre L1).
+- AHT20: al principio leía 0 % de humedad con el CRC bien; después leyó bien. El datasheet advierte lecturas bajas temporales después de soldar o con vapores de solventes.
+- Correcciones al firmware de pruebas: el monitor de PlatformIO manda Enter como CR + LF y el LF sobrante cerraba `s1 parar`, `s3 sonda`, `s5 monitor` y `s6 carga`; `s6 con` acepta comillas y guarda la red en la NVS de la placa (`s6 olvidar` la borra); `s6 carga` espera cuando el búfer de red se llena (error 12); `s2 aht` lee 20 s y muestra la trama. La consola del firmware final no tiene el problema del CR + LF.
+- La Fase 9 se cierra con todo lo que se puede probar sin red (pedido del usuario). S7 (red, calibración y el CT con corriente real) y S8 siguen en la tarea 10H de la Fase 10. La placa 2 queda de repuesto, probada hasta H3. Etiqueta `rev1.0` en git.
+
+**Notas para la Rev 1.1.**
+- Gabinete (pendiente desde F1; lo define la Rev 1.1).
+- Un punto de prueba con un GPIO libre junto a J3, para inyectar la señal de prueba del canal de corriente sin usar IO0. Con IO0, si la resistencia queda puesta al reiniciar, la placa arranca en modo de descarga.
+- LED3–LED5 con 1 kΩ (≈ 1 mA) se ven bien: no hace falta cambiarlos.
+- Fotos de las dos caras de la placa 1 para `docs/pruebas/fotos/` (pendientes de H0; no bloquean).
+
 ## Fase 10 — Software: firmware y aplicación web (en curso)
 
 **23 nov.** El usuario pidió encargarse de todo el software de una vez («encárgate de todo el Software»), así que las decisiones se tomaron sin el paso de aprobación y quedan aquí con sus alternativas, para revisarlas. La única que se deja expresamente al usuario es la política de arranque de K1 (D28), que es configurable. Detalle en `docs/software/ARQUITECTURA.md`.
@@ -674,7 +690,7 @@ En las tres: K1 está abierto mientras arranca (R40); PARAR, temperatura, fallas
 
 **Detalles del hardware que fija el software:**
 - El CT entra por I2: MMode = 9022H (LNSel = 0) y registros «2».
-- La falla del medidor se decide con CalErr/AdjErr de SysStatus y no con el nivel de WarnOut: el datasheet no dice la polaridad de WarnOut ni de IRQ (se anota en S5-4).
+- La falla del medidor se decide con CalErr/AdjErr de SysStatus y no con el nivel de WarnOut: el datasheet no dice la polaridad de WarnOut ni de IRQ (se anota en S5-4). **S5-4 (24 nov, placa 1):** WarnOut (IO21) e IRQ (IO14) son **activos en alto** (0 V normal, 3,3 V con CalErr). Al encender, el chip no marca CalErr con 8765H si no se ha escrito CS1; con una CS1 equivocada sí (SysStatus C000H). La CS1 que calcula con los valores de fábrica es 55CBH.
 - Sin calibrar, la protección por tensión baja y el aviso de sag no actúan (con las ganancias de fábrica la lectura de tensión no es confiable).
 - WiFi a 17 dBm (D2: el R-78CK da 0,5 A).
 
