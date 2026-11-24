@@ -54,6 +54,8 @@ Reglas:
 
 ## Qué se hizo (23 nov, F10)
 
+*Historia: el servidor de este día (Cloudflare con WebSocket) se reemplazó el 24 nov por Firebase (D31); el resto sigue igual.*
+
 - **Arquitectura (D21–D30):** firmware Arduino-ESP32 2.0.17 en PlatformIO con dos tareas (control y red); WebSocket seguro saliente con el certificado verificado; Cloudflare Workers + un Durable Object por equipo + D1 + KV en el plan gratis (US$ 0/mes); app web sin framework; usuarios con clave derivada en el navegador y token propio por equipo; portal cautivo y consola para el WiFi; OTA desde la app con vuelta atrás; Telegram para las alarmas. El usuario pidió que Claude se encargara de todo, así que las decisiones quedaron tomadas y documentadas con sus alternativas; D28 (arranque de K1) es configurable y la decide el usuario.
 - **`firmware/prueba_placa`:** menú por consola para H5 y S1–S6 (más ayudas para S5 con generador y S7). Compila (778 KB).
 - **`firmware/evse_monitor`:** ATM90E26 con LNSel = 0, CS1/CS2 y arranque verificado; AHT20, DS3231 y DS18B20 sin bloquear; energía por integración de P; sesiones; protecciones locales (falla, temperatura, PARAR, tensión baja, límites, horario); K1 NA con política de arranque; NVS cada minuto; búfer de 7 MB; NTP + DS3231; WiFi a 17 dBm; portal; consola; OTA; watchdog. Compila sin advertencias (1,06 MB de 4 MB).
