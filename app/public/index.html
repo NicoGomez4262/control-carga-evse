@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <title>EVSE Monitor</title>
+  <link rel="icon" href="/icono.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/estilo.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="barra">
+    <a class="marca" href="#/">
+      <img src="/icono.svg" alt="" width="26" height="26">
+      <span>EVSE Monitor</span>
+    </a>
+    <nav class="usuario" id="menu-usuario" hidden>
+      <a href="#/perfil" id="nombre-usuario">Perfil</a>
+    </nav>
+  </header>
+  <main id="vista" aria-live="polite">
+    <p class="cargando">Cargando…</p>
+  </main>
+  <nav class="pestanas" id="pestanas" hidden>
+    <a data-p="panel">Panel</a>
+    <a data-p="historial">Historial</a>
+    <a data-p="alarmas">Alarmas</a>
+    <a data-p="ajustes">Ajustes</a>
+  </nav>
+  <dialog id="dialogo">
+    <form method="dialog" class="dialogo">
+      <h2 id="dialogo-titulo"></h2>
+      <div id="dialogo-texto"></div>
+      <div class="acciones">
+        <button value="no" class="boton secundario" id="dialogo-no">Cancelar</button>
+        <button value="si" class="boton" id="dialogo-si">Aceptar</button>
+      </div>
+    </form>
+  </dialog>
+  <div id="aviso" class="notif" role="status" hidden></div>
+</body>
+</html>

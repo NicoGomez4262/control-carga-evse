@@ -1,0 +1,45 @@
+# EVSE Monitor — servidor de la app (Cloudflare Workers, plan gratis). Ver docs/software/GUIA_INSTALACION.md.
+name = "evse-monitor"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# La app web (HTML, CSS y JS) se sirve como archivos estáticos: gratis y sin límite de peticiones.
+# Solo /api/* pasa por el Worker.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+# Base de datos: usuarios, equipos, mediciones, sesiones y eventos.
+# `npx wrangler d1 create evse-monitor` y pega aquí el database_id que te da.
+[[d1_databases]]
+binding = "DB"
+database_name = "evse-monitor"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# Firmware para OTA (los .bin que subes desde la app). `npx wrangler kv namespace create FIRMWARE`.
+[[kv_namespaces]]
+binding = "FIRMWARE"
+id = "00000000000000000000000000000000"
+
+# Un Durable Object por equipo: mantiene el WebSocket del ESP32 y los de los navegadores.
+[[durable_objects.bindings]]
+name = "EQUIPO"
+class_name = "Equipo"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Equipo"]
+
+# Limpieza diaria de datos viejos (03:17 en Colombia).
+[triggers]
+crons = ["17 8 * * *"]
+
+[vars]
+RETENCION_DIAS = "730"
+NOMBRE_APP = "EVSE Monitor"
+
+[observability]
+enabled = true

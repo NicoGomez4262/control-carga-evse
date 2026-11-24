@@ -24,6 +24,16 @@
 | D18 | 2026-10-19 | PCB: **2 capas, FR-4 de 1,6 mm, cobre de 1 oz, HASL sin plomo** (opción A). Tamaño corregido el 20 oct a **130 × 100 mm** (US$ 36,87 las 5 placas): con los courtyards reales (66 cm² de piezas) 100 × 100 mm quedaba al ~78 % de ocupación. Distribución, distancias, anchos y reglas en `docs/GUIA_RUTEO_F8.md` | adoptada | F8 |
 | D19 | 2026-10-23 | **Sin pedido de DigiKey** (nadie más del curso pidió; solo no sale rentable). K1 sigue siendo el AQY414EHAX, pero lo **compra PCBWay** en DigiKey o Mouser dentro del turnkey y lo suelda. El repuesto de F1/F2 son 2 fusibles 3403.0274.11 extra en el mismo pedido. Los repuestos de U1 y U3 no se piden. Plan B para K1: AQY214EHAX (NA, invierte P3). Cambia D16 y D17 en lo de DigiKey | adoptada | F9 |
 | D20 | 2026-10-30 | **Pedido en JLCPCB en lugar de PCBWay** (PCBWay podía tardar más de un mes; la clase pide en JLC). La PCB no cambia (mismos Gerber). Ensamble **Economic de 2 placas** (mínimo de JLC) con piezas de su stock. **K1 = AQY214EHAX (NA)**: el AQY414EHAX está en 0 y por Global Sourcing tarda 9–15 días; misma familia, footprint y aislamiento reforzado, pero invierte P3 (sin energía el EVSE no carga; LED6 encendido = carga permitida). 11 líneas genéricas pasan a piezas Basic de JLC (resistencias 0805 1 %, 100 nF y 1 µF X7R, MMBT3904) para no pagar US$ 3,07 por referencia extendida. Sin fusibles de repuesto (la segunda placa sirve). Reemplaza D16, D17 y D19 en proveedor y montaje | adoptada | F9 |
+| D21 | 2026-11-23 | Firmware en **Arduino-ESP32 2.0.17 (ESP-IDF 4.4) sobre PlatformIO**, con dos tareas: control (prioridad 3: medición, protecciones, K1) y red (loop). Dos proyectos: `firmware/prueba_placa` (S1–S6) y `firmware/evse_monitor` | adoptada | F10 |
+| D22 | 2026-11-23 | Transporte: **WebSocket seguro (wss) saliente** del ESP32 al servidor, mensajes JSON (`docs/software/PROTOCOLO_MENSAJES.md`); el ESP32 verifica el certificado con raíces de GTS, ISRG y SSL.com | adoptada | F10 |
+| D23 | 2026-11-23 | Servidor: **Cloudflare Workers + un Durable Object por equipo (WebSocket con hibernación) + D1 (SQLite) + KV** para el firmware, en el plan gratis (US$ 0/mes) | adoptada | F10 |
+| D24 | 2026-11-23 | App web en **HTML, CSS y JS sin framework ni compilación**, gráficas propias en canvas, servida como archivos estáticos del mismo Worker; dominio `*.workers.dev` o `evse.nicolasgomez.dev` si el DNS pasa a Cloudflare | adoptada | F10 |
+| D25 | 2026-11-23 | Autenticación: usuarios con correo y clave derivada en el navegador (PBKDF2-SHA256, 300 000 iteraciones), cookie HttpOnly de 30 días, roles administrador / propietario / solo lectura, cabecera anti-CSRF; cada equipo con **id + token de 192 bits** (SHA-256 en D1) | adoptada | F10 |
+| D26 | 2026-11-23 | WiFi del equipo por **consola serie o portal cautivo** (AP «EVSE-XXXX» con clave, PARAR 5 s al encender); `secrets.h` opcional. Sin WiFi guardado no se enciende la radio (sin U1 tumbaría la fuente de banco) | adoptada | F10 |
+| D27 | 2026-11-23 | **OTA desde la app** (el administrador sube el .bin a KV; el equipo lo baja con su token, revisa SHA-256 y vuelve al anterior si se reinicia más de 3 veces sin llegar al servidor) y siempre por USB | adoptada | F10 |
+| D28 | 2026-11-23 | Arranque de K1 (P3 con el AQY214EHAX): política configurable desde la app, **por defecto «restaurar» el último permiso después de 10 s**; alternativas «detenida» y «permitida»; 3 reinicios anormales en 10 min dejan la carga detenida hasta reconocer | propuesta: la decide el usuario | F10 |
+| D29 | 2026-11-23 | Energía por **integración de Pmean2 a 1 Hz** en el firmware (no los registros de energía del ATM90E26, que dependen de PL_constant). Todo el historial (muestras, eventos y sesiones) pasa por el búfer circular de 7 MB, con o sin internet, y el servidor confirma por número de registro | adoptada | F10 |
+| D30 | 2026-11-23 | Notificaciones por **Telegram** (bot propio, gratis): alarmas graves y equipo fuera de línea más de 2 min | adoptada | F10 |
 
 ## D2 · Verificación del R-78CK3.3-0.5
 
@@ -609,6 +619,64 @@ Cambios (30 oct):
 - U1 todavía no está. Sin U1, los rieles de 12 V y 3,3 V están separados: con 3,3 V en TP3 se hacen H5 y S1–S5, y con un segundo canal de 12 V en J6 también S4. Con U1 soldado, nunca más 3,3 V en TP3.
 - **SW2/SW3 (opcionales):** el KFC-A04-02 de Sigma ([página](https://www.sigmaelectronica.net/producto/kfc-a04-02/), 5,2 × 5,2 mm, $357 COP) tiene el plano del 1187B (patas de 6,4 mm de punta a punta, 3,7 mm entre patas, pares 1-2 y 3-4 unidos por dentro). Cabe en la huella TS1187ABAB (pads a 6,0 × 3,75 mm). El SW-761SMD (6 × 6 mm) no cabe.
 - El software (firmware y aplicación web) pasa a la Fase 10. Su contexto está en `docs/software/CONTEXTO_SOFTWARE.md`, y sus decisiones se registran desde D21.
+
+## Fase 10 — Software: firmware y aplicación web (en curso)
+
+**23 nov.** El usuario pidió encargarse de todo el software de una vez («encárgate de todo el Software»), así que las decisiones se tomaron sin el paso de aprobación y quedan aquí con sus alternativas, para revisarlas. La única que se deja expresamente al usuario es la política de arranque de K1 (D28), que es configurable. Detalle en `docs/software/ARQUITECTURA.md`.
+
+**D21 · Firmware**
+
+| Opción | A favor | En contra | Resultado |
+|---|---|---|---|
+| **Arduino-ESP32 2.0.17 en PlatformIO** | ya instalado (PlatformIO 6.1.18); librerías probadas (WebSockets, ArduinoJson, OneWire); FreeRTOS para separar control y red; plataforma oficial de PlatformIO | IDF 4.4 (no la última); menos control fino que IDF | **elegida** |
+| ESP-IDF 5 puro | control total, rollback de OTA nativo, mejor depuración | mucho más código para lo mismo (WebSocket, JSON, 1-Wire) y curva más larga para mantenerlo solo | descartada |
+| Arduino-ESP32 3.x (pioarduino) | IDF 5 con la API de Arduino | plataforma no oficial de PlatformIO; algunas librerías aún con problemas | descartada por ahora; el código ya tiene `#if` para IDF 5 |
+
+**D22 · Transporte equipo ↔ servidor**
+
+| Opción | A favor | En contra | Resultado |
+|---|---|---|---|
+| **WebSocket seguro al backend** | una conexión saliente para todo (D8); órdenes al instante; el mismo servidor guarda los datos; gratis con Durable Objects | protocolo propio (documentado) | **elegida** |
+| MQTT sobre TLS (HiveMQ Cloud gratis o broker propio) | estándar de IoT | hace falta un proceso siempre encendido que se suscriba y guarde en la base (no es gratis ni simple de mantener) | descartada |
+| HTTPS (envío y consulta periódica) | lo más simple | las órdenes llegan con el retraso de la consulta; un apretón de manos TLS cada vez | descartada |
+
+**D23 · Servidor y base de datos**
+
+| Opción | Costo | A favor | En contra | Resultado |
+|---|---|---|---|---|
+| **Cloudflare Workers + Durable Objects + D1 + KV** | US$ 0 | sin servidor que mantener; no se duerme; TLS y dominio incluidos; WebSocket con hibernación; un solo `wrangler deploy` | límites diarios del plan gratis (holgados para 1–3 equipos, ARQUITECTURA §7); D1 de 500 MB por base | **elegida** |
+| Supabase (Postgres, autenticación y tiempo real) | US$ 0 | base y usuarios hechos | el proyecto gratis se pausa tras una semana sin actividad; el ESP32 tendría que consultar las órdenes por HTTPS | descartada |
+| VPS propio (Node + Postgres/Timescale) | US$ 4–6/mes | control total | hay que mantener el sistema operativo, TLS, copias y seguridad | descartada |
+
+**D24 · App web:** sin framework (la puede mantener una persona sin cadena de compilación) frente a React/Vite o Svelte con Chart.js (más dependencias y un paso de compilación). Hosting en el mismo Worker (archivos estáticos gratis y sin límite) frente a Pages o Vercel (otra cuenta). Dominio: `*.workers.dev` hoy; `evse.nicolasgomez.dev` si el DNS pasa a Cloudflare.
+
+**D25 · Autenticación:** usuarios propios en D1 frente a Cloudflare Access (Zero Trust: más configuración) o Supabase Auth (descartado con D23). La clave se deriva en el navegador porque el plan gratis da 10 ms de CPU por petición y un PBKDF2 serio en el servidor no cabe. Equipos con token frente a certificados de cliente (mTLS: más seguro, pero hay que emitir y rotar certificados por equipo).
+
+**D26 · WiFi:** portal cautivo + consola frente a BLE (aprovisionamiento de Espressif: necesita una app del celular y más memoria) o solo `secrets.h` (obliga a recompilar).
+
+**D27 · OTA:** desde la app con el .bin privado en KV frente a releases de GitHub (el .bin quedaría público y la descarga pasa por otro dominio y otra CA) o solo USB (obliga a llevar el computador a la instalación).
+
+**D28 · Política de arranque de K1 (la decides tú)**
+
+| Opción | Qué pasa al volver la luz | Cuándo conviene |
+|---|---|---|
+| **Restaurar (por defecto)** | después de 10 s, si nada lo impide, vuelve el último permiso guardado | es lo que pedía P3 («sin energía carga normal») con el contacto NA: tras un corte, la carga sigue sola |
+| Detenida | espera «Permitir» desde la app | si prefieres revisar algo antes de cada carga |
+| Permitida | siempre permite después de 10 s | si nunca vas a detenerla desde la app |
+
+En las tres: K1 está abierto mientras arranca (R40); PARAR, temperatura, fallas, límites y horario siguen mandando; tres reinicios anormales (brownout, watchdog, excepción) en menos de 10 min dejan la carga detenida hasta reconocer la alarma.
+
+**D29 · Energía e historial:** integrar Pmean2 (1 W de resolución, cada segundo) no depende de calibrar PL_constant; el ATM90E26 sigue dando los pulsos de CF1 en LED2. El historial siempre sale del búfer de la flash (registros de 64 bytes con CRC, 7 MB): no hay huecos ni duplicados entre lo que se sube en línea y lo que se acumuló sin internet.
+
+**D30 · Notificaciones:** Telegram (gratis, un `fetch` desde el servidor) frente a correo (necesita un servicio como Resend y un dominio verificado) o notificaciones push del navegador (claves VAPID, cifrado y permisos en cada celular).
+
+**Detalles del hardware que fija el software:**
+- El CT entra por I2: MMode = 9022H (LNSel = 0) y registros «2».
+- La falla del medidor se decide con CalErr/AdjErr de SysStatus y no con el nivel de WarnOut: el datasheet no dice la polaridad de WarnOut ni de IRQ (se anota en S5-4).
+- Sin calibrar, la protección por tensión baja y el aviso de sag no actúan (con las ganancias de fábrica la lectura de tensión no es confiable).
+- WiFi a 17 dBm (D2: el R-78CK da 0,5 A).
+
+**Probado (23 nov):** los dos firmwares compilan sin advertencias propias; servidor y app en local con el simulador (lista en ARQUITECTURA §8). **Falta:** S1–S8 en la placa y la publicación en Cloudflare con la cuenta del usuario.
 
 ## Componentes elegidos
 

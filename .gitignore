@@ -23,3 +23,11 @@ docs/tools/*.PrjScrStructure
 
 # STEP de 20 MB: se regenera con el OutJob
 docs/fabricacion/*.step
+
+# Software (Fase 10): compilaciones, dependencias y secretos
+firmware/*/.pio/
+firmware/*/.vscode/
+firmware/*/include/secrets.h
+app/node_modules/
+app/.wrangler/
+app/.dev.vars

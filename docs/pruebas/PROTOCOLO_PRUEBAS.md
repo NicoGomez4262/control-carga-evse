@@ -350,6 +350,8 @@ MAC de la placa 1: ____________________
 
 Arduino-ESP32 en PlatformIO (o Arduino IDE: «ESP32S3 Dev Module», Flash 16 MB, PSRAM «QSPI PSRAM», USB CDC On Boot «Disabled»). Un firmware de pruebas con menú en el monitor serie, un comando por bloque. Siempre: 12 V en J6 (límite de 0,2 A) y USB conectado.
 
+**Firmware de pruebas (F10):** `firmware/prueba_placa`. Cómo subirlo y qué comando corre cada etapa (`s1 leds`, `s1 parar`, `s2 i2c`, `s2 aht`, `s2 rtc`, `s2 hora`, `s2 1hz`, `s3 sonda`, `s4 k1 1|0`, `s5`, `s5 monitor`, `s5 zx`, `s6 scan|con|carga`): `docs/software/GUIA_INSTALACION.md`, parte A. Sin U1 se alimenta como dice «Sin U1: qué se puede adelantar».
+
 Pines (mapa de F4): LED3 WiFi IO6 · LED4 carga IO7 · LED5 falla IO15 · PARAR IO16 (activo en bajo) · SDA IO8 · SCL IO9 · 1-Wire IO4 · RTC_INT IO18 · RELAY_EN IO5 · CS IO10 · MOSI IO11 · SCK IO12 · MISO IO13 · IRQ IO14 · WarnOut IO21 · ZX IO17 · TX0 43 · RX0 44.
 
 ### S1 · LEDs y botón
@@ -406,7 +408,7 @@ SPI en modo 3, 100 kHz (máximo 160 kbps). Trama de 24 bits: 1 bit de lectura (1
 | 1 | Leer CalStart (20H) | 6886H (valor de encendido) | |
 | 2 | Leer MMode (2BH) | 9422H | |
 | 3 | Escribir 5678H en CalStart, releer y leer LastData (06H) | 5678H en los dos | |
-| 4 | Escribir 8765H en CalStart sin CS1 válido | CalErr en SysStatus (01H); IO21 (WarnOut) e IO14 (IRQ) activos | |
+| 4 | Escribir 8765H en CalStart sin CS1 válido | CalErr en SysStatus (01H); IO21 (WarnOut) e IO14 (IRQ) cambian de estado. El datasheet no dice la polaridad: anótala (el firmware muestra «activos en ALTO» o «en BAJO») | |
 | 5 | SoftReset: 789AH en 00H | CalStart vuelve a 6886H | |
 | 6 | Urms (49H) e Irms2 (68H) sin red ni CT | ≈ 0 | |
 
@@ -459,6 +461,8 @@ El CT entra por I2 (línea N): para medir energía hay que poner LNSel = 0 en MM
 | 12 | Potencia activa con FP ≈ 1 | — | — | P ≈ V × I; si sale negativa, girar el CT | |
 | 13 | CS1 y CS2 calculados; CalStart y AdjStart = 8765H | — | — | medición normal, WarnOut en 0 | |
 | 14 | Repetir con otra carga (100–500 W) | — | — | error < 1–2 % | |
+
+Filas 8, 9 y 12 con el firmware de pruebas (`s5 monitor`, `s5 zx`). Filas 10, 11 y 13 con el firmware final: en la consola `cal_auto V I` (V del multímetro y A de la pinza, con la carga encendida y lecturas estables) o en la app, Ajustes → Calibración del medidor. Calcula Ugain e IgainN en proporción, escribe CS1 y CS2, arranca en 8765H y lo guarda en la NVS. `cal` muestra cómo quedó.
 
 El transformador de aislamiento desfasa un poco la tensión: la fase (Nphi) se termina de ajustar en la instalación real.
 

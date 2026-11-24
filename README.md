@@ -6,7 +6,7 @@
 
 Mide cada carga, la habilita o la detiene y lo sube todo por WiFi a una app propia.
 
-[![Estado](https://img.shields.io/badge/estado-F9%20%C2%B7%20pedido%20a%20JLCPCB-f5a524)](#estado)
+[![Estado](https://img.shields.io/badge/estado-F10%20%C2%B7%20software-f5a524)](#estado)
 [![Altium Designer 25](https://img.shields.io/badge/Altium%20Designer-25-A5915F?logo=altiumdesigner&logoColor=white)](altium/)
 [![ESP32-S3](https://img.shields.io/badge/ESP32--S3-WROOM--1-E7352C?logo=espressif&logoColor=white)](#componentes-principales)
 [![Red 120–240 VAC](https://img.shields.io/badge/red-120%E2%80%93240%20VAC-c62828)](#seguridad)
@@ -21,8 +21,9 @@ Mide cada carga, la habilita o la detiene y lo sube todo por WiFi a una app prop
 </div>
 
 > [!NOTE]
-> **En proceso.** El esquemático y la PCB están cerrados y revisados (fases 1 a 8). Sigue el pedido a JLCPCB, el
-> montaje y las primeras pruebas. Las fotos de la placa real llegan cuando exista.
+> **En proceso.** Las placas llegaron ensambladas de JLCPCB y pasaron las primeras pruebas de hardware (H1–H3).
+> El software ya está escrito: firmware del ESP32-S3, servidor y app web ([`docs/software/`](docs/software/)).
+> Falta soldar el regulador U1, probarlo todo en la placa y publicar la app.
 
 ## Qué es
 
@@ -143,6 +144,20 @@ La lista completa, con las alternativas comparadas, el proveedor y la forma de m
 - Los bornes del EVSE se tratan como un circuito externo de potencial desconocido, con el mismo aislamiento
   reforzado hacia el lado SELV.
 
+## Software
+
+| Parte | Dónde | Qué hace |
+|---|---|---|
+| Firmware de pruebas | [`firmware/prueba_placa/`](firmware/prueba_placa/) | Menú por consola para las pruebas S1–S6 de la placa, un comando por bloque |
+| Firmware final | [`firmware/evse_monitor/`](firmware/evse_monitor/) | Medición, energía, sesiones, protecciones locales (temperatura, PARAR, fallas, tensión baja, límites, horario), K1, búfer de 7 MB sin internet, WebSocket con TLS, portal de configuración y OTA |
+| Servidor y app | [`app/`](app/) | Cloudflare Workers + un Durable Object por equipo + D1, en el plan gratis. App web en español, primero para el celular: panel en vivo, control, historial con costos y CSV, alarmas por Telegram, ajustes y OTA |
+| Simulador | [`tools/simulador/`](tools/simulador/) | Habla el mismo protocolo que el firmware, para probar la app sin la placa |
+
+El ESP32 abre una conexión saliente cifrada hacia el servidor y por ahí sube los datos y recibe las órdenes: sin
+puertos abiertos ni VPN. Las protecciones se deciden en el ESP32 y funcionan sin internet. Cómo está hecho:
+[`ARQUITECTURA.md`](docs/software/ARQUITECTURA.md) · protocolo: [`PROTOCOLO_MENSAJES.md`](docs/software/PROTOCOLO_MENSAJES.md) ·
+cómo subirlo a la placa y publicar la app: [`GUIA_INSTALACION.md`](docs/software/GUIA_INSTALACION.md).
+
 ## Estado
 
 | Fase | En Altium | Qué se diseña | Estado |
@@ -155,7 +170,8 @@ La lista completa, con las alternativas comparadas, el proveedor y la forma de m
 | F6 | `06_ACTUACION` | Driver y PhotoMOS hacia el EVSE | ✅ |
 | F7 | todas | Compilación, footprints, clases de red y BOM con proveedores | ✅ |
 | F8 | `EVSE_Monitor.PcbDoc` | Contorno, reglas de aislamiento, ubicación, ruteo, DRC y archivos de fabricación | ✅ |
-| F9 | pedido y banco de pruebas | Pedido a JLCPCB, montaje, soldadura a mano y pruebas por etapas | 🔧 en curso |
+| F9 | pedido y banco de pruebas | Pedido a JLCPCB, montaje, soldadura a mano y pruebas por etapas | 🔧 placas recibidas, H1–H3 bien; falta U1 |
+| F10 | `firmware/` y `app/` | Firmware del ESP32-S3, protocolo, servidor y app web | 🔧 código listo y probado con el simulador; falta la placa |
 
 El esquemático completo está en [`docs/revisiones/PROYECTO_F7.pdf`](docs/revisiones/PROYECTO_F7.pdf). El detalle de
 cada fase, con sus tareas, está en [`docs/PLAN_FASES.md`](docs/PLAN_FASES.md), y lo que sigue, en
@@ -183,9 +199,12 @@ Las vistas de cada capa de los Gerber, tal como deben verse en el visor del fabr
 ├── CLAUDE.md                 reglas de trabajo del proyecto
 ├── NEXT_SESSION.md           plan de la fase en curso
 ├── altium/                   proyecto de Altium Designer (.PrjPcb, hojas, PCB, OutJob, plantilla y librerías)
+├── firmware/                 PlatformIO: prueba_placa (S1–S6) y evse_monitor (firmware final)
+├── app/                      servidor (Cloudflare Workers, D1) y app web
+├── tools/simulador/          simulador del equipo
 └── docs/
-    ├── PLAN_FASES.md         las 9 fases, con sus tareas y el mapa de bloques
-    ├── DECISIONES.md         registro de decisiones (D1–D19) y componentes elegidos
+    ├── PLAN_FASES.md         las 10 fases, con sus tareas y el mapa de bloques
+    ├── DECISIONES.md         registro de decisiones (D1–D30) y componentes elegidos
     ├── BOM_F7.md             BOM con proveedor y montaje de cada línea
     ├── GUIA_RUTEO_F8.md      distribución, distancias, anchos y reglas de la PCB
     ├── EXPLICACION_PCB_F8.md por qué la PCB quedó así
@@ -193,7 +212,9 @@ Las vistas de cada capa de los Gerber, tal como deben verse en el visor del fabr
     ├── esquemas/             esquemas por bloque, tal como se dibujan en Altium
     ├── fabricacion/          paquete para JLCPCB y carrito de compras
     ├── img/                  imágenes de este README
+    ├── pruebas/              protocolo de pruebas de la placa y mapa de 39 puntos
     ├── revisiones/           PDF del esquemático por fase, capturas de la PCB y vistas de los Gerber
+    ├── software/             arquitectura, protocolo de mensajes y guía de instalación
     ├── sesiones/             resumen de cada fase cerrada
     └── tools/                scripts en Python que leen, revisan y editan los archivos de Altium
 ```

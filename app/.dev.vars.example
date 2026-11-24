@@ -1,0 +1,8 @@
+# Copia este archivo como .dev.vars (está en .gitignore) para probar en tu PC con `npm run dev`.
+# En Cloudflare se ponen con `npx wrangler secret put NOMBRE`.
+
+# Código para crear el primer usuario administrador (solo sirve mientras no haya usuarios).
+CODIGO_INICIAL=cambia-esto
+
+# Opcional: token del bot de Telegram (de @BotFather) para las notificaciones de alarmas.
+# TELEGRAM_TOKEN=123456:ABC...

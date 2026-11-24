@@ -1,114 +1,48 @@
-# Siguiente sesión → Fase 10: software (firmware y aplicación web)
+# Siguiente sesión → Fase 10 (continuación): software en la placa real
 
-La Fase 9 sigue abierta solo por el hardware que falta (U1, WiFi, red y la etiqueta Rev 1.0). El software empieza ya: sin U1, la placa se alimenta con 3,3 V en TP3 y se pueden probar el USB, los sensores, el medidor y K1.
+El software de la Fase 10 ya está escrito y probado sin la placa (23 nov). Falta **10H**: publicar la app, correr S1–S8 con el firmware en la PCB, calibrar el ATM90E26 y la prueba de punta a punta. La Fase 9 sigue abierta solo por U1 (R-78CK), H0 con lupa, H5 y la etiqueta Rev 1.0.
 
 ## Prompt para iniciar
 
 ```text
 Seguimos con el proyecto "Control de carga EVSE" (repo público github.com/NicoGomez4262/control-carga-evse).
-La PCB Rev 1.0 ya llegó ensamblada de JLCPCB y pasó las pruebas de hardware H1–H3; falta soldar U1 (el R-78CK).
-Empezamos la FASE 10, SOFTWARE, que tiene dos partes: el firmware del ESP32-S3 y la aplicación web propia
-desde la que se controla todo.
+La Fase 10 (software) ya tiene el código: firmware/prueba_placa (S1–S6), firmware/evse_monitor (final),
+app/ (Cloudflare Workers + Durable Objects + D1, app web) y tools/simulador. Falta la tarea 10H: llevarlo
+a la placa real.
 
 Antes de nada, lee:
-- CLAUDE.md: reglas de trabajo (español, tú; una propuesta completa con comparaciones antes de construir;
-  diagramas como gráfico; commits sin coautor; subir a GitHub al final con docs/tools/sincronizar_altium.py --commit).
-- NEXT_SESSION.md y docs/PLAN_FASES.md (Fases 9 y 10).
-- docs/software/CONTEXTO_SOFTWARE.md: lo que el firmware necesita saber de la placa (mapa de pines, buses,
-  registros y escalas del ATM90E26, límites de energía, semántica de K1) y el borrador de requisitos de la app.
-- docs/pruebas/PROTOCOLO_PRUEBAS.md y docs/pruebas/mapa_puntos.png: las etapas S1–S8 son las que valida el firmware.
-- docs/DECISIONES.md: P2, P3, P5, D7, D8, D14, D15, D20, la sección «Fase 9» y el mapa de pines del ESP32-S3.
+- CLAUDE.md (reglas: español, tú; diagramas como gráfico; commits sin coautor; subir a GitHub al final con
+  docs/tools/sincronizar_altium.py --commit).
+- NEXT_SESSION.md (este archivo) y docs/PLAN_FASES.md (Fases 9 y 10).
+- docs/software/GUIA_INSTALACION.md (cómo subir cada firmware, qué comando corre cada etapa y cómo publicar
+  la app), docs/software/ARQUITECTURA.md y docs/software/PROTOCOLO_MENSAJES.md.
+- docs/pruebas/PROTOCOLO_PRUEBAS.md y docs/pruebas/mapa_puntos.png.
+- docs/DECISIONES.md: D20–D30 y la sección «Fase 10».
 
-Estado de la placa 1:
-- H1 (sin energía), H2 (12 V sin U1) y H3 (3,3 V en TP3, incluido el lado de red del AMC3330): todo bien.
-- Sin U1, la placa se alimenta con 3,30 V (límite 0,25 A) en TP3 (+) y TP1 (−). Funcionan CH340C, ESP32,
-  ATM90E26, AMC3330 y sensores. K1 necesita además 12 V en J6 (segundo canal, límite 0,05 A). El WiFi a plena
-  potencia espera a U1. Con U1 soldado, NUNCA más 3,3 V en TP3: todo por J6.
-- La red (S7) solo con transformador de aislamiento; nada se toca energizado.
-- Tengo el CT, la sonda DS18B20 y la pila CR2032. Me faltan U1 y, opcionales, SW2/SW3 (KFC-A04-02 de Sigma).
+Estado de la placa 1: H1–H3 bien. [Di aquí si ya soldaste U1 y qué pruebas S corriste.]
+[Di si ya creaste la cuenta de Cloudflare y publicaste la app (guía, parte B), y la dirección.]
+[Di qué política de arranque de K1 eliges (D28): restaurar, detenida o permitida.]
 
-Qué quiero de esta fase, en este orden:
-
-1. Diagrama de la arquitectura del software como gráfico (placa → firmware → internet → servidor → app → usuario)
-   con «ESTÁS AQUÍ», y la lista de tareas de F10.
-
-2. Propuesta de arquitectura en UN SOLO mensaje, con 2–3 opciones comparadas en tabla por decisión (ventajas,
-   desventajas, costo mensual, dificultad, qué tan bien cumple D8), una recomendación y un mini diagrama:
-   a. firmware: Arduino-ESP32 en PlatformIO o ESP-IDF;
-   b. transporte equipo ↔ servidor (salida TLS desde el ESP32, sin puertos abiertos): MQTT sobre TLS (broker
-      administrado o propio), WebSocket seguro al backend o HTTPS;
-   c. backend y base de datos (series de tiempo de V, I, P y T; sesiones; usuarios);
-   d. frontend (framework y gráficas), hosting y dominio (por ejemplo un subdominio de nicolasgomez.dev).
-      Prefiero opciones gratis o de muy bajo costo que pueda mantener solo;
-   e. autenticación de usuarios y del equipo (credenciales propias por equipo);
-   f. aprovisionamiento del WiFi del equipo y actualizaciones OTA;
-   g. notificaciones de alarmas.
-   Espera mi aprobación antes de escribir código de producción. Las cuentas en servicios externos las creo yo:
-   tú me dices qué crear y dónde.
-
-3. Firmware de pruebas (firmware/prueba_placa, PlatformIO): menú por el monitor serie (115200, UART0 por el
-   CH340C), un comando por bloque, para correr S1, S2, S3, S5 y S4 del protocolo sin U1 y sin WiFi:
-   LEDs y PARAR; escaneo I²C, AHT20, DS3231 (hora, OSF, salida de 1 Hz en IO18); DS18B20; K1; ATM90E26 por SPI
-   (CalStart 6886H, MMode 9422H, escritura y LastData, CalErr/WarnOut/IRQ, SoftReset, Urms e Irms2).
-   Dame los pasos para compilar, subir y usarlo, y qué anotar en el protocolo.
-
-4. Protocolo de mensajes (docs/software/PROTOCOLO_MENSAJES.md): telemetría, eventos, órdenes con confirmación,
-   estado, configuración, sesiones, alarmas, versión y OTA; formato, frecuencias, y qué se guarda sin internet
-   y cómo se reenvía.
-
-5. Firmware final (firmware/evse_monitor), por módulos, cada uno probado en la placa antes del siguiente:
-   - drivers: ATM90E26 (escalas, calibración en NVS, LNSel = 0 porque el CT va en I2), AHT20, DS3231, DS18B20,
-     K1, LEDs y PARAR;
-   - máquina de estados de la carga (permitida; detenida por app, horario, PARAR, temperatura, falla o límite)
-     con K1 normalmente abierto: RELAY_EN = 1 = carga permitida;
-   - protecciones locales que funcionan sin internet: sobretemperatura (sonda y ambiente), PARAR, pérdida de
-     red o sag, falla del medidor (WarnOut/CalErr) y watchdog;
-   - energía de la sesión en NVS cada minuto y al empezar o terminar (D14); búfer sin internet en una partición
-     de la flash de 16 MB; hora por NTP con respaldo del DS3231;
-   - WiFi con TX ≤ 17 dBm (el R-78CK da 0,5 A), reconexión, TLS con verificación del certificado, OTA y
-     registro de eventos;
-   - arranque: propón la política para restaurar el estado de K1 desde NVS (con el AQY214EHAX, sin energía no
-     carga) y la decido yo.
-
-6. Simulador del equipo (tools/simulador): un script que habla el mismo protocolo, para desarrollar la app
-   sin la placa.
-
-7. Backend y base de datos: API, tiempo real y usuarios.
-
-8. Aplicación web, en español y pensada primero para el celular:
-   - panel en vivo: V, I, P, FP, frecuencia, energía de la sesión y total, temperaturas (sonda y ambiente),
-     humedad, estado de K1 y por qué, RSSI, en línea o no, alarmas;
-   - control: permitir o detener la carga con confirmación, horarios de carga, límites por sesión (kWh, tiempo,
-     costo), umbral de temperatura (lo aplica el equipo) y reconocer alarmas;
-   - historial: sesiones con kWh, duración y costo (tarifa en COP/kWh), gráficas y exportar a CSV;
-   - configuración: tensión nominal 120/240 V, tarifa, zona horaria America/Bogota, calibración (con cuidado),
-     versión de firmware y OTA;
-   - usuarios y registro del equipo; si el equipo está fuera de línea, el último estado y desde cuándo.
-
-9. Integración con la placa: S4–S8 del protocolo (S6 y S7 solo con U1 soldado), calibración del ATM90E26 con
-   carga resistiva y pinza de referencia, y una prueba de punta a punta (orden en la app → K1 → J2 medido).
-
-10. Documentación: docs/software/ARQUITECTURA.md, PROTOCOLO_MENSAJES.md, guía de instalación y uso, README
-    actualizado y decisiones desde D21 en docs/DECISIONES.md.
-
-Reglas:
-- El repo es público: nada de contraseñas del WiFi, credenciales del broker o de la base de datos ni tokens en
-  git. Usa secrets.h y .env en .gitignore, con secrets.example.h y .env.example.
-- En cada prueba en la placa, dime exactamente qué conectar con los números del mapa de puntos y su pin de
-  Altium (por ejemplo, 6 (J6-1)), el ajuste de la fuente y del multímetro (Keysight 34461A: DCV, ACV, Ω 2W,
-  Diode) y qué debe salir.
-- Las protecciones se deciden en la ESP32 y funcionan sin internet; la app solo ordena y muestra.
-- Si la fase no alcanza en esta sesión, actualiza NEXT_SESSION.md con las casillas y lo que falta, y sube todo
-  a GitHub.
+Qué quiero en esta sesión, en este orden:
+1. Diagrama «ESTÁS AQUÍ» como gráfico y la lista de tareas que falta.
+2. Acompañarme en la placa: S1–S5 con el firmware de pruebas (sin U1: 3,30 V en TP3), después U1 + H4,
+   S6 (WiFi) y el firmware final conectado a la app. En cada prueba, qué conectar (puntos del mapa y pin de
+   Altium), el ajuste de la fuente y del Keysight 34461A, y qué debe salir. Anotar los resultados en el
+   protocolo.
+3. Corregir en el firmware o la app lo que salga mal en la placa (registrar cada cambio).
+4. S7 con el transformador de aislamiento: calibración (cal_auto) y verificación con otra carga.
+5. S8: prueba de punta a punta (orden en la app → K1 → J2 medido) y protecciones sin internet.
+6. Cerrar la Fase 10 (y la 9 si U1 y H0–H5 quedaron) según CLAUDE.md, y subir todo a GitHub.
 ```
 
-## Qué se hizo (20 nov, F9)
+## Qué se hizo (23 nov, F10)
 
-- Llegaron las 2 placas de JLCPCB, ensambladas.
-- Protocolo de pruebas por etapas en `docs/pruebas/PROTOCOLO_PRUEBAS.md`, con un mapa de 39 puntos numerados (`docs/pruebas/mapa_puntos.png`, de `docs/tools/mapa_puntos_f9.py`). Cada punto lleva su pin de Altium.
-- Polaridades revisadas con fotos contra el PcbDoc. Orientación de U1 sacada del dibujo de RECOM: la cara con el punto (●) mira hacia J6 y el pin 1 va en el pad cuadrado.
-- Placa 1: H1, H2 y H3 dentro de lo esperado, incluido el convertidor aislado del AMC3330.
-- Contexto para el software en `docs/software/CONTEXTO_SOFTWARE.md` y Fase 10 agregada a `docs/PLAN_FASES.md`.
+- **Arquitectura (D21–D30):** firmware Arduino-ESP32 2.0.17 en PlatformIO con dos tareas (control y red); WebSocket seguro saliente con el certificado verificado; Cloudflare Workers + un Durable Object por equipo + D1 + KV en el plan gratis (US$ 0/mes); app web sin framework; usuarios con clave derivada en el navegador y token propio por equipo; portal cautivo y consola para el WiFi; OTA desde la app con vuelta atrás; Telegram para las alarmas. El usuario pidió que Claude se encargara de todo, así que las decisiones quedaron tomadas y documentadas con sus alternativas; D28 (arranque de K1) es configurable y la decide el usuario.
+- **`firmware/prueba_placa`:** menú por consola para H5 y S1–S6 (más ayudas para S5 con generador y S7). Compila (778 KB).
+- **`firmware/evse_monitor`:** ATM90E26 con LNSel = 0, CS1/CS2 y arranque verificado; AHT20, DS3231 y DS18B20 sin bloquear; energía por integración de P; sesiones; protecciones locales (falla, temperatura, PARAR, tensión baja, límites, horario); K1 NA con política de arranque; NVS cada minuto; búfer de 7 MB; NTP + DS3231; WiFi a 17 dBm; portal; consola; OTA; watchdog. Compila sin advertencias (1,06 MB de 4 MB).
+- **`app/`:** servidor y app web. Probados en local con `tools/simulador`: registro, alta del equipo, búfer sin internet, panel en vivo, órdenes con confirmación, configuración empujada, límite de kWh, sobretemperatura, OTA, historial con costos y CSV.
+- **Docs:** `docs/software/ARQUITECTURA.md`, `PROTOCOLO_MENSAJES.md`, `GUIA_INSTALACION.md`; README con la sección Software; `PROTOCOLO_PRUEBAS.md` con los comandos de cada etapa y la calibración de S7.
+- Ajustes por seguridad de la placa: sin WiFi guardado, el firmware final no enciende la radio (sin U1, los picos tumbarían la fuente de 0,25 A); la falla del medidor se decide con CalErr/AdjErr y no con el nivel de WarnOut (el datasheet no dice la polaridad: se anota en S5-4).
 
 ## Dónde estamos
 
@@ -145,11 +79,11 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 <!--/DIAG-->
 
 ```text
-SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: arquitectura y firmware de pruebas
+SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: integración con la placa (10H)
 
-[Placa: sensores · ATM90E26 · K1] ─► ▐ESP32-S3: firmware▌ ═TLS saliente═► [Servidor: backend + BD] ─► [App web] ─► usuario
-                                          │ protecciones locales (sin internet)          ▲                     │
-                                          └─ NVS + búfer en flash + DS3231               └──── órdenes ◄───────┘
+[Placa: sensores · ATM90E26 · K1] ─► [ESP32-S3: firmware ✓] ═wss saliente═► [Cloudflare: Worker + DO + D1 ✓] ─► [App web ✓] ─► usuario
+          ▲ ▐S1–S8 en la placa▌            │ protecciones locales ✓              ▲   ▐publicar (guía B)▌        │
+          └────────────────────────────────┴─ NVS + búfer 7 MB + DS3231 ✓        └────── órdenes ◄─────────────┘
 ```
 
 ## Tareas pendientes de la Fase 9 (hardware)
@@ -157,30 +91,38 @@ SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: arquitectura y firmware de pruebas
 - [x] Pedido a JLCPCB y recepción de las 2 placas ensambladas (20 nov).
 - [x] H1, H2 y H3 en la placa 1 (20 nov).
 - [ ] H0 con lupa: puentes en U3, J5 y U4; fotos de las dos caras en `docs/pruebas/fotos/`.
-- [ ] H5: USB y `esptool` (se puede hacer ya, con 3,3 V en TP3).
+- [ ] H5: USB y `esptool` (se puede hacer ya, con 3,3 V en TP3; el comando `info` del firmware de pruebas da la MAC).
 - [ ] Soldar U1 (R-78CK) y hacer H4.
 - [ ] Opcional: SW2/SW3 con el KFC-A04-02 de Sigma (comprar 3).
-- [ ] S1–S8 del protocolo (con el firmware de la Fase 10).
 - [ ] Cerrar la Rev 1.0: etiqueta `rev1.0` en git y notas para la Rev 1.1 (gabinete incluido).
 
 ## Tareas de la Fase 10 (software)
 
-- [ ] 10A · Arquitectura: framework del firmware, transporte, backend y base de datos, frontend y hosting, autenticación, aprovisionamiento del WiFi, OTA y notificaciones (D21+).
-- [ ] 10B · Firmware de pruebas (`firmware/prueba_placa`): S1–S5 sin WiFi.
-- [ ] 10C · Protocolo de mensajes (`docs/software/PROTOCOLO_MENSAJES.md`).
-- [ ] 10D · Firmware final (`firmware/evse_monitor`).
-- [ ] 10E · Simulador del equipo (`tools/simulador`).
-- [ ] 10F · Backend y base de datos.
-- [ ] 10G · Aplicación web.
-- [ ] 10H · Integración con la placa: S4–S8, calibración y prueba de punta a punta.
-- [ ] 10I · Documentación y README.
+- [x] 10A · Arquitectura (D21–D30). **Falta tu decisión de D28** (arranque de K1).
+- [x] 10B · Firmware de pruebas (`firmware/prueba_placa`).
+- [x] 10C · Protocolo de mensajes.
+- [x] 10D · Firmware final (`firmware/evse_monitor`).
+- [x] 10E · Simulador del equipo.
+- [x] 10F · Servidor y base de datos.
+- [x] 10G · Aplicación web.
+- [ ] 10H · Integración con la placa:
+  - [ ] Publicar la app en Cloudflare (guía, parte B): cuenta, `wrangler login`, D1, KV, migraciones, `CODIGO_INICIAL`, `deploy`; crear el administrador y el equipo `evse-01`.
+  - [ ] Opcional: dominio `evse.nicolasgomez.dev` y bot de Telegram.
+  - [ ] S1–S5 con `firmware/prueba_placa` (sin U1: 3,30 V en TP3; S4 con 12 V en J6). Anotar la polaridad de WarnOut e IRQ (S5-4).
+  - [ ] U1 + H4; S6 (`s6 scan`, `s6 con`, `s6 carga`).
+  - [ ] Borrar la flash y subir `firmware/evse_monitor`; conectarlo por consola o portal; LED3 fijo y «En línea» en la app.
+  - [ ] S7: calibración con `cal_auto` y verificación con otra carga (error < 1–2 %).
+  - [ ] S8: Detener/Permitir desde la app y medir J2 (17–18); protecciones sin internet; historial completo al volver la red.
+  - [ ] Probar una OTA real (1.0.0 → 1.0.1).
+  - [ ] Al cerrar la fase: agregar el bloque de software al artifact de referencia (CLAUDE.md, paso 5).
+- [x] 10I · Documentación.
 
 ## Ten a mano
 
-- La placa 1, la fuente de banco (dos canales si se puede: 3,3 V y 12 V), el Keysight 34461A, un cable USB-C de datos, cables dupont para J8 y caimanes.
-- La sonda DS18B20, la pila CR2032 y el CT.
-- El nombre y la contraseña del WiFi (no van en el repo) y acceso al DNS de nicolasgomez.dev, si la app va en un subdominio.
-- Python con `esptool` y `pyserial`, y VS Code con PlatformIO.
+- La placa 1, la fuente de banco de dos canales, el Keysight 34461A, el cable USB-C de datos, cables dupont para J8 y caimanes.
+- La sonda DS18B20, la pila CR2032, el CT, U1 y el cautín.
+- Para S7: transformador de aislamiento, regleta con interruptor, carga resistiva de 1–1,5 kW y pinza amperimétrica.
+- El nombre y la clave del WiFi (no van en el repo) y tu correo para la cuenta de Cloudflare.
 
 ## Pendientes fuera de esta fase
 

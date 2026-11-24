@@ -1,0 +1,17 @@
+{
+  "name": "evse-monitor-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Servidor y app web del EVSE Monitor (Cloudflare Workers, Durable Objects y D1)",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --ip 0.0.0.0 --port 8787",
+    "db:local": "wrangler d1 migrations apply evse-monitor --local",
+    "db:remota": "wrangler d1 migrations apply evse-monitor --remote",
+    "deploy": "wrangler deploy",
+    "logs": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}
