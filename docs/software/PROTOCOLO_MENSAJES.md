@@ -101,7 +101,7 @@ Frecuencia: `tel_s` (15 s por defecto); cada 2 s mientras `mirando` esté fresco
 
 `{"ok":true,"msg":"carga detenida","ts":{".sv":"timestamp"}}`, y después el equipo borra la orden de `entrada`. `cal_leer` agrega `datos` con la calibración, los registros del chip (SysStatus, CalStart, AdjStart, MMode, Ugain, IgainN, CS1, CS2) y la medición actual.
 
-Al aplicar una configuración, el equipo la vuelve a escribir en `entrada/{id}/config` con la misma `v`, `"por":"equipo"` y los valores ya recortados a sus rangos. Si cambia algo por la consola (`sonda`, `tension`), sube la suya con `v` + 1.
+Al aplicar una configuración, el equipo la vuelve a escribir en `entrada/{id}/config` con la misma `v`, `"por":"equipo"` y los valores ya recortados a sus rangos. Si cambia algo por la consola (`sonda`, `tension`), sube la suya con `v` + 1. Si el cambio se hizo sin conexión y la nube tiene otra configuración (por ejemplo, la v1 que crea la app con el equipo), al conectarse el equipo conserva el campo de la consola, toma lo demás de la nube y sube el resultado con una `v` mayor que las dos (D33).
 
 ## 5. Órdenes
 

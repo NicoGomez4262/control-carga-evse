@@ -1,6 +1,6 @@
 # Siguiente sesión → Fase 10 (continuación): firmware final + app en la placa real
 
-La **Fase 9 se cerró el 24 nov** (`docs/sesiones/F9_cerrada.md`). La placa 1 pasó todo lo que se puede probar sin red: H0–H6 y S1–S6, más el canal de corriente. Falta la tarea **10H**: firmware final conectado a la app de Firebase (probado desde el celular), S7 con red y calibración (incluido el CT con corriente real en un solo conductor) y S8 de punta a punta.
+La **Fase 9 se cerró el 24 nov** (`docs/sesiones/F9_cerrada.md`). La placa 1 pasó todo lo que se puede probar sin red: H0–H6 y S1–S6, más el canal de corriente. **10H va por la mitad:** el firmware final 1.0.0 ya está en la placa 1 y arranca bien (D33). Falta publicar la app en Firebase, enlazar la placa, probarla desde el celular, S7 con red y calibración (incluido el CT con corriente real en un solo conductor) y S8 de punta a punta.
 
 ## Prompt para iniciar
 
@@ -26,32 +26,40 @@ Lo probado en la placa 1 el 24 nov con firmware/prueba_placa:
   (un cable entero se anula). S7 (red y calibración) no se ha hecho: en el banco U = 0 e I = 0 y el
   medidor queda «sin calibrar»; es normal (la protección de red baja solo actúa calibrado).
 
+Ya hecho (24 nov, D33): código de enlace, rutas y reglas cotejados entre la app y el firmware; CS1
+antes de 8765H; tabla de particiones corregida; evse_monitor 1.0.0 subido a la placa 1 (flash borrada)
+y arrancando sin errores. En el último arranque PARAR salió enclavado: [di si lo pulsaste].
+
 Qué quiero, en este orden:
-1. Estado de la app: si ya está publicada en Firebase (guía B), cuál es su dirección .web.app; si no,
-   guíame a publicarla. Mi cuenta, `admins` y el equipo evse-01. El código de enlace lo copio yo:
-   no va a git ni al chat.
-2. Verificar que el código de enlace de app/public/fb.js (EVSE1. + base64url de {d,k,e,c}) coincide
-   con firmware/evse_monitor/src/almacen.cpp, y que las rutas y reglas que usa src/fb.cpp coinciden
-   con las de la app actual. Corregir lo que no coincida y compilar sin advertencias.
-3. Revisar que el firmware final escribe CS1 antes de 8765H (la falla se decide por CalErr/AdjErr).
-4. Con mi OK: borrar la flash y subir evse_monitor a COM8 (pio en
-   ~/.platformio/penv/Scripts/pio.exe; cierra antes cualquier monitor). Yo escribo en la consola
-   `wifi "RED" CLAVE`, `enlazar EVSE1.…` y `reiniciar`; Claude no escribe claves. Sin sonda: `sonda 0`.
-   Decido D28 (arranque de K1) en Ajustes.
-5. Verificar desde el celular: LED3 fijo y «En línea»; datos en vivo (sonda y AHT20; U e I en 0);
+1. Estado de la app: [di si ya la publicaste en Firebase (guía B) y su dirección .web.app]; si no,
+   guíame a publicarla (la CLI de Firebase tenía la sesión vencida: `npx firebase login --reauth`).
+   Mi cuenta, `admins` y el equipo evse-01. El código de enlace lo copio yo: no va a git ni al chat.
+2. Con la placa conectada (12 V en J6 y USB en COM8; pio en ~/.platformio/penv/Scripts/pio.exe;
+   COM8 lo usa una sola sesión): yo escribo en la consola `wifi "RED" CLAVE`, `enlazar EVSE1.…` y
+   `reiniciar`; Claude no escribe claves. La sonda está puesta (lee ≈ 25 °C): no hace falta
+   `sonda 0`. Decido D28 (arranque de K1) en Ajustes.
+3. Verificar desde el celular: LED3 fijo y «En línea»; datos en vivo (sonda y AHT20; U e I en 0);
    Detener/Permitir con Ω entre el 17 (J2-1) y el 18 (J2-2) → OL / 25–40 Ω y LED6; PARAR (SW1 o J7)
    abre K1 y se ve en la app; sonda sobre tmax (bajar tmax en Ajustes) abre K1; cortar el hotspot y
    comprobar que las protecciones siguen y que el historial se completa al volver; configuración
-   empujada y confirmada; OTA 1.0.0 → 1.0.1.
-6. Si consigo un cable dúplex: CT en un solo hilo con la estación de aire caliente enchufada; la
+   empujada y confirmada; OTA 1.0.0 → 1.0.1. Mirar también la humedad del AHT20 (salió en 0 %).
+4. Si consigo un cable dúplex: CT en un solo hilo con la estación de aire caliente enchufada; la
    corriente sale en `estado` y en la app (≈ 1,8 veces la real hasta calibrar).
-7. Anotar cada resultado en el registro de PROTOCOLO_PRUEBAS.md (S8 parcial, sin red), registrar
+5. Anotar cada resultado en el registro de PROTOCOLO_PRUEBAS.md (S8 parcial, sin red), registrar
    decisiones en DECISIONES.md, actualizar NEXT_SESSION.md y subir con
    `python docs/tools/sincronizar_altium.py --commit -m "..."` (sin coautor).
 
 Reglas: COM8 lo usa una sola sesión a la vez. Nada de claves del WiFi, códigos de enlace ni tokens en
 git ni en el chat. En cada prueba, dime qué conectar con los números del mapa y su pin de Altium.
 ```
+
+## Qué se hizo (24 nov, 10H primera parte)
+
+- **Cotejo app ↔ firmware:** el código de enlace (`EVSE1.` + base64url de `{d,k,e,c}`) es igual en `app/public/fb.js` y `almacen.cpp`. Las 13 rutas que usa el equipo están permitidas por `database.rules.json`, y los campos de `estado` y de la configuración coinciden con la app.
+- **Corregido (D33):** (1) `particiones.csv`. PlatformIO sube la app en 0x10000 y `boot_app0` en 0xE000, y la tabla ponía `app0` en 0x20000, así que el bootloader quedaba en bucle. Ahora la NVS de 64 KB va en 0x810000. (2) Un `sonda`/`tension` hecho sin conexión se mezcla con la configuración de la nube en vez de quedar con la misma versión. (3) Ya no salen avisos `[E]` de NVS vacía.
+- Comentarios de S5-4 en el firmware final (WarnOut e IRQ activos en alto; CS1 antes de 8765H).
+- **`evse_monitor` 1.0.0 en la placa 1** (flash borrada). Compila sin advertencias (1.079.381 bytes). En el arranque: hora del DS3231, sonda 25,4 °C, AHT20 28,3 °C con 0 %HR, ATM90E26 en 8765H sin CalErr, «sin calibrar», sin WiFi. En el último arranque PARAR salió enclavado; se suelta con 3 s de SW1/J7 o `soltar_parar`.
+- La app **no está publicada** todavía: no hay `app/.firebaserc` y la sesión de la CLI de Firebase estaba vencida (401). Guía B, paso 5, ahora explica `login --reauth`.
 
 ## Qué se hizo (24 nov, cierre de la Fase 9)
 
@@ -95,12 +103,11 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 │ L1/L2 (L/N en 120 V) con fusibles · J1–J6 conectores · J1 con cable largo a la línea · J2 contacto seco aislado
 ```
 <!--/DIAG-->
-<!--/DIAG-->
 
 ```text
 SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: integración con la placa (10H)
 
-[Placa: S1–S6 ✓ · canal I ✓] ─► [ESP32-S3: firmware final ▐subir y enlazar▌] ═TLS═► [Firebase ✓] ─► [App web ▐publicar▌] ─► celular
+[Placa: S1–S6 ✓ · canal I ✓] ─► [ESP32-S3: firmware final 1.0.0 ✓ ▐enlazar▌] ═TLS═► [Firebase ✓] ─► [App web ▐publicar▌] ─► celular
           ▲ ▐S7 red + cal · S8▌             │ protecciones locales ✓                       ▲                                  │
           └─────────────────────────────────┴─ NVS + búfer 7 MB + DS3231 ✓                 └────────── órdenes ◄─────────────────┘
 ```
@@ -118,7 +125,8 @@ SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: integración con la placa (10H)
   - [x] S1–S6 con `firmware/prueba_placa`, U1 + H4 y el canal de corriente sin red (24 nov).
   - [ ] Publicar la app en Firebase (guía, parte B); tu cuenta, `admins` y el equipo `evse-01`.
   - [ ] Opcional: dominio `evse.nicolasgomez.dev` y bot de Telegram.
-  - [ ] Borrar la flash y subir `firmware/evse_monitor`; `wifi` + `enlazar CÓDIGO`; LED3 fijo y «En línea» en la app.
+  - [x] Cotejar el enlace, las rutas y las reglas; borrar la flash y subir `firmware/evse_monitor` 1.0.0 (24 nov, D33).
+  - [ ] `wifi` + `enlazar CÓDIGO`; LED3 fijo y «En línea» en la app.
   - [ ] Desde el celular, sin red: Detener/Permitir con J2 medido, PARAR, sonda caliente, sin internet, configuración, OTA 1.0.0 → 1.0.1.
   - [ ] CT con corriente real en un solo conductor (cable dúplex separado o separador de línea).
   - [ ] S7: con transformador de aislamiento, repetir H1-5 y H1-6 apagada; calibración con `cal_auto` y verificación con otra carga (error < 1–2 %).

@@ -10,8 +10,8 @@ static SPISettings ajuste(100000, MSBFIRST, SPI_MODE3);
 void begin() {
   pinMode(pin::MEAS_CS, OUTPUT);
   digitalWrite(pin::MEAS_CS, HIGH);
-  pinMode(pin::MEAS_IRQ, INPUT);
-  pinMode(pin::MEAS_WARN, INPUT);
+  pinMode(pin::MEAS_IRQ, INPUT);   // activo en alto (S5-4); solo informativo
+  pinMode(pin::MEAS_WARN, INPUT);  // activo en alto (S5-4): 3,3 V con CalErr/AdjErr; solo informativo
   pinMode(pin::MEAS_ZX, INPUT);
   SPI.begin(pin::MEAS_SCK, pin::MEAS_MISO, pin::MEAS_MOSI, -1);
 }
@@ -75,7 +75,9 @@ bool configurar(const Calibracion &c, uint16_t vnom) {
   if (sag > 65535) sag = 65535;
   escribir(SAGTH, (uint16_t)sag);
 
-  // Metering: 5678H, registros 21H–2BH, CS1 y 8765H.
+  // Metering: 5678H, registros 21H–2BH, CS1 y 8765H. CS1 va SIEMPRE antes de 8765H: el chip compara la
+  // suma al arrancar el modo de medición (S5-4, placa 1: sin escribir CS1 no marca error; con una CS1
+  // equivocada, SysStatus = C000H). Con los valores de fábrica, CS1 = 55CBH.
   const uint16_t met[11] = {c.plconst_h, c.plconst_l, c.lgain, c.lphi, c.ngain, c.nphi,
                             c.pstart,    c.pnol,      c.qstart, c.qnol, c.mmode};
   escribir(CALSTART, 0x5678);
@@ -91,6 +93,8 @@ bool configurar(const Calibracion &c, uint16_t vnom) {
   escribir(CS2, checksum(mea, 10));
   escribir(ADJSTART, 0x8765);
 
+  // El chip revisa las sumas «regularmente» (datasheet): CalErr puede aparecer después de esta lectura.
+  // No importa, medir() lee SysStatus cada segundo y control.cpp declara la falla con 5 s de CalErr/AdjErr.
   delay(20);
   uint16_t st = leer(SYSSTATUS);
   return (st & (SYS_CALERR | SYS_ADJERR)) == 0 && leer(CALSTART) == 0x8765 && leer(ADJSTART) == 0x8765;

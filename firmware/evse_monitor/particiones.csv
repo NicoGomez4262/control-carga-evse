@@ -1,8 +1,12 @@
 # Flash de 16 MB del ESP32-S3-WROOM-1-N16R2.
+# PlatformIO (Arduino) sube SIEMPRE la app en 0x10000 y boot_app0 (otadata) en 0xE000: la tabla tiene
+# que respetar esas dos direcciones (24 nov, placa 1: con app0 en 0x20000 el bootloader quedaba en bucle).
+# La NVS de 64 KB va después de las ranuras de aplicación (nvs_flash_init la busca por nombre).
+# 0x9000–0xE000 queda libre.
 # Nombre,  Tipo, Subtipo,  Inicio,   Tamaño
-nvs,       data, nvs,      0x9000,   0x10000
-otadata,   data, ota,      0x19000,  0x2000
-app0,      app,  ota_0,    0x20000,  0x400000
-app1,      app,  ota_1,    0x420000, 0x400000
+otadata,   data, ota,      0xe000,   0x2000
+app0,      app,  ota_0,    0x10000,  0x400000
+app1,      app,  ota_1,    0x410000, 0x400000
+nvs,       data, nvs,      0x810000, 0x10000
 buffer,    data, 0x40,     0x820000, 0x700000
 coredump,  data, coredump, 0xF20000, 0x10000

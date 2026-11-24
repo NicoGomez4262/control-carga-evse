@@ -82,7 +82,12 @@ struct Config {
   uint16_t tel_s;        // telemetría sin la app abierta
   uint16_t reg_carga_s;  // registro al historial durante la carga
   uint16_t reg_reposo_s; // registro al historial en reposo
+  uint8_t local;         // CFG_LOCAL_*: campos cambiados por la consola que la nube todavía no tiene
 };
+// Cambios de la consola sin conexión: al llegar la configuración de la nube se conservan estos campos,
+// lo demás lo manda la nube, y el resultado sube con una versión nueva (red.cpp, remotaConfig).
+constexpr uint8_t CFG_LOCAL_SONDA = 1;  // sonda_req («sonda 0|1»)
+constexpr uint8_t CFG_LOCAL_VNOM = 2;   // vnom («tension 120|240»)
 void configPorDefecto(Config &c);
 
 // ---------------------------------------------------------------- calibración del ATM90E26

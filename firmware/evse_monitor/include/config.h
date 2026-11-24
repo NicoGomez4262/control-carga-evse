@@ -11,6 +11,8 @@ constexpr int MEAS_CS = 10;
 constexpr int MEAS_MOSI = 11;
 constexpr int MEAS_SCK = 12;
 constexpr int MEAS_MISO = 13;
+// IRQ y WarnOut del ATM90E26 son ACTIVOS EN ALTO (S5-4, placa 1, 24 nov: 0 V normal, 3,3 V con error).
+// El firmware no los usa para decidir: la falla sale de CalErr/AdjErr en SysStatus (control.cpp).
 constexpr int MEAS_IRQ = 14;
 constexpr int MEAS_WARN = 21;
 constexpr int MEAS_ZX = 17;

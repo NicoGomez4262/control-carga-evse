@@ -103,7 +103,7 @@ npm install
 npx firebase login
 ```
 
-   Se abre el navegador para autorizar con tu cuenta de Google.
+   Se abre el navegador para autorizar con tu cuenta de Google. Si la CLI ya tenía una sesión vieja (al listar proyectos sale «401» o «Failed to list Firebase projects»), usa `npx firebase login --reauth`. Si tiene varias cuentas, `npx firebase login:list` las muestra y `npx firebase login:use CORREO` elige la del proyecto.
 
 ```powershell
 npx firebase use --add
@@ -148,7 +148,11 @@ npm run desplegar
 & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -d firmware\evse_monitor -t upload --upload-port COM8
 ```
 
-En la consola sale la versión, el búfer y la ayuda. Escribe `estado`. Sin red y sin la sonda, lo normal es K1 abierto con motivo «falla» (sonda obligatoria sin lectura). Para el banco: `sonda 0`.
+En la consola sale la versión, el búfer y la ayuda. Escribe `estado`. Sin red y sin la sonda, lo normal es K1 abierto con motivo «falla» (sonda obligatoria sin lectura). Para el banco: `sonda 0` (puede ir antes o después de enlazar: si va antes, al conectarse se mezcla con la configuración de la app, D33). Con la sonda puesta y sin permiso, lo normal es K1 abierto con motivo «app».
+
+La placa 1 ya tiene `evse_monitor` 1.0.0 desde el 24 nov: no hace falta borrar ni volver a subir para enlazarla. Si después de subir la consola repite `rst:0x3 (RTC_SW_SYS_RST)` sin llegar a «EVSE Monitor», revisa que `particiones.csv` tenga `otadata` en 0xE000 y `app0` en 0x10000 (D33).
+
+Si `estado` dice «motivo: parar» y la alarma «PARAR pulsado», PARAR quedó enclavado (se guarda en la NVS y sobrevive a los reinicios). Se suelta manteniendo SW1 o el botón de J7 **3 s**, con `soltar_parar` o desde la app.
 
 ### C3. Enlazarlo con la app
 
@@ -213,6 +217,8 @@ python tools\simulador\simulador.py --enlace "EVSE1.…" --rapido 60
 | Síntoma | Qué revisar |
 |---|---|
 | No sale el puerto COM | cable de datos; driver CH341SER; H1-4 f (D5) |
+| «Could not open COM8 … Access is denied» justo después de subir o borrar | casi siempre se pasa solo en unos segundos: vuelve a intentar. Si sigue, cierra el monitor serie y cualquier programa que revise los puertos COM |
+| La consola repite `rst:0x3 (RTC_SW_SYS_RST)` sin llegar a «EVSE Monitor» | tabla de particiones: `otadata` en 0xE000 y `app0` en 0x10000 (D33); borra la flash y sube otra vez |
 | «Wrong boot mode detected» | auto-reset (Q1, Q2, R19, R20); mientras tanto, el arranque manual de A1 |
 | La placa se reinicia con «brownout» al conectar el WiFi | la fuente: con U1, 12 V en J6 con límite de 0,20 A |
 | LED3 parpadea lento (WiFi sí, app no) | `red` en la consola: «Último error» lo dice. Ver las tres filas siguientes |

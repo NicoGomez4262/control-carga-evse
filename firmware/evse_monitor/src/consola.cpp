@@ -99,11 +99,12 @@ static String primero(String &resto) {
   return a;
 }
 
-static void cambiarConfig(void (*f)(Config &)) {
+static void cambiarConfig(void (*f)(Config &), uint8_t campo) {
   Config c;
   almacen::configLeer(c);
   f(c);
-  c.version++;  // la app ve el cambio como una versión nueva
+  c.version++;      // la app ve el cambio como una versión nueva
+  c.local |= campo;  // y, si la nube tiene otra con la misma versión, este campo se conserva al mezclar
   almacen::configGuardar(c);
   ordenLocal(O_CONFIG);
   red::recargarConfig();
@@ -158,14 +159,14 @@ static void ejecutar(String linea) {
   } else if (cmd == "cal_fabrica") ordenLocal(O_CAL_FABRICA);
   else if (cmd == "sonda") {
     argEntero = primero(resto).toInt();
-    cambiarConfig([](Config &c) { c.sonda_req = argEntero != 0; });
+    cambiarConfig([](Config &c) { c.sonda_req = argEntero != 0; }, CFG_LOCAL_SONDA);
     Serial.printf("Sonda %s.\n", argEntero ? "obligatoria" : "opcional");
   } else if (cmd == "tension") {
     argEntero = primero(resto).toInt();
     if (argEntero != 120 && argEntero != 240) {
       Serial.println("Uso: tension 120  |  tension 240");
     } else {
-      cambiarConfig([](Config &c) { c.vnom = (uint16_t)argEntero; });
+      cambiarConfig([](Config &c) { c.vnom = (uint16_t)argEntero; }, CFG_LOCAL_VNOM);
       Serial.printf("Tensión nominal: %d V.\n", argEntero);
     }
   } else if (cmd == "buffer") {

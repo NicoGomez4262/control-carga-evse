@@ -18,7 +18,7 @@ static String leerTexto(Preferences &p, const char *k, const char *defecto = "")
 
 void redLeer(Red &r) {
   Preferences p;
-  p.begin("red", true);
+  p.begin("red", false);  // lectura y escritura: crea el espacio si falta (sin «nvs_open failed: NOT_FOUND»)
   r.ssid = leerTexto(p, "ssid", SECRETO_WIFI_SSID);
   r.clave = leerTexto(p, "clave", SECRETO_WIFI_CLAVE);
   r.db = leerTexto(p, "db");
@@ -75,8 +75,8 @@ void redBorrar() {
 void configLeer(Config &c) {
   configPorDefecto(c);
   Preferences p;
-  p.begin("cfg", true);
-  if (p.getBytesLength("c") == sizeof(Config)) p.getBytes("c", &c, sizeof(Config));
+  p.begin("cfg", false);  // lectura y escritura: crea el espacio si falta (sin «nvs_open failed: NOT_FOUND»)
+  if (p.isKey("c") && p.getBytesLength("c") == sizeof(Config)) p.getBytes("c", &c, sizeof(Config));
   p.end();
 }
 
@@ -90,8 +90,8 @@ void configGuardar(const Config &c) {
 void calLeer(Calibracion &c) {
   calibracionPorDefecto(c);
   Preferences p;
-  p.begin("cal", true);
-  if (p.getBytesLength("c") == sizeof(Calibracion)) p.getBytes("c", &c, sizeof(Calibracion));
+  p.begin("cal", false);  // lectura y escritura: crea el espacio si falta (sin «nvs_open failed: NOT_FOUND»)
+  if (p.isKey("c") && p.getBytesLength("c") == sizeof(Calibracion)) p.getBytes("c", &c, sizeof(Calibracion));
   p.end();
 }
 
@@ -105,8 +105,8 @@ void calGuardar(const Calibracion &c) {
 void estadoLeer(Persistente &e) {
   memset(&e, 0, sizeof(e));
   Preferences p;
-  p.begin("est", true);
-  if (p.getBytesLength("e") == sizeof(Persistente)) p.getBytes("e", &e, sizeof(Persistente));
+  p.begin("est", false);  // lectura y escritura: crea el espacio si falta (sin «nvs_open failed: NOT_FOUND»)
+  if (p.isKey("e") && p.getBytesLength("e") == sizeof(Persistente)) p.getBytes("e", &e, sizeof(Persistente));
   p.end();
   if (e.magia != MAGIA) {
     memset(&e, 0, sizeof(e));
@@ -125,7 +125,7 @@ void estadoGuardar(const Persistente &e) {
 
 uint8_t otaPendiente() {
   Preferences p;
-  p.begin("ota", true);
+  p.begin("ota", false);  // lectura y escritura: crea el espacio si falta (sin «nvs_open failed: NOT_FOUND»)
   uint8_t v = p.getUChar("pend", 0);
   p.end();
   return v;
@@ -141,7 +141,7 @@ void otaMarcar(uint8_t v) {
 
 uint8_t arranquesOta() {
   Preferences p;
-  p.begin("ota", true);
+  p.begin("ota", false);  // lectura y escritura: crea el espacio si falta (sin «nvs_open failed: NOT_FOUND»)
   uint8_t v = p.getUChar("arr", 0);
   p.end();
   return v;
@@ -163,7 +163,7 @@ static void otaTexto(const char *k, const String &v) {
 
 static String otaTexto(const char *k) {
   Preferences p;
-  p.begin("ota", true);
+  p.begin("ota", false);  // lectura y escritura: crea el espacio si falta (sin «nvs_open failed: NOT_FOUND»)
   String v = p.isKey(k) ? p.getString(k, "") : String();
   p.end();
   return v;

@@ -60,7 +60,7 @@ Las dos se suscriben al watchdog de tareas (30 s). Se comunican con una cola de 
 | `src/portal.*` | Punto de acceso «EVSE-XXXX» con clave: WiFi y código de enlace |
 | `src/consola.*` | Comandos por el monitor serie |
 | `src/ca_raiz.h` | Certificados raíz (Google Trust Services para Firebase, GoDaddy para Telegram, ISRG), generados con `tools/generar_ca.py` desde `certifi` |
-| `particiones.csv` | NVS de 64 KB, 2 × 4 MB de aplicación (OTA), búfer de 7 MB, coredump |
+| `particiones.csv` | `otadata` en 0xE000 y `app0` en 0x10000 (donde PlatformIO sube siempre), 2 × 4 MB de aplicación (OTA), NVS de 64 KB en 0x810000, búfer de 7 MB, coredump (D33) |
 
 ### 2.3 Medición
 
@@ -153,4 +153,5 @@ Fuente: [precios de Firebase](https://firebase.google.com/pricing) (consultada e
 - Los dos firmwares compilan sin errores ni advertencias propias (prueba_placa 779 KB; evse_monitor 1,08 MB de 4 MB por ranura).
 - **Reglas de seguridad:** 64 de 64 casos bien en el emulador (administrador, propietario, solo lectura, cuenta extraña, equipo propio y equipo ajeno).
 - **App + simulador contra el emulador de Firebase** (Authentication, Realtime Database y Hosting en local): crear cuenta, hacerse administrador, alta del equipo con su cuenta y código de enlace, conexión del simulador con 25 s de búfer sin internet, panel en vivo, Detener/Permitir con confirmación del equipo en ≈ 0,4 s, configuración v2 «aplicada en el equipo», límite de 1 kWh con «Nueva sesión», sobretemperatura con K1 abierto y alarma titilando, reconocer, historial con sesiones y costos, bitácora de órdenes, OTA de 244 KB en 8 partes con SHA-256 y confirmación de la versión nueva. Revisada en celular (375 px) y computador (1280 px), en tema oscuro y claro.
-- **Falta en la placa:** S1–S8 con el hardware real (sección «S» del protocolo de pruebas) y publicar en Firebase con tu cuenta (guía, parte B). El cliente de Firebase del firmware (`fb.cpp`) se probó solo a través del simulador, que hace las mismas llamadas: la primera conexión real de la placa es la prueba que falta.
+- **En la placa 1 (24 nov):** S1–S6 aprobadas con `prueba_placa`; `evse_monitor` 1.0.0 subido y arrancando bien sin WiFi (D33: se corrigió la tabla de particiones). Falta enlazarlo con la app publicada.
+- **Falta en la placa:** S7–S8 con el hardware real (sección «S» del protocolo de pruebas) y publicar en Firebase con tu cuenta (guía, parte B). El cliente de Firebase del firmware (`fb.cpp`) se probó solo a través del simulador, que hace las mismas llamadas: la primera conexión real de la placa es la prueba que falta.

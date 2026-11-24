@@ -169,7 +169,13 @@ static void subirConfig() {
   String b;
   serializeJson(d, b);
   int c = fb::pedir("PUT", "entrada/" + eq + "/config", b);
-  if (c == 200) cfgSubir = false;
+  if (c == 200) {
+    cfgSubir = false;
+    if (cfg.local) {  // la nube ya tiene los cambios de la consola
+      cfg.local = 0;
+      almacen::configGuardar(cfg);
+    }
+  }
   contarFallo(c);
 }
 
@@ -216,6 +222,10 @@ static void aplicarConfig(JsonObject c, uint32_t version) {
   n.tel_s = (uint16_t)rango(c["tel_s"] | (float)n.tel_s, 5, 300);
   n.reg_carga_s = (uint16_t)rango(c["reg_carga_s"] | (float)n.reg_carga_s, 10, 600);
   n.reg_reposo_s = (uint16_t)rango(c["reg_reposo_s"] | (float)n.reg_reposo_s, 60, 3600);
+  // Lo que se cambió por la consola y la nube no conoce se queda como está (n.local sigue marcado
+  // hasta que subirConfig lo sube).
+  if (cfg.local & CFG_LOCAL_SONDA) n.sonda_req = cfg.sonda_req;
+  if (cfg.local & CFG_LOCAL_VNOM) n.vnom = cfg.vnom;
   n.version = version;
   almacen::configGuardar(n);
   cfg = n;
@@ -234,10 +244,18 @@ static void remotaConfig(JsonVariant v) {
   }
   JsonObject c = v.as<JsonObject>();
   uint32_t ver = c["v"] | 0;
-  if (ver > cfg.version)
+  if (cfg.local) {
+    // Cambios de la consola hechos sin conexión (p. ej. «sonda 0» antes del primer enlace, cuando la app
+    // ya creó su v1): se mezclan con la de la nube y suben con una versión mayor que las dos.
+    uint32_t nueva = ver + 1 > cfg.version ? ver + 1 : cfg.version;
+    Serial.printf("[red] mezclando la configuración de la nube (v%lu) con la de la consola → v%lu\n",
+                  (unsigned long)ver, (unsigned long)nueva);
+    aplicarConfig(c, nueva);
+  } else if (ver > cfg.version) {
     aplicarConfig(c, ver);
-  else if (ver < cfg.version)
+  } else if (ver < cfg.version) {
     cfgSubir = true;
+  }
 }
 
 // ------------------------------------------------------------------ telemetría en vivo

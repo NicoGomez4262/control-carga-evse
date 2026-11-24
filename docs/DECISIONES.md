@@ -710,6 +710,13 @@ Qué cambió en el código: `firmware/evse_monitor/src/fb.cpp` (cliente nuevo), 
 
 **24 nov · D32 · Diseño de la app.** Se ofrecieron cuatro mundos visuales (tablero eléctrico, contador de energía con disco, pulsos sobre negro y la app de carga estándar). El usuario eligió el tablero eléctrico «no tan industrial, más bien futurista». Queda documentado en `DESIGN.md` y en el comentario de dirección de `app/public/index.html`.
 
+**24 nov · D33 · Firmware final en la placa 1 (10H, primera parte).** Tres correcciones al subirlo por primera vez:
+- **Tabla de particiones.** Con Arduino, PlatformIO escribe la app siempre en 0x10000 y `boot_app0` (el `otadata` inicial) en 0xE000, diga lo que diga la tabla (`builder/main.py` y `tools/platformio-build.py`). La tabla vieja ponía `app0` en 0x20000 y la NVS de 0x9000 a 0x19000: el bootloader no encontraba la app y se reiniciaba sin fin, y cada subida por USB habría escrito `boot_app0` encima de la NVS. Opciones: (a) la tabla estándar de Arduino, con NVS de 20 KB en 0x9000 (más desgaste: la energía se guarda cada minuto); (b) mover las direcciones de subida con un script propio de PlatformIO (más frágil); (c) **`otadata` en 0xE000 y `app0` en 0x10000, como espera PlatformIO, con la NVS de 64 KB después de las ranuras de aplicación (0x810000)**: `nvs_flash_init` la busca por nombre. **Elegida (c).** El búfer (0x820000, 7 MB) y el coredump no se movieron; 0x9000–0xE000 queda libre.
+- **Cambios de la consola sin conexión.** `sonda` y `tension` suben la versión de la configuración. Si eso pasa antes del primer enlace, el equipo queda en v1 y la app ya creó su propia v1: con las versiones iguales, ninguno corrige al otro y la app muestra otra cosa. Ahora el campo cambiado queda marcado (`Config.local`). Cuando llega la configuración de la nube, ese campo se conserva, el resto lo pone la nube y el resultado sube con una versión mayor que las dos. La marca se borra cuando Firebase acepta la subida.
+- **NVS vacía.** Las lecturas abren la NVS en modo lectura y escritura y revisan que la clave exista. Así, después de borrar la flash, la consola ya no muestra avisos `[E] nvs_open failed: NOT_FOUND` que parecen fallas.
+
+También quedó comentado en `config.h` y `atm90e26.cpp` lo que se vio en S5-4: WarnOut e IRQ son activos en alto, y CS1 se escribe siempre antes de 8765H. La falla del medidor se sigue decidiendo por CalErr/AdjErr. En la placa, CalStart y AdjStart quedan en 8765H, sin CalErr.
+
 ## Componentes elegidos
 
 Se llena al cerrar cada fase.
