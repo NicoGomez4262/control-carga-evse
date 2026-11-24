@@ -610,16 +610,18 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 
 **Tareas**
 
-- [x] 10A · Arquitectura: D21–D30 en `docs/DECISIONES.md` y `docs/software/ARQUITECTURA.md` (23 nov). Firmware Arduino-ESP32 en PlatformIO; WebSocket seguro saliente; Cloudflare Workers + Durable Objects + D1 + KV (gratis); app sin framework; Telegram. Falta que el usuario decida D28 (arranque de K1).
+- [x] 10A · Arquitectura: D21–D32 en `docs/DECISIONES.md` y `docs/software/ARQUITECTURA.md` (23–24 nov). El 24 nov el servidor pasó a Firebase (D31, pedido del usuario) y la app tomó el diseño de tablero eléctrico (D32). Antes: Firmware Arduino-ESP32 en PlatformIO; WebSocket seguro saliente; Cloudflare Workers + Durable Objects + D1 + KV (gratis); app sin framework; Telegram. Falta que el usuario decida D28 (arranque de K1).
 - [x] 10B · Firmware de pruebas (`firmware/prueba_placa`): S1–S6 y ayudas para S5 con generador y S7 (23 nov, compila). Falta correrlo en la placa.
 - [x] 10C · Protocolo de mensajes (`docs/software/PROTOCOLO_MENSAJES.md`).
 - [x] 10D · Firmware final (`firmware/evse_monitor`): ATM90E26 con CS1/CS2 y LNSel = 0, sensores, máquina de estados con K1 NA, protecciones locales, energía en NVS, búfer de 7 MB, NTP + DS3231, WiFi a 17 dBm, TLS verificado, portal, consola, OTA con vuelta atrás y watchdog (23 nov, compila). Falta probarlo en la placa.
 - [x] 10E · Simulador del equipo (`tools/simulador/simulador.py`).
 - [x] 10F · Servidor: API, WebSocket en vivo, usuarios y roles, D1, OTA, Telegram y limpieza diaria (probado en local con el simulador).
 - [x] 10G · Aplicación web: panel en vivo, control con confirmación, horarios y límites, historial con costos y CSV, alarmas, ajustes, calibración, OTA, usuarios (probada en local en tamaño de celular).
-- [ ] 10H · Integración con la placa: publicar la app (guía B), S1–S5 con el firmware de pruebas, U1 + H4 + S6, firmware final conectado, S7 con calibración y S8 de punta a punta (orden en la app → K1 → J2 medido).
+- [ ] 10H · Integración con la placa: publicar la app en Firebase (guía B), S1–S5 con el firmware de pruebas, U1 + H4 + S6, firmware final conectado, S7 con calibración y S8 de punta a punta (orden en la app → K1 → J2 medido).
 - [x] 10I · Documentación: `ARQUITECTURA.md`, `PROTOCOLO_MENSAJES.md`, `GUIA_INSTALACION.md`, README (23 nov).
 
 **Termina cuando:** desde la app se ve la medición real calibrada y se permite o detiene la carga, y las protecciones actúan sin internet.
 
 **23 nov:** el software quedó escrito y probado sin la placa: los dos firmwares compilan sin advertencias y el servidor con la app se probaron en local con el simulador (órdenes, configuración, límites, sobretemperatura, búfer sin internet, OTA, CSV). Lo que falta es 10H.
+
+**24 nov:** a pedido del usuario el servidor pasó de Cloudflare a **Firebase** (D31) y la app se rediseñó como tablero eléctrico (D32). Reglas de seguridad: 64 de 64 pruebas bien en el emulador; app + simulador contra el emulador: órdenes con confirmación (≈ 0,4 s), configuración, límites, sobretemperatura, reconocer, historial, bitácora y OTA en partes. Los dos firmwares compilan sin advertencias.

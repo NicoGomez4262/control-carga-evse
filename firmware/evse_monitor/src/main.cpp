@@ -3,7 +3,7 @@
 // Dos tareas:
 //   · control (prioridad 3): ATM90E26, sensores, energía, sesiones, protecciones, K1, LEDs y PARAR.
 //     No depende de la red: las protecciones funcionan sin internet.
-//   · loop de Arduino (prioridad 1): WiFi, WebSocket con TLS hacia la app, búfer, OTA, portal y consola.
+//   · loop de Arduino (prioridad 1): WiFi, Firebase con TLS (flujo + REST), búfer, OTA, portal y consola.
 // Las dos alimentan el watchdog de tareas (30 s).
 
 #include <Arduino.h>
@@ -36,6 +36,7 @@ static void revisarOta() {
     const esp_partition_t *otra = esp_ota_get_next_update_partition(nullptr);
     if (otra && esp_ota_set_boot_partition(otra) == ESP_OK) {
       Serial.println("[ota] se vuelve al firmware anterior");
+      almacen::otaMala(almacen::otaVersion());  // no se vuelve a intentar esa versión
       almacen::otaMarcar(0);
       delay(200);
       ESP.restart();

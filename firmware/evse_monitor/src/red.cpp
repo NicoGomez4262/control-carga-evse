@@ -2,18 +2,20 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <Update.h>
-#include <WebSocketsClient.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
-#include <esp_ota_ops.h>
+#include <esp_heap_caps.h>
 #include <esp_sntp.h>
 #include <esp_task_wdt.h>
+#include <mbedtls/base64.h>
 #include <mbedtls/sha256.h>
 #include <sys/time.h>
+#include <vector>
 #include "almacen.h"
 #include "ca_raiz.h"
 #include "config.h"
 #include "control.h"
+#include "fb.h"
 #include "tipos.h"
 
 #if ESP_IDF_VERSION_MAJOR >= 5
@@ -26,26 +28,55 @@
 #define SHA_FIN mbedtls_sha256_finish_ret
 #endif
 
+// Rutas de la Realtime Database (docs/software/PROTOCOLO_MENSAJES.md):
+//   lee   /dispositivos/{uid} → id del equipo · /equipos/{id}/nombre · /subido/{id}
+//   flujo /entrada/{id}       → config, ordenes, mirando, ota, telegram
+//   escribe /estado/{id} (en vivo) · /respuestas/{id}/{orden} · /mediciones, /eventos, /sesiones (del búfer)
+//   lee   /firmware/{versión}/partes/{n} (OTA)
+
 namespace red {
 
 static almacen::Red cred;
 static Config cfg;
-static WebSocketsClient ws;
-static bool wsIniciado = false;
-static bool conectado = false;
-static bool vivo = false;
-static bool tls = true;
-static String host;
-static uint16_t puerto = SERVIDOR_PUERTO;
-static String cabecera;
-static uint32_t ultRx = 0, ultPing = 0, ultTel = 0, ultIntentoWifi = 0, ultRevisionOta = 0;
-static uint32_t seqServidor = 0;
+static String eq, nombreEq;
+static String fase = "sin configurar";
+static String miError;
+static bool enlinea = false;
 static bool seqConocido = false;
-static uint32_t loteHasta = 0, loteEnviado = 0;
-static bool otaPedida = false;
-static String otaVer, otaSha, otaId;
-static uint32_t otaTam = 0;
+static uint32_t seqServidor = 0;
+static uint32_t ultIntentoWifi = 0, proxIntento = 0, espera = 5000, proxRenovar = 0;
+static uint32_t vivoHasta = 0, ultTel = 0, ultFalloSubida = 0, ultRevisionOta = 0, ultAvisos = 0;
+static uint8_t fallos = 0;
 static uint32_t reiniciarEn = 0;
+static bool cfgLeer = false, cfgSubir = false, otaLeer = false, otaBorrar = false, tgLeer = false;
+static String tgToken, tgChat;
+
+// OTA
+static bool otaPedida = false;
+static String otaVer, otaSha, otaClave;
+static uint32_t otaTam = 0, otaPartes = 0, otaTp = 0;
+static String otaFase, otaMsg;
+static int otaPct = 0;
+
+// Órdenes pendientes, ya vistas y respuestas por mandar.
+struct Pend {
+  String id, o, a;
+  double ts;
+};
+struct Resp {
+  String id, msg, datos;
+  bool ok;
+};
+static std::vector<Pend> pend;
+static std::vector<Resp> resp;
+static String hechas[16];
+static int iHechas = 0;
+
+// Avisos por Telegram.
+static std::vector<String> tgCola;
+static uint32_t alarmasAnt = 0;
+static uint32_t sesAnt = 0;
+static float esAnt = 0, copAnt = 0;
 
 static const char *textoReset(esp_reset_reason_t r) {
   switch (r) {
@@ -61,65 +92,36 @@ static const char *textoReset(esp_reset_reason_t r) {
   }
 }
 
-// «host», «host:puerto», «wss://host», «ws://host:8787» (sin TLS, solo para pruebas en la red local).
-static void leerServidor() {
-  String s = cred.servidor;
-  s.trim();
-  tls = true;
-  puerto = SERVIDOR_PUERTO;
-  if (s.startsWith("ws://") || s.startsWith("http://")) {
-    tls = false;
-    puerto = 80;
-    s = s.substring(s.indexOf("//") + 2);
-  } else if (s.startsWith("wss://") || s.startsWith("https://")) {
-    s = s.substring(s.indexOf("//") + 2);
-  }
-  int barra = s.indexOf('/');
-  if (barra >= 0) s = s.substring(0, barra);
-  int dos = s.indexOf(':');
-  if (dos >= 0) {
-    puerto = (uint16_t)s.substring(dos + 1).toInt();
-    s = s.substring(0, dos);
-  }
-  host = s;
-}
-
-// ------------------------------------------------------------------ envío
-static void enviar(JsonDocument &d) {
-  if (!conectado) return;
-  String s;
-  serializeJson(d, s);
-  ws.sendTXT(s);
-}
-
 static void num(JsonObject o, const char *k, float v, int dec) {
   if (isnan(v) || isinf(v))
-    o[k] = nullptr;
+    o.remove(k);
   else
     o[k] = serialized(String(v, dec));
 }
 
-static void enviarAck(const char *id, bool ok, const char *msg, JsonDocument *datos = nullptr) {
-  JsonDocument d;
-  d["t"] = "ack";
-  d["id"] = id;
-  d["ok"] = ok;
-  d["msg"] = msg;
-  if (datos) d["datos"] = *datos;
-  enviar(d);
+static bool vivo() { return vivoHasta && (int32_t)(millis() - vivoHasta) < 0; }
+
+static void desconectar(const String &motivo) {
+  fb::flujoCerrar();
+  if (enlinea) Serial.printf("[red] desconectado: %s\n", motivo.c_str());
+  enlinea = false;
+  vivoHasta = 0;
+  fase = "reconectando";
+  proxIntento = millis() + 2000;
 }
 
-static void enviarOta(const char *fase, int pct, const char *msg) {
-  JsonDocument d;
-  d["t"] = "ota";
-  d["fase"] = fase;
-  d["pct"] = pct;
-  d["msg"] = msg;
-  d["ver"] = otaVer.length() ? otaVer.c_str() : FW_VERSION;
-  enviar(d);
-  Serial.printf("[ota] %s %d%% %s\n", fase, pct, msg);
+static void contarFallo(int codigo) {
+  if (codigo == 200) {
+    fallos = 0;
+    return;
+  }
+  if (codigo == 401 || ++fallos >= 5) {
+    fallos = 0;
+    desconectar(fb::error());
+  }
 }
 
+// ------------------------------------------------------------------ configuración
 static const char *textoArranque(uint8_t a) {
   return a == ARR_DETENIDA ? "detenida" : (a == ARR_PERMITIDA ? "permitida" : "restaurar");
 }
@@ -130,11 +132,8 @@ static String hhmm(uint16_t m) {
   return String(b);
 }
 
-static void enviarCfg() {
-  JsonDocument d;
-  d["t"] = "cfg";
-  d["v"] = cfg.version;
-  JsonObject c = d["c"].to<JsonObject>();
+static void configJson(JsonObject c) {
+  c["v"] = cfg.version;
   c["vnom"] = cfg.vnom;
   c["tarifa"] = cfg.tarifa;
   c["tz"] = cfg.tz_min;
@@ -161,141 +160,19 @@ static void enviarCfg() {
   c["tel_s"] = cfg.tel_s;
   c["reg_carga_s"] = cfg.reg_carga_s;
   c["reg_reposo_s"] = cfg.reg_reposo_s;
-  enviar(d);
+  c["por"] = "equipo";
 }
 
-static void enviarHola() {
+static void subirConfig() {
   JsonDocument d;
-  d["t"] = "hola";
-  d["fw"] = FW_VERSION;
-  d["id"] = cred.id;
-  d["reset"] = textoReset(esp_reset_reason());
-  d["mac"] = WiFi.macAddress();
-  d["cfgv"] = cfg.version;
-  d["seq_min"] = buffer::seqMin();
-  d["seq_max"] = buffer::seqMax();
-  d["up"] = millis() / 1000;
-  d["hora"] = control::ahora();
-  d["ota_pend"] = almacen::otaPendiente();
-  enviar(d);
+  configJson(d.to<JsonObject>());
+  String b;
+  serializeJson(d, b);
+  int c = fb::pedir("PUT", "entrada/" + eq + "/config", b);
+  if (c == 200) cfgSubir = false;
+  contarFallo(c);
 }
 
-static void enviarTel() {
-  Instantanea s;
-  control::instantanea(s);
-  JsonDocument d;
-  JsonObject o = d.to<JsonObject>();
-  o["t"] = "tel";
-  o["ts"] = s.ts;
-  if (s.med_ok) {
-    num(o, "v", s.v, 2);
-    num(o, "i", s.i, 3);
-    num(o, "p", s.p, 0);
-    num(o, "pf", s.pf, 3);
-    num(o, "f", s.f, 2);
-  } else {
-    o["v"] = nullptr;
-    o["i"] = nullptr;
-    o["p"] = nullptr;
-    o["pf"] = nullptr;
-    o["f"] = nullptr;
-  }
-  num(o, "es", s.e_ses_kwh, 3);
-  num(o, "et", (float)s.e_tot_kwh, 3);
-  o["ses"] = s.ses_num;
-  o["sini"] = s.ses_ini;
-  o["dur"] = s.ses_dur_s;
-  num(o, "pmax", s.p_max, 0);
-  num(o, "tsn", s.sonda_ok ? s.t_sonda : NAN, 1);
-  num(o, "tam", s.amb_ok ? s.t_amb : NAN, 1);
-  num(o, "hum", s.amb_ok ? s.hum : NAN, 0);
-  o["k1"] = s.k1 ? 1 : 0;
-  o["perm"] = s.permiso ? 1 : 0;
-  o["mot"] = motivoTexto(s.motivo);
-  JsonArray al = o["al"].to<JsonArray>();
-  JsonArray nr = o["nr"].to<JsonArray>();
-  for (int b = 0; b < N_ALARMAS; b++) {
-    if (s.alarmas >> b & 1) al.add(alarmaCodigo(b));
-    if (s.sin_reconocer >> b & 1) nr.add(alarmaCodigo(b));
-  }
-  o["rssi"] = WiFi.RSSI();
-  o["heap"] = ESP.getFreeHeap();
-  o["up"] = s.uptime_s;
-  uint32_t mx = buffer::seqMax();
-  o["pend"] = mx > seqServidor ? mx - seqServidor : 0;
-  enviar(d);
-}
-
-// ------------------------------------------------------------------ búfer → servidor
-static const char *finTexto(uint8_t m) { return m == 1 ? "sin_corriente" : (m == 2 ? "limite" : "otro"); }
-
-static void llenar(JsonObject o, const Registro &r) {
-  o["s"] = r.seq;
-  o["ts"] = r.ts;
-  if (r.flags & 1) o["sh"] = 1;  // sin hora: ts es el uptime en segundos
-  char k[2] = {(char)r.tipo, 0};
-  o["k"] = k;
-  o["k1"] = r.k1;
-  o["mot"] = motivoTexto(r.motivo);
-  if (r.tipo == 'm') {
-    num(o, "v", r.m.v, 2);
-    num(o, "i", r.m.i, 3);
-    num(o, "p", r.m.p, 0);
-    num(o, "pf", r.m.pf, 3);
-    num(o, "f", r.m.f, 2);
-    num(o, "es", r.m.es, 3);
-    num(o, "et", r.m.et, 3);
-    num(o, "tsn", r.m.tsn, 1);
-    num(o, "tam", r.m.tam, 1);
-    num(o, "hum", r.m.hum, 0);
-  } else if (r.tipo == 'e') {
-    o["c"] = eventoCodigo(r.e.codigo);
-    o["n"] = r.e.nivel;
-    num(o, "val", r.e.valor, 2);
-    o["x"] = r.e.extra;
-    if (r.e.codigo == E_ALARMA || r.e.codigo == E_ALARMA_FIN) {
-      o["a"] = alarmaCodigo((int)r.e.valor);
-      o["txt"] = alarmaTexto((int)r.e.valor);
-    }
-  } else if (r.tipo == 's') {
-    o["num"] = r.s.num;
-    o["ini"] = r.s.ini;
-    o["fin"] = r.s.fin;
-    num(o, "kwh", r.s.kwh, 3);
-    num(o, "pmax", r.s.pmax, 0);
-    o["mf"] = finTexto(r.s.motivo_fin);
-  }
-}
-
-static void subirRegistros() {
-  if (!conectado || !seqConocido) return;
-  if (loteHasta && millis() - loteEnviado < 15000) return;  // esperando «regack»
-  uint32_t mx = buffer::seqMax(), mn = buffer::seqMin();
-  uint32_t desde = seqServidor + 1;
-  if (desde < mn) desde = mn;
-  if (mx == 0 || desde > mx) {
-    loteHasta = 0;
-    return;
-  }
-  JsonDocument d;
-  d["t"] = "reg";
-  JsonArray arr = d["r"].to<JsonArray>();
-  uint32_t ultimo = desde - 1;
-  int n = 0;
-  for (uint32_t s = desde; s <= mx && n < REG_LOTE; s++) {
-    ultimo = s;
-    Registro r;
-    if (!buffer::leer(s, r)) continue;  // registro perdido (corte a medio escribir)
-    llenar(arr.add<JsonObject>(), r);
-    n++;
-  }
-  d["hasta"] = ultimo;
-  enviar(d);
-  loteHasta = ultimo;
-  loteEnviado = millis();
-}
-
-// ------------------------------------------------------------------ configuración desde la app
 static float rango(float v, float a, float b) { return v < a ? a : (v > b ? b : v); }
 
 static uint16_t minutos(const char *s, uint16_t defecto) {
@@ -346,44 +223,275 @@ static void aplicarConfig(JsonObject c, uint32_t version) {
   memset(&o, 0, sizeof(o));
   o.tipo = O_CONFIG;
   control::enviarOrden(o);
-  enviarCfg();
+  cfgSubir = true;  // se devuelve lo aplicado (con los valores ya limitados), con la misma versión
+  Serial.printf("[red] configuración v%lu aplicada\n", (unsigned long)version);
 }
 
-// ------------------------------------------------------------------ órdenes desde la app
-static void calLeer(const char *id) {
+static void remotaConfig(JsonVariant v) {
+  if (!v.is<JsonObject>()) {  // no hay configuración en la nube: se sube la del equipo
+    cfgSubir = true;
+    return;
+  }
+  JsonObject c = v.as<JsonObject>();
+  uint32_t ver = c["v"] | 0;
+  if (ver > cfg.version)
+    aplicarConfig(c, ver);
+  else if (ver < cfg.version)
+    cfgSubir = true;
+}
+
+// ------------------------------------------------------------------ telemetría en vivo
+static void subirTel() {
+  Instantanea s;
+  control::instantanea(s);
+  Calibracion cal;
+  control::calActual(cal);
+  JsonDocument d;
+  JsonObject o = d.to<JsonObject>();
+  o["ts"][".sv"] = "timestamp";
+  o["hora"] = s.ts;
+  if (s.med_ok) {
+    num(o, "v", s.v, 2);
+    num(o, "i", s.i, 3);
+    num(o, "p", s.p, 0);
+    num(o, "pf", s.pf, 3);
+    num(o, "f", s.f, 2);
+  }
+  num(o, "es", s.e_ses_kwh, 3);
+  num(o, "et", (float)s.e_tot_kwh, 3);
+  o["ses"] = s.ses_num;
+  o["sini"] = s.ses_ini;
+  o["dur"] = s.ses_dur_s;
+  num(o, "pmax", s.p_max, 0);
+  if (s.sonda_ok) num(o, "tsn", s.t_sonda, 1);
+  if (s.amb_ok) {
+    num(o, "tam", s.t_amb, 1);
+    num(o, "hum", s.hum, 0);
+  }
+  o["k1"] = s.k1 ? 1 : 0;
+  o["perm"] = s.permiso ? 1 : 0;
+  o["mot"] = motivoTexto(s.motivo);
+  JsonArray al = o["al"].to<JsonArray>();
+  JsonArray nr = o["nr"].to<JsonArray>();
+  for (int b = 0; b < N_ALARMAS; b++) {
+    if (s.alarmas >> b & 1) al.add(alarmaCodigo(b));
+    if (s.sin_reconocer >> b & 1) nr.add(alarmaCodigo(b));
+  }
+  o["rssi"] = WiFi.RSSI();
+  o["heap"] = ESP.getFreeHeap();
+  o["up"] = s.uptime_s;
+  uint32_t mx = buffer::seqMax();
+  o["pend"] = mx > seqServidor ? mx - seqServidor : 0;
+  o["cfg_v"] = cfg.version;
+  o["cal"] = cal.calibrada;
+  o["fw"] = FW_VERSION;
+  o["mac"] = WiFi.macAddress();
+  o["ip"] = WiFi.localIP().toString();
+  o["reset"] = textoReset(esp_reset_reason());
+  o["vivo"] = vivo() ? 1 : 0;
+  if (otaFase.length()) {
+    JsonObject t = o["ota"].to<JsonObject>();
+    t["fase"] = otaFase;
+    t["pct"] = otaPct;
+    t["msg"] = otaMsg;
+    t["ver"] = otaVer.length() ? otaVer : String(FW_VERSION);
+  }
+  String b;
+  serializeJson(d, b);
+  int c = fb::pedir("PUT", "estado/" + eq, b);
+  ultTel = millis();
+  contarFallo(c);
+}
+
+// ------------------------------------------------------------------ búfer → historial
+static const char *finTexto(uint8_t m) { return m == 1 ? "sin_corriente" : (m == 2 ? "limite" : "otro"); }
+
+static void llenar(JsonDocument &d, const Registro &r) {
+  uint32_t ts = r.ts;
+  bool sh = r.flags & 1;  // sin hora: ts es el uptime en segundos
+  if (sh) {
+    uint32_t t = control::ahora(), up = millis() / 1000;
+    if (t && r.ts <= up) {
+      ts = t - (up - r.ts);
+      sh = false;
+    }
+  }
+  char clave[64];
+  JsonObject o;
+  if (r.tipo == 'm') {
+    if (sh) return;  // una muestra sin hora no sirve para la gráfica
+    snprintf(clave, sizeof(clave), "mediciones/%s/%lu", eq.c_str(), (unsigned long)ts);
+    o = d[clave].to<JsonObject>();
+    num(o, "v", r.m.v, 2);
+    num(o, "i", r.m.i, 3);
+    num(o, "p", r.m.p, 0);
+    num(o, "pf", r.m.pf, 3);
+    num(o, "f", r.m.f, 2);
+    num(o, "es", r.m.es, 3);
+    num(o, "et", r.m.et, 3);
+    num(o, "tsn", r.m.tsn, 1);
+    num(o, "tam", r.m.tam, 1);
+    num(o, "hum", r.m.hum, 0);
+  } else if (r.tipo == 'e') {
+    snprintf(clave, sizeof(clave), "eventos/%s/%010lu-%06lu", eq.c_str(), (unsigned long)(sh ? 0 : ts),
+             (unsigned long)(r.seq % 1000000));
+    o = d[clave].to<JsonObject>();
+    o["ts"] = sh ? 0 : ts;
+    if (sh) o["sh"] = 1;
+    o["c"] = eventoCodigo(r.e.codigo);
+    o["n"] = r.e.nivel;
+    num(o, "val", r.e.valor, 2);
+    o["x"] = r.e.extra;
+    if (r.e.codigo == E_ALARMA || r.e.codigo == E_ALARMA_FIN) {
+      o["a"] = alarmaCodigo((int)r.e.valor);
+      o["txt"] = alarmaTexto((int)r.e.valor);
+    }
+  } else if (r.tipo == 's') {
+    snprintf(clave, sizeof(clave), "sesiones/%s/%lu", eq.c_str(), (unsigned long)(r.s.ini ? r.s.ini : r.s.num));
+    o = d[clave].to<JsonObject>();
+    o["num"] = r.s.num;
+    o["ini"] = r.s.ini;
+    o["fin"] = r.s.fin;
+    num(o, "kwh", r.s.kwh, 3);
+    num(o, "pmax", r.s.pmax, 0);
+    o["cop"] = (long)lroundf(r.s.kwh * cfg.tarifa);
+    o["mf"] = finTexto(r.s.motivo_fin);
+  } else {
+    return;
+  }
+  o["k1"] = r.k1;
+  o["mot"] = motivoTexto(r.motivo);
+}
+
+static void subirRegistros(uint32_t ms) {
+  if (!seqConocido) return;
+  if (ultFalloSubida && ms - ultFalloSubida < 10000) return;
+  uint32_t mx = buffer::seqMax(), mn = buffer::seqMin();
+  uint32_t desde = seqServidor + 1;
+  if (desde < mn) desde = mn;
+  if (mx == 0 || desde > mx) return;
+  JsonDocument d;
+  uint32_t ultimo = desde - 1;
+  for (uint32_t s = desde; s <= mx && s < desde + REG_LOTE; s++) {
+    ultimo = s;
+    Registro r;
+    if (buffer::leer(s, r)) llenar(d, r);  // si no, registro perdido (corte a medio escribir)
+  }
+  d["subido/" + eq] = ultimo;  // en la misma escritura: o entra todo o nada
+  String b;
+  serializeJson(d, b);
+  int c = fb::pedir("PATCH", "", b, nullptr, 15000);
+  if (c == 200) {
+    seqServidor = ultimo;
+    ultFalloSubida = 0;
+  } else {
+    ultFalloSubida = ms ? ms : 1;
+    Serial.printf("[red] no se pudo subir el búfer: %s\n", fb::error().c_str());
+  }
+  contarFallo(c);
+}
+
+// ------------------------------------------------------------------ órdenes
+static void responder(const String &id, bool ok, const String &msg, const String &datos = "") {
+  if (!id.length()) return;
+  if (resp.size() >= 8) resp.erase(resp.begin());
+  resp.push_back({id, msg, datos, ok});
+  Serial.printf("[orden] %s: %s %s\n", id.c_str(), ok ? "bien" : "NO", msg.c_str());
+}
+
+static void enviarRespuestas() {
+  while (!resp.empty() && enlinea) {
+    Resp &r = resp.front();
+    JsonDocument d;
+    d["ok"] = r.ok;
+    d["msg"] = r.msg;
+    d["ts"][".sv"] = "timestamp";
+    if (r.datos.length()) d["datos"] = serialized(r.datos);
+    String b;
+    serializeJson(d, b);
+    int c = fb::pedir("PUT", "respuestas/" + eq + "/" + r.id, b);
+    contarFallo(c);
+    if (c != 200) return;
+    fb::pedir("DELETE", "entrada/" + eq + "/ordenes/" + r.id);
+    resp.erase(resp.begin());
+  }
+}
+
+static bool yaVista(const String &id) {
+  for (auto &h : hechas)
+    if (h == id) return true;
+  for (auto &p : pend)
+    if (p.id == id) return true;
+  return false;
+}
+
+static void encolar(const String &id, JsonVariant v) {
+  if (!v.is<JsonObject>() || !id.length() || id.length() >= sizeof(Orden::id) || yaVista(id)) return;
+  if (pend.size() >= 8) return;  // las demás quedan en la nube y llegan al reconectar
+  Pend p;
+  p.id = id;
+  p.o = v["o"] | "";
+  if (!v["a"].isNull()) serializeJson(v["a"], p.a);
+  p.ts = v["ts"] | 0.0;
+  pend.push_back(p);
+}
+
+static bool telegram(const String &texto) {
+  if (!tgToken.length() || !tgChat.length()) return false;
+  WiFiClientSecure c;
+  c.setCACert(CA_RAIZ);
+  c.setTimeout(15);
+  HTTPClient h;
+  if (!h.begin(c, "https://api.telegram.org/bot" + tgToken + "/sendMessage")) return false;
+  h.setTimeout(15000);
+  h.addHeader("Content-Type", "application/json");
+  JsonDocument d;
+  d["chat_id"] = tgChat;
+  d["text"] = texto;
+  String b;
+  serializeJson(d, b);
+  int codigo = h.POST(b);
+  h.end();
+  if (codigo != 200) Serial.printf("[telegram] no se pudo enviar (HTTP %d)\n", codigo);
+  return codigo == 200;
+}
+
+static String calLeerJson() {
   Calibracion c;
   control::calActual(c);
   static const uint8_t dirs[] = {0x01, 0x20, 0x30, 0x2B, 0x31, 0x33, 0x2C, 0x3B};
   uint16_t v[8];
   control::registrosAtm(v, dirs, 8);
-  JsonDocument datos;
-  datos["calibrada"] = c.calibrada;
-  datos["ugain"] = c.ugain;
-  datos["igain_n"] = c.igain_n;
-  datos["uoffset"] = c.uoffset;
-  datos["ioffset_n"] = c.ioffset_n;
-  datos["poffset_n"] = c.poffset_n;
-  datos["qoffset_n"] = c.qoffset_n;
-  datos["ngain"] = c.ngain;
-  datos["nphi"] = c.nphi;
-  datos["plconst_h"] = c.plconst_h;
-  datos["plconst_l"] = c.plconst_l;
-  datos["pstart"] = c.pstart;
-  datos["mmode"] = c.mmode;
+  JsonDocument d;
+  d["calibrada"] = c.calibrada;
+  d["ugain"] = c.ugain;
+  d["igain_n"] = c.igain_n;
+  d["uoffset"] = c.uoffset;
+  d["ioffset_n"] = c.ioffset_n;
+  d["poffset_n"] = c.poffset_n;
+  d["qoffset_n"] = c.qoffset_n;
+  d["ngain"] = c.ngain;
+  d["nphi"] = c.nphi;
+  d["plconst_h"] = c.plconst_h;
+  d["plconst_l"] = c.plconst_l;
+  d["pstart"] = c.pstart;
+  d["mmode"] = c.mmode;
   char b[8];
   const char *nombres[] = {"sysstatus", "calstart", "adjstart", "mmode_chip", "ugain_chip", "igain_n_chip", "cs1", "cs2"};
-  JsonObject chip = datos["chip"].to<JsonObject>();
+  JsonObject chip = d["chip"].to<JsonObject>();
   for (int k = 0; k < 8; k++) {
     snprintf(b, sizeof(b), "%04X", v[k]);
     chip[nombres[k]] = b;
   }
   Instantanea s;
   control::instantanea(s);
-  datos["v"] = s.v;
-  datos["i"] = s.i;
-  datos["p"] = s.p;
-  datos["pf"] = s.pf;
-  enviarAck(id, true, "calibración actual", &datos);
+  d["v"] = s.v;
+  d["i"] = s.i;
+  d["p"] = s.p;
+  d["pf"] = s.pf;
+  String out;
+  serializeJson(d, out);
+  return out;
 }
 
 static uint16_t u16(JsonVariant v, uint16_t defecto) {
@@ -392,13 +500,22 @@ static uint16_t u16(JsonVariant v, uint16_t defecto) {
   return defecto;
 }
 
-static void orden(JsonDocument &d) {
-  const char *id = d["id"] | "";
-  String o = d["o"] | "";
-  JsonObject a = d["a"];
+static void ejecutar(const Pend &p) {
+  hechas[iHechas] = p.id;
+  iHechas = (iHechas + 1) % 16;
+  uint32_t t = control::ahora();
+  if (t && p.ts > 1e12) {
+    double dif = (double)t * 1000.0 - p.ts;
+    if (dif > ORDEN_VENCE_MS || dif < -(double)ORDEN_VENCE_MS)
+      return responder(p.id, false, "orden vencida: llegó al equipo más de 2 min después");
+  }
+  JsonDocument d;
+  deserializeJson(d, p.a.length() ? p.a : String("{}"));
+  JsonObject a = d.as<JsonObject>();
   Orden ord;
   memset(&ord, 0, sizeof(ord));
-  strlcpy(ord.id, id, sizeof(ord.id));
+  strlcpy(ord.id, p.id.c_str(), sizeof(ord.id));
+  const String &o = p.o;
   if (o == "permitir") ord.tipo = O_PERMITIR;
   else if (o == "detener") ord.tipo = O_DETENER;
   else if (o == "reconocer") ord.tipo = O_RECONOCER;
@@ -424,236 +541,381 @@ static void orden(JsonDocument &d) {
     c.plconst_l = u16(a["plconst_l"], c.plconst_l);
     c.pstart = u16(a["pstart"], c.pstart);
     c.calibrada = a["calibrada"] | true;
-    if (c.ugain > 0x7FFF) {
-      enviarAck(id, false, "Ugain debe ser ≤ 7FFFH (bit 15 en 0)");
-      return;
-    }
+    if (c.ugain > 0x7FFF) return responder(p.id, false, "Ugain debe ser ≤ 7FFFH (bit 15 en 0)");
   } else if (o == "estado") {
-    enviarTel();
-    enviarAck(id, true, "estado enviado");
-    return;
+    ultTel = 0;
+    return responder(p.id, true, "estado enviado");
   } else if (o == "cal_leer") {
-    calLeer(id);
-    return;
+    return responder(p.id, true, "calibración actual", calLeerJson());
   } else if (o == "reiniciar") {
-    enviarAck(id, true, "reiniciando");
-    reiniciarEn = millis() + 1500;
-    return;
-  } else if (o == "ota") {
-    otaVer = a["ver"] | "";
-    otaSha = a["sha"] | "";
-    otaTam = a["tam"] | 0;
-    otaId = id;
-    if (!otaVer.length()) {
-      enviarAck(id, false, "falta la versión");
-      return;
-    }
-    enviarAck(id, true, "descargando el firmware");
-    otaPedida = true;
-    return;
+    reiniciarEn = millis() + 3000;
+    return responder(p.id, true, "reiniciando");
+  } else if (o == "telegram_probar") {
+    if (!tgToken.length() || !tgChat.length()) return responder(p.id, false, "falta el token o el chat de Telegram");
+    bool ok = telegram("✅ " + (nombreEq.length() ? nombreEq : eq) + ": los avisos de Telegram funcionan.");
+    return responder(p.id, ok, ok ? "mensaje enviado" : "Telegram no aceptó el mensaje (revisa el token y el chat)");
   } else {
-    enviarAck(id, false, "orden desconocida");
-    return;
+    return responder(p.id, false, "orden desconocida: " + o);
   }
-  if (!control::enviarOrden(ord)) enviarAck(id, false, "cola de órdenes llena");
+  if (!control::enviarOrden(ord)) responder(p.id, false, "cola de órdenes llena");
   // La respuesta llega por control::respuesta() y se manda en loop().
 }
 
-static void alRecibir(const char *txt, size_t len) {
-  ultRx = millis();
-  if (len == 4 && memcmp(txt, "pong", 4) == 0) return;
+// ------------------------------------------------------------------ OTA desde la base (partes en base64)
+static void otaInforme(const char *f, int pct, const String &msg) {
+  otaFase = f;
+  otaPct = pct;
+  otaMsg = msg;
+  Serial.printf("[ota] %s %d%% %s\n", f, pct, msg.c_str());
+  if (!enlinea) return;
   JsonDocument d;
-  if (deserializeJson(d, txt, len)) return;
-  String t = d["t"] | "";
-  if (t == "bienvenida") {
-    seqServidor = d["seq"] | 0;
-    if (seqServidor > buffer::seqMax()) seqServidor = buffer::seqMin() ? buffer::seqMin() - 1 : 0;  // el equipo se borró
-    seqConocido = true;
-    loteHasta = 0;
-    vivo = d["vivo"] | false;
-    uint32_t hora = d["hora"] | 0;
-    if (!control::ahora() && hora > 1700000000) {  // respaldo si el NTP está bloqueado
-      struct timeval tv = {(time_t)hora, 0};
-      settimeofday(&tv, nullptr);
-      control::horaSincronizada();
-    }
-    if (almacen::otaPendiente()) {
-      almacen::otaMarcar(0);  // el firmware nuevo arrancó y llegó al servidor: queda confirmado
-      otaVer = "";
-      enviarOta("ok", 100, "firmware confirmado");
-    }
-    enviarCfg();
-    enviarTel();
-  } else if (t == "regack") {
-    uint32_t h = d["hasta"] | 0;
-    if (h >= seqServidor) seqServidor = h;
-    loteHasta = 0;
-  } else if (t == "vivo") {
-    vivo = d["on"] | false;
-    ultTel = 0;
-  } else if (t == "cfg") {
-    if (d["c"].is<JsonObject>()) aplicarConfig(d["c"].as<JsonObject>(), d["v"] | (cfg.version + 1));
-  } else if (t == "orden") {
-    orden(d);
-  }
+  d["fase"] = otaFase;
+  d["pct"] = pct;
+  d["msg"] = msg;
+  d["ver"] = otaVer.length() ? otaVer : String(FW_VERSION);
+  String b;
+  serializeJson(d, b);
+  fb::pedir("PUT", "estado/" + eq + "/ota", b);
 }
 
-static void alEvento(WStype_t tipo, uint8_t *datos, size_t largo) {
-  switch (tipo) {
-    case WStype_CONNECTED:
-      conectado = true;
-      ultRx = ultPing = millis();
-      seqConocido = false;
-      Serial.printf("[red] conectado a %s\n", host.c_str());
-      enviarHola();
-      break;
-    case WStype_DISCONNECTED:
-      if (conectado) Serial.println("[red] desconectado del servidor");
-      conectado = false;
-      seqConocido = false;
-      vivo = false;
-      break;
-    case WStype_TEXT:
-      alRecibir((const char *)datos, largo);
-      break;
-    case WStype_PONG:
-    case WStype_PING:
-      ultRx = millis();
-      break;
-    default:
-      break;
+static void otaEvaluar(JsonVariant v) {
+  if (!v.is<JsonObject>()) {
+    otaPedida = false;
+    return;
   }
+  String ver = v["ver"] | "";
+  if (!ver.length()) return;
+  if (ver == FW_VERSION) {
+    if (!almacen::otaPendiente()) {
+      otaBorrar = true;
+      if (otaFase != "ok") {
+        otaFase = "ok";
+        otaPct = 100;
+        otaMsg = "versión " + ver + " instalada";
+      }
+    }
+    return;
+  }
+  if (ver == almacen::otaMala()) {
+    otaFase = "error";
+    otaPct = 0;
+    otaMsg = "la " + ver + " no arrancó bien y el equipo volvió a la " FW_VERSION;
+    otaBorrar = true;
+    return;
+  }
+  if (otaPedida) return;
+  otaVer = ver;
+  otaSha = v["sha"] | "";
+  otaTam = v["tam"] | 0;
+  otaPartes = v["partes"] | 0;
+  otaTp = v["tp"] | 0;
+  otaClave = v["clave"] | "";
+  otaPedida = true;
 }
 
-// ------------------------------------------------------------------ OTA
-static void otaError(const char *msg) {
-  enviarOta("error", 0, msg);
-  if (otaId.length()) otaId = "";
-  otaVer = "";
+static void otaError(const String &msg) {
+  otaInforme("error", 0, msg);
+  otaBorrar = true;  // no se reintenta sola: se pide otra vez desde la app
 }
 
 static void hacerOta() {
   otaPedida = false;
-  enviarOta("descargando", 0, "");
-  String url = String(tls ? "https://" : "http://") + host + ":" + String(puerto) + SERVIDOR_RUTA_FW + otaVer;
-  WiFiClientSecure seguro;
-  WiFiClient plano;
-  HTTPClient http;
-  bool ok;
-  if (tls) {
-    seguro.setCACert(CA_RAIZ);
-    seguro.setTimeout(20);
-    ok = http.begin(seguro, url);
-  } else {
-    ok = http.begin(plano, url);
-  }
-  if (!ok) return otaError("URL inválida");
-  http.addHeader("Authorization", "Bearer " + cred.id + ":" + cred.token);
-  http.setTimeout(20000);
-  int codigo = http.GET();
-  if (codigo != 200) {
-    http.end();
-    char m[48];
-    snprintf(m, sizeof(m), "HTTP %d", codigo);
-    return otaError(m);
-  }
-  int tam = http.getSize();
-  if (tam <= 0 || (otaTam && (uint32_t)tam != otaTam)) {
-    http.end();
-    return otaError("tamaño inesperado");
-  }
-  if (!Update.begin(tam, U_FLASH)) {
-    http.end();
-    return otaError(Update.errorString());
-  }
+  Instantanea s;
+  control::instantanea(s);
+  if (s.k1 && s.med_ok && s.i >= cfg.i_inicio) return otaError("hay una carga en curso: detenla o espera a que termine");
+  if (!otaTam || !otaPartes || !otaTp || otaTp > OTA_PARTE_MAX || !otaClave.length() ||
+      (uint64_t)otaPartes * otaTp < otaTam)
+    return otaError("datos de la actualización incompletos");
+  static uint8_t *buf = nullptr;
+  if (!buf) buf = (uint8_t *)heap_caps_malloc(OTA_PARTE_MAX, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  if (!buf) buf = (uint8_t *)malloc(OTA_PARTE_MAX);
+  if (!buf) return otaError("sin memoria para la descarga");
+  if (!Update.begin(otaTam, U_FLASH)) return otaError(Update.errorString());
+  otaInforme("descargando", 0, "");
   mbedtls_sha256_context sha;
   mbedtls_sha256_init(&sha);
   SHA_INICIO(&sha, 0);
-  WiFiClient *flujo = http.getStreamPtr();
-  static uint8_t buf[4096];
-  int recibido = 0, pctAnt = -10;
-  uint32_t ult = millis();
-  while (recibido < tam) {
+  uint32_t recibido = 0;
+  int pctAnt = 0;
+  for (uint32_t n = 0; n < otaPartes; n++) {
     esp_task_wdt_reset();
-    size_t disp = flujo->available();
-    if (disp) {
-      int n = flujo->readBytes(buf, disp > sizeof(buf) ? sizeof(buf) : disp);
-      if (n <= 0) continue;
-      if (Update.write(buf, n) != (size_t)n) {
-        Update.abort();
-        http.end();
-        mbedtls_sha256_free(&sha);
-        return otaError(Update.errorString());
-      }
-      SHA_SUMAR(&sha, buf, n);
-      recibido += n;
-      ult = millis();
-      int pct = (int)((int64_t)recibido * 100 / tam);
-      if (pct - pctAnt >= 10) {
-        pctAnt = pct;
-        enviarOta("descargando", pct, "");
-        ws.loop();
-      }
-    } else {
-      if (!http.connected() || millis() - ult > 20000) {
-        Update.abort();
-        http.end();
-        mbedtls_sha256_free(&sha);
-        return otaError("se cortó la descarga");
-      }
-      delay(5);
+    String r;
+    int c = 0;
+    for (int intento = 0; intento < 3 && c != 200; intento++) {
+      c = fb::pedir("GET", "firmware/" + otaClave + "/partes/" + String(n), "", &r, 30000);
+      esp_task_wdt_reset();
+    }
+    size_t dec = 0;
+    int a = r.indexOf('"'), b = r.lastIndexOf('"');
+    if (c != 200 || a < 0 || b <= a ||
+        mbedtls_base64_decode(buf, OTA_PARTE_MAX, &dec, (const uint8_t *)r.c_str() + a + 1, b - a - 1) != 0 ||
+        dec == 0 || (n + 1 < otaPartes && dec != otaTp)) {
+      Update.abort();
+      mbedtls_sha256_free(&sha);
+      return otaError(c != 200 ? "no se pudo bajar la parte " + String(n) + ": " + fb::error()
+                               : "parte " + String(n) + " dañada");
+    }
+    if (Update.write(buf, dec) != dec) {
+      Update.abort();
+      mbedtls_sha256_free(&sha);
+      return otaError(Update.errorString());
+    }
+    SHA_SUMAR(&sha, buf, dec);
+    recibido += dec;
+    int pct = (int)((uint64_t)recibido * 100 / otaTam);
+    if (pct - pctAnt >= 10) {
+      pctAnt = pct;
+      otaInforme("descargando", pct, "");
     }
   }
-  http.end();
   uint8_t dig[32];
   SHA_FIN(&sha, dig);
   mbedtls_sha256_free(&sha);
   char hex[65];
   for (int k = 0; k < 32; k++) sprintf(hex + 2 * k, "%02x", dig[k]);
+  if (recibido != otaTam) {
+    Update.abort();
+    return otaError("tamaño inesperado");
+  }
   if (otaSha.length() && !otaSha.equalsIgnoreCase(hex)) {
     Update.abort();
     return otaError("SHA-256 no coincide");
   }
   if (!Update.end(true)) return otaError(Update.errorString());
+  almacen::otaVersion(otaVer);
   almacen::otaMarcar(1);
-  enviarOta("listo", 100, "reiniciando con el firmware nuevo");
-  for (int k = 0; k < 20; k++) {
-    ws.loop();
-    delay(25);
-  }
+  otaInforme("listo", 100, "reiniciando con el firmware nuevo");
+  delay(300);
   ESP.restart();
 }
 
-// ------------------------------------------------------------------ WiFi y NTP
-static void alSincronizarNtp(struct timeval *) {
-  control::horaSincronizada();
+// ------------------------------------------------------------------ flujo de /entrada/{id}
+static void mirando(JsonVariant v) {
+  double ms = v | 0.0;
+  bool antes = vivo();
+  if (ms <= 0) {
+    vivoHasta = 0;
+    return;
+  }
+  uint32_t t = control::ahora();
+  double edad = t ? (double)t * 1000.0 - ms : 0;
+  if (edad > MIRANDO_MS) return;  // aviso viejo (la app ya se cerró)
+  if (edad < 0) edad = 0;
+  vivoHasta = millis() + (uint32_t)(MIRANDO_MS - edad);
+  if (!vivoHasta) vivoHasta = 1;
+  if (!antes) ultTel = 0;  // alguien abrió la app: telemetría enseguida
 }
 
-static void iniciarWs() {
-  if (tls)
-    ws.beginSslWithCA(host.c_str(), puerto, SERVIDOR_RUTA_WS, CA_RAIZ, "");
-  else
-    ws.begin(host.c_str(), puerto, SERVIDOR_RUTA_WS, "");
-  ws.setExtraHeaders(cabecera.c_str());
-  ws.onEvent(alEvento);
-  ws.setReconnectInterval(5000 + (esp_random() % 5000));
-  wsIniciado = true;
-  Serial.printf("[red] servidor %s://%s:%u%s\n", tls ? "wss" : "ws", host.c_str(), puerto, SERVIDOR_RUTA_WS);
+static void tocar(const String &ruta, JsonVariant v) {
+  if (ruta == "/" || !ruta.length()) {
+    if (!v.is<JsonObject>()) {
+      cfgSubir = true;
+      tgToken = tgChat = "";
+      otaPedida = false;
+      return;
+    }
+    if (v["config"].isNull()) cfgSubir = true;
+    if (v["telegram"].isNull()) tgToken = tgChat = "";
+    if (v["ota"].isNull()) otaPedida = false;
+    for (JsonPair kv : v.as<JsonObject>()) tocar(String("/") + kv.key().c_str(), kv.value());
+    return;
+  }
+  String r = ruta.substring(1);
+  int b = r.indexOf('/');
+  String primero = b < 0 ? r : r.substring(0, b);
+  String resto = b < 0 ? String() : r.substring(b + 1);
+  if (primero == "config") {
+    if (resto.length()) cfgLeer = true;
+    else remotaConfig(v);
+  } else if (primero == "ordenes") {
+    if (!resto.length()) {
+      if (v.is<JsonObject>())
+        for (JsonPair kv : v.as<JsonObject>()) encolar(kv.key().c_str(), kv.value());
+    } else if (resto.indexOf('/') < 0) {
+      encolar(resto, v);
+    }
+  } else if (primero == "mirando") {
+    mirando(v);
+  } else if (primero == "ota") {
+    if (resto.length()) otaLeer = true;
+    else otaEvaluar(v);
+  } else if (primero == "telegram") {
+    if (resto.length()) {
+      tgLeer = true;
+    } else {
+      tgToken = v["token"] | "";
+      tgChat = v["chat"] | "";
+    }
+  }
 }
+
+static void manejar(const fb::Evento &e) {
+  JsonDocument d;
+  if (deserializeJson(d, e.datos)) return;
+  String ruta = d["path"] | "/";
+  JsonVariant data = d["data"];
+  if (e.tipo == "put") {
+    tocar(ruta, data);
+  } else if (e.tipo == "patch" && data.is<JsonObject>()) {
+    for (JsonPair kv : data.as<JsonObject>())
+      tocar((ruta == "/" ? String() : ruta) + "/" + kv.key().c_str(), kv.value());
+  }
+}
+
+static void releer(const char *sub, bool &bandera, void (*f)(JsonVariant)) {
+  if (!bandera) return;
+  String r;
+  int c = fb::pedir("GET", "entrada/" + eq + "/" + sub, "", &r);
+  contarFallo(c);
+  if (c != 200) return;
+  bandera = false;
+  JsonDocument d;
+  if (deserializeJson(d, r)) return;
+  f(d.as<JsonVariant>());
+}
+
+// ------------------------------------------------------------------ avisos por Telegram
+static void avisos(uint32_t ms) {
+  if (ms - ultAvisos < 1000) return;
+  ultAvisos = ms;
+  Instantanea s;
+  control::instantanea(s);
+  const uint32_t GRAVES = A_TEMP_SONDA | A_TEMP_AMB | A_SONDA_FALLA | A_MEDIDOR | A_RED | A_PARAR | A_REINICIO;
+  uint32_t nuevas = s.alarmas & ~alarmasAnt & GRAVES;
+  alarmasAnt = s.alarmas;
+  String nombre = nombreEq.length() ? nombreEq : (eq.length() ? eq : String("EVSE Monitor"));
+  bool tg = tgToken.length() && tgChat.length();
+  for (int b = 0; b < N_ALARMAS && tg; b++) {
+    if (!(nuevas >> b & 1) || tgCola.size() >= 6) continue;
+    String t = "⚠️ " + nombre + ": " + alarmaTexto(b);
+    if ((1u << b) == A_TEMP_SONDA && s.sonda_ok) t += " (" + String(s.t_sonda, 1) + " °C)";
+    if ((1u << b) == A_TEMP_AMB && s.amb_ok) t += " (" + String(s.t_amb, 1) + " °C)";
+    if ((1u << b) == A_RED && s.med_ok) t += " (" + String(s.v, 0) + " V)";
+    if (!s.k1) t += ". La carga está detenida.";
+    tgCola.push_back(t);
+  }
+  if (tg && sesAnt && !s.ses_num && tgCola.size() < 6) {
+    char b[160];
+    snprintf(b, sizeof(b), "🔌 %s: carga terminada · %.2f kWh · $%.0f", nombre.c_str(), esAnt, copAnt);
+    tgCola.push_back(String(b));
+  }
+  sesAnt = s.ses_num;
+  if (s.ses_num) {
+    esAnt = s.e_ses_kwh;
+    copAnt = s.e_ses_kwh * cfg.tarifa;
+  }
+}
+
+// ------------------------------------------------------------------ conexión paso a paso
+static void horaRespaldo() {
+  uint32_t t = fb::horaServidor();
+  if (control::ahora() || t < 1700000000) return;  // respaldo si el NTP está bloqueado y el DS3231 sin hora
+  struct timeval tv = {(time_t)t, 0};
+  settimeofday(&tv, nullptr);
+  control::horaSincronizada();
+  Serial.println("[red] hora puesta con la del servidor");
+}
+
+static bool idValido(const String &s) {
+  if (!s.length() || s.length() > 24) return false;
+  for (char c : s)
+    if (!isalnum((unsigned char)c) && c != '-' && c != '_') return false;
+  return true;
+}
+
+static bool paso() {
+  miError = "";
+  if (!fb::conSesion()) {
+    fase = "iniciando sesión";
+    if (!fb::entrar()) return false;
+    horaRespaldo();
+    Serial.printf("[red] sesión iniciada en Firebase (%s)\n", cred.correo.c_str());
+  }
+  if (!eq.length()) {
+    fase = "buscando el equipo";
+    String r;
+    if (fb::pedir("GET", "dispositivos/" + fb::uid(), "", &r) != 200) return false;
+    JsonDocument d;
+    deserializeJson(d, r);
+    String id = d.is<const char *>() ? String(d.as<const char *>()) : String();
+    if (!idValido(id)) {
+      miError = "esta cuenta no está asignada a ningún equipo (crea el equipo en la app)";
+      return false;
+    }
+    eq = id;
+    if (fb::pedir("GET", "equipos/" + eq + "/nombre", "", &r) == 200) {
+      JsonDocument n;
+      if (!deserializeJson(n, r) && n.is<const char *>()) nombreEq = n.as<const char *>();
+    }
+  }
+  if (!seqConocido) {
+    fase = "leyendo el historial";
+    String r;
+    if (fb::pedir("GET", "subido/" + eq, "", &r) != 200) return false;
+    uint32_t s = (uint32_t)r.toInt();  // «null» → 0
+    if (s > buffer::seqMax()) s = buffer::seqMin() ? buffer::seqMin() - 1 : 0;  // se borró la flash
+    seqServidor = s;
+    seqConocido = true;
+  }
+  if (!fb::flujoActivo()) {
+    fase = "abriendo el flujo";
+    if (!fb::flujoAbrir("entrada/" + eq)) return false;
+  }
+  enlinea = true;
+  fase = "en línea";
+  fallos = 0;
+  ultTel = 0;
+  Serial.printf("[red] en línea: equipo «%s» (%s)\n", eq.c_str(), nombreEq.c_str());
+  if (almacen::otaPendiente()) {
+    almacen::otaMarcar(0);  // el firmware nuevo arrancó y llegó al servidor: queda confirmado
+    otaVer = "";
+    otaFase = "ok";
+    otaPct = 100;
+    otaMsg = "firmware " FW_VERSION " instalado y confirmado";
+  }
+  return true;
+}
+
+static void conectar(uint32_t ms) {
+  if (enlinea) {
+    // El token dura 1 h: se renueva antes y se reabre el flujo con el nuevo.
+    if (!fb::conSesion() && (int32_t)(ms - proxRenovar) >= 0) {
+      proxRenovar = ms + 60000;
+      if (fb::entrar()) desconectar("renovación del token");
+    }
+    return;
+  }
+  if ((int32_t)(ms - proxIntento) < 0) return;
+  if (paso()) {
+    espera = 5000;
+    return;
+  }
+  proxIntento = millis() + espera;
+  Serial.printf("[red] %s · reintento en %lu s\n", (miError.length() ? miError : fb::error()).c_str(),
+                (unsigned long)(espera / 1000));
+  espera = espera >= 300000 ? 300000 : espera * 2;
+}
+
+// ------------------------------------------------------------------ WiFi y NTP
+static void alSincronizarNtp(struct timeval *) { control::horaSincronizada(); }
 
 void begin() {
   almacen::redLeer(cred);
   almacen::configLeer(cfg);
-  leerServidor();
-  cabecera = "Authorization: Bearer " + cred.id + ":" + cred.token;
+  fb::configurar(cred.db, cred.apikey, cred.correo, cred.pass);
   if (!cred.ssid.length()) {
-    // Sin WiFi guardado ni se enciende la radio (sin U1, sus picos tumban la fuente de banco).
+    // Sin WiFi guardado ni se enciende la radio (en una placa sin U1, sus picos tumban la fuente de banco).
+    fase = "sin WiFi";
     Serial.println("[red] sin WiFi configurado: funciona sin internet (portal: PARAR 5 s al encender, o «wifi» en la consola)");
     return;
   }
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+  char nombre[20];
+  snprintf(nombre, sizeof(nombre), "evse-%02x%02x", mac[4], mac[5]);
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
-  WiFi.setHostname(("evse-" + (cred.id.length() ? cred.id : String("monitor"))).c_str());
+  WiFi.setHostname(nombre);
   WiFi.setAutoReconnect(true);
   WiFi.onEvent([](WiFiEvent_t, WiFiEventInfo_t) { WiFi.setTxPower(WIFI_POWER_17dBm); },
                ARDUINO_EVENT_WIFI_STA_GOT_IP);
@@ -662,66 +924,94 @@ void begin() {
   WiFi.begin(cred.ssid.c_str(), cred.clave.c_str());
   WiFi.setTxPower(WIFI_POWER_17dBm);  // D2: el R-78CK da 0,5 A; pico ≈ 429 mA con TX ≤ 17 dBm
   ultIntentoWifi = millis();
+  fase = "conectando al WiFi";
   Serial.printf("[red] WiFi «%s»\n", cred.ssid.c_str());
-  if (!host.length() || !cred.id.length() || !cred.token.length())
-    Serial.println("[red] falta el servidor, el id o el token del equipo: funciona sin internet");
+  if (!fb::configurado())
+    Serial.println("[red] falta el enlace con la app («enlazar CÓDIGO» en la consola o el portal): funciona sin internet");
 }
 
 void loop() {
   uint32_t ms = millis();
   bool wifi = WiFi.status() == WL_CONNECTED;
-  if (wifi) {
-    if (!wsIniciado && host.length() && cred.id.length() && cred.token.length()) iniciarWs();
-  } else if (cred.ssid.length() && ms - ultIntentoWifi > 60000) {
-    ultIntentoWifi = ms;  // la reconexión automática no siempre vuelve: se insiste cada minuto
-    WiFi.disconnect();
-    WiFi.begin(cred.ssid.c_str(), cred.clave.c_str());
-    WiFi.setTxPower(WIFI_POWER_17dBm);
+  if (!wifi) {
+    if (enlinea) desconectar("se perdió el WiFi");
+    if (cred.ssid.length()) {
+      fase = "conectando al WiFi";
+      if (ms - ultIntentoWifi > 60000) {
+        ultIntentoWifi = ms;  // la reconexión automática no siempre vuelve: se insiste cada minuto
+        WiFi.disconnect();
+        WiFi.begin(cred.ssid.c_str(), cred.clave.c_str());
+        WiFi.setTxPower(WIFI_POWER_17dBm);
+      }
+    }
+  } else if (fb::configurado()) {
+    conectar(ms);
+  } else {
+    fase = "WiFi bien, falta el enlace";
   }
-  if (wsIniciado) ws.loop();
 
-  control::ponerEstadoRed(conectado ? control::RED_SERVIDOR : (wifi ? control::RED_WIFI : control::RED_NADA));
+  if (enlinea) {
+    fb::Evento e;
+    for (int n = 0; n < 4 && fb::flujoLeer(e); n++) manejar(e);
+    if (fb::flujoRevocado()) {
+      fb::olvidarSesion();
+      desconectar(fb::error());
+    } else if (!fb::flujoActivo()) {
+      desconectar(fb::error());
+    } else if (ms - fb::flujoUltimo() > FLUJO_SIN_DATOS_MS) {
+      desconectar("el flujo no recibe nada");
+    }
+  }
 
-  if (conectado) {
-    if (ms - ultPing >= PING_PERIODO_MS) {
-      ultPing = ms;
-      ws.sendTXT("ping");
+  control::ponerEstadoRed(enlinea ? control::RED_SERVIDOR : (wifi ? control::RED_WIFI : control::RED_NADA));
+
+  if (enlinea) {
+    releer("config", cfgLeer, remotaConfig);
+    releer("ota", otaLeer, otaEvaluar);
+    releer("telegram", tgLeer, [](JsonVariant v) {
+      tgToken = v["token"] | "";
+      tgChat = v["chat"] | "";
+    });
+    if (enlinea && cfgSubir) subirConfig();
+    if (enlinea && otaBorrar && fb::pedir("DELETE", "entrada/" + eq + "/ota") == 200) otaBorrar = false;
+    if (enlinea && !pend.empty()) {
+      Pend p = pend.front();
+      pend.erase(pend.begin());
+      ejecutar(p);
     }
-    if (ms - ultRx > SIN_DATOS_MS) {
-      Serial.println("[red] sin respuesta del servidor: se reconecta");
-      ws.disconnect();
-      conectado = false;
-    }
-    uint32_t periodo = vivo ? TEL_VIVO_MS : (uint32_t)cfg.tel_s * 1000UL;
-    if (seqConocido && (ultTel == 0 || ms - ultTel >= periodo)) {
-      ultTel = ms;
-      enviarTel();
-    }
-    subirRegistros();
   }
 
   Respuesta r;
   while (control::respuesta(r)) {
-    if (conectado) enviarAck(r.id, r.ok, r.msg);
-    if (r.ok) {
-      // Tras permitir, detener o reconocer, el panel se actualiza enseguida.
-      ultTel = 0;
+    responder(r.id, r.ok, r.msg);
+    if (r.ok) ultTel = 0;  // tras permitir, detener o reconocer, el panel se actualiza enseguida
+  }
+  avisos(ms);
+
+  if (enlinea) {
+    enviarRespuestas();
+    uint32_t periodo = vivo() ? TEL_VIVO_MS : (uint32_t)cfg.tel_s * 1000UL;
+    if (enlinea && (ultTel == 0 || millis() - ultTel >= periodo)) subirTel();
+    if (enlinea) subirRegistros(millis());
+    if (enlinea && !tgCola.empty()) {
+      telegram(tgCola.front());
+      tgCola.erase(tgCola.begin());
     }
+    if (enlinea && otaPedida) hacerOta();
   }
 
-  if (otaPedida) hacerOta();
-  if (reiniciarEn && (int32_t)(ms - reiniciarEn) >= 0) ESP.restart();
+  if (reiniciarEn && (int32_t)(millis() - reiniciarEn) >= 0) ESP.restart();
   if (ms - ultRevisionOta > 60000) {
     ultRevisionOta = ms;
     if (ms > 600000 && almacen::otaPendiente()) almacen::otaMarcar(0);  // 10 min sin fallar: confirmado
   }
 }
 
-bool enLinea() { return conectado; }
+bool enLinea() { return enlinea; }
 
 void recargarConfig() {
   almacen::configLeer(cfg);
-  enviarCfg();
+  cfgSubir = true;
 }
 
 String resumen() {
@@ -730,11 +1020,16 @@ String resumen() {
     s += "conectado a «" + WiFi.SSID() + "» (" + String(WiFi.RSSI()) + " dBm, IP " + WiFi.localIP().toString() + ")";
   else
     s += cred.ssid.length() ? "sin conexión a «" + cred.ssid + "»" : "sin configurar";
-  s += " · servidor: ";
-  s += host.length() ? (String(tls ? "wss://" : "ws://") + host + ":" + String(puerto)) : String("sin configurar");
-  s += conectado ? " (en línea)" : " (desconectado)";
+  s += "\nFirebase: ";
+  s += fb::configurado() ? fb::host() + " · cuenta " + cred.correo : String("sin enlace («enlazar CÓDIGO»)");
+  s += "\nEstado: " + fase;
+  if (eq.length()) s += " · equipo «" + eq + "»" + (nombreEq.length() ? " (" + nombreEq + ")" : String());
+  if (vivo()) s += " · app abierta";
   uint32_t mx = buffer::seqMax();
-  s += " · registros sin subir: " + String(mx > seqServidor ? mx - seqServidor : 0);
+  s += "\nRegistros sin subir: " + String(seqConocido && mx > seqServidor ? mx - seqServidor : (seqConocido ? 0 : mx));
+  String e = miError.length() ? miError : fb::error();
+  if (e.length()) s += "\nÚltimo error: " + e;
+  if (tgToken.length()) s += "\nTelegram: configurado";
   return s;
 }
 

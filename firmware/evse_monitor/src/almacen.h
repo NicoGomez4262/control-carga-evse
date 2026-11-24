@@ -6,9 +6,17 @@
 
 namespace almacen {
 
+// WiFi y enlace con Firebase (D31). El «código de enlace» de la app trae db, apikey, correo y pass.
 struct Red {
-  String ssid, clave, servidor, id, token;
+  String ssid, clave;
+  String db;      // URL de la Realtime Database, p. ej. https://evse-monitor-default-rtdb.firebaseio.com
+  String apikey;  // API key web del proyecto (es pública: identifica el proyecto, no da permisos)
+  String correo;  // cuenta del equipo en Firebase Authentication
+  String pass;    // clave de esa cuenta
 };
+
+// «EVSE1.<base64url de {"d":db,"k":apikey,"e":correo,"c":pass}>» → campos de `r` (no toca el WiFi).
+bool enlaceLeer(const String &codigo, Red &r);
 
 // Lo que tiene que sobrevivir a un corte de energía (se guarda cada minuto y en cada cambio).
 struct Persistente {
@@ -44,6 +52,10 @@ uint8_t otaPendiente();
 void otaMarcar(uint8_t v);
 uint8_t arranquesOta();       // arranques desde que se instaló el firmware nuevo
 void arranquesOtaSumar();
+void otaVersion(const String &ver);  // versión que se está instalando
+String otaVersion();
+void otaMala(const String &ver);     // versión que no arrancó bien (no se vuelve a intentar)
+String otaMala();
 
 }  // namespace almacen
 

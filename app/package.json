@@ -1,17 +1,14 @@
 {
   "name": "evse-monitor-app",
-  "version": "1.0.0",
   "private": true,
-  "description": "Servidor y app web del EVSE Monitor (Cloudflare Workers, Durable Objects y D1)",
-  "type": "module",
+  "description": "App web del EVSE Monitor: Firebase Hosting + Authentication + Realtime Database (plan Spark, gratis).",
   "scripts": {
-    "dev": "wrangler dev --ip 0.0.0.0 --port 8787",
-    "db:local": "wrangler d1 migrations apply evse-monitor --local",
-    "db:remota": "wrangler d1 migrations apply evse-monitor --remote",
-    "deploy": "wrangler deploy",
-    "logs": "wrangler tail"
+    "emular": "firebase emulators:start --project demo-evse --only auth,database,hosting",
+    "probar": "node pruebas/probar_reglas.mjs",
+    "desplegar": "firebase deploy --only hosting,database",
+    "reglas": "firebase deploy --only database"
   },
   "devDependencies": {
-    "wrangler": "^4.40.0"
+    "firebase-tools": "^15.0.0"
   }
 }

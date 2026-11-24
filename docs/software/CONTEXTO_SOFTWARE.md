@@ -131,7 +131,7 @@ I²C 0x68. INT/SQW va a IO18. Pila CR2032 en BT1. Al poner la hora se borra OSF.
 
 ## 7. Decisiones abiertas para F10 (2–3 opciones cada una, con recomendación)
 
-**Decididas el 23 nov (D21–D30):** ver `ARQUITECTURA.md` y la sección «Fase 10» de `docs/DECISIONES.md`.
+**Decididas el 23 nov (D21–D30)** y, el 24 nov, cambio a Firebase (D31) y diseño de la app (D32): ver `ARQUITECTURA.md` y la sección «Fase 10» de `docs/DECISIONES.md`.
 
 | Decisión | Opciones a comparar |
 |---|---|

@@ -1,37 +1,41 @@
-// Gráfica de series de tiempo en <canvas>, sin dependencias. Hora de Colombia en el eje X.
-// uso: const g = new Grafica(contenedor, { series: [{ nombre, color, unidad, dec }] }); g.datos([[[t, v], …], …]);
+// Gráficas en <canvas> sin dependencias: series de tiempo (hora de Colombia) y barras por día.
+// const g = new Grafica(cont, { series: [{ nombre, color: "--verde", unidad, dec }], alto }); g.datos([[[t, v], …]]);
 
 const fmtHora = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", hour: "2-digit", minute: "2-digit", hour12: false });
-const fmtDia = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "short" });
-const fmtTodo = new Intl.DateTimeFormat("es-CO", {
-  timeZone: "America/Bogota", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false,
-});
+const fmtDia = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", day: "numeric", month: "short" });
+const fmtTodo = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+const fmtN = (v, d) => new Intl.NumberFormat("es-CO", { minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
 
 function pasoBonito(rango, n) {
-  const bruto = rango / n;
+  const bruto = rango / n || 1;
   const p = Math.pow(10, Math.floor(Math.log10(bruto)));
   const r = bruto / p;
   return (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10) * p;
 }
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim() || v;
 
 export class Grafica {
-  constructor(contenedor, opciones) {
-    this.op = { alto: 220, ...opciones };
-    this.cont = contenedor;
-    this.cont.classList.add("grafica");
-    this.cont.style.height = this.op.alto + "px";
+  constructor(cont, op) {
+    this.op = { alto: 200, barras: false, ...op };
+    this.cont = cont;
+    cont.classList.add("grafica");
+    cont.style.height = this.op.alto + "px";
     this.canvas = document.createElement("canvas");
     this.tip = document.createElement("div");
     this.tip.className = "tip";
     this.tip.hidden = true;
-    this.cont.append(this.canvas, this.tip);
+    this.vacio = document.createElement("p");
+    this.vacio.className = "vacio";
+    this.vacio.textContent = op.vacio || "Sin datos en este rango.";
+    this.vacio.hidden = true;
+    cont.append(this.canvas, this.tip, this.vacio);
     this.series = this.op.series.map((s) => ({ ...s, puntos: [] }));
     this.raton = null;
+    this.revelado = 0;
     this.obs = new ResizeObserver(() => this.dibujar());
-    this.obs.observe(this.cont);
+    this.obs.observe(cont);
     this.canvas.addEventListener("pointermove", (e) => {
-      const r = this.canvas.getBoundingClientRect();
-      this.raton = e.clientX - r.left;
+      this.raton = e.clientX - this.canvas.getBoundingClientRect().left;
       this.dibujar();
     });
     this.canvas.addEventListener("pointerleave", () => {
@@ -39,143 +43,166 @@ export class Grafica {
       this.tip.hidden = true;
       this.dibujar();
     });
+    this.tema = matchMedia("(prefers-color-scheme: dark)");
+    this.alTema = () => this.dibujar();
+    this.tema.addEventListener("change", this.alTema);
   }
-
-  datos(listas) {
-    listas.forEach((l, k) => {
-      if (this.series[k]) this.series[k].puntos = l.filter((p) => p[1] !== null && Number.isFinite(p[1]));
-    });
-    this.dibujar();
-  }
-
-  agregar(t, valores, ventanaS) {
-    valores.forEach((v, k) => {
-      const s = this.series[k];
-      if (!s || v === null || !Number.isFinite(v)) return;
-      s.puntos.push([t, v]);
-      if (ventanaS) while (s.puntos.length && s.puntos[0][0] < t - ventanaS) s.puntos.shift();
-    });
-    this.dibujar();
-  }
-
   destruir() {
     this.obs.disconnect();
+    this.tema.removeEventListener("change", this.alTema);
   }
-
+  datos(listas, rango) {
+    listas.forEach((l, k) => (this.series[k].puntos = l.filter((p) => Number.isFinite(p[1]))));
+    this.rango = rango;
+    const hay = this.series.some((s) => s.puntos.length);
+    this.vacio.hidden = hay;
+    // la curva se dibuja de izquierda a derecha la primera vez (cada vez que cambian los datos)
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      this.revelado = 1;
+      return this.dibujar();
+    }
+    const t0 = performance.now();
+    const paso = (t) => {
+      const x = Math.min(1, (t - t0) / 700);
+      this.revelado = 1 - Math.pow(1 - x, 4);
+      this.dibujar();
+      if (x < 1) requestAnimationFrame(paso);
+    };
+    requestAnimationFrame(paso);
+  }
   dibujar() {
+    const { canvas, cont } = this;
     const dpr = window.devicePixelRatio || 1;
-    const W = this.cont.clientWidth, H = this.cont.clientHeight;
+    const W = cont.clientWidth, H = cont.clientHeight;
     if (!W || !H) return;
-    this.canvas.width = W * dpr;
-    this.canvas.height = H * dpr;
-    const c = this.canvas.getContext("2d");
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    const c = canvas.getContext("2d");
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     c.clearRect(0, 0, W, H);
-    const css = getComputedStyle(document.documentElement);
-    const colTexto = css.getPropertyValue("--suave").trim();
-    const colLinea = css.getPropertyValue("--linea").trim();
-
     const todos = this.series.flatMap((s) => s.puntos);
-    if (!todos.length) {
-      c.fillStyle = colTexto;
-      c.font = "13px system-ui";
-      c.textAlign = "center";
-      c.fillText(this.op.vacio || "Sin datos en este rango", W / 2, H / 2);
-      return;
-    }
-    let tMin = this.op.tMin ?? Math.min(...todos.map((p) => p[0]));
-    let tMax = this.op.tMax ?? Math.max(...todos.map((p) => p[0]));
-    if (tMax - tMin < 60) tMax = tMin + 60;
-    let yMin = this.op.yMin ?? Math.min(...todos.map((p) => p[1]));
-    let yMax = this.op.yMax ?? Math.max(...todos.map((p) => p[1]));
-    if (this.op.cero) yMin = Math.min(0, yMin);
-    if (yMax - yMin < 1e-9) {
-      yMax += 1;
-      yMin -= this.op.cero ? 0 : 1;
-    }
-    const paso = pasoBonito(yMax - yMin, 4);
-    yMin = Math.floor(yMin / paso) * paso;
-    yMax = Math.ceil(yMax / paso) * paso;
-
-    const izq = 46, der = 10, arr = 10, aba = 24;
-    const x = (t) => izq + ((t - tMin) / (tMax - tMin)) * (W - izq - der);
-    const y = (v) => arr + (1 - (v - yMin) / (yMax - yMin)) * (H - arr - aba);
-
-    c.font = "11px system-ui";
-    c.fillStyle = colTexto;
-    c.strokeStyle = colLinea;
+    if (!todos.length) return;
+    const tinta2 = css("--tinta-3"), costura = css("--costura");
+    const izq = 40, der = 10, arr = 12, aba = 24;
+    let t1 = this.rango?.[0] ?? Math.min(...todos.map((p) => p[0]));
+    let t2 = this.rango?.[1] ?? Math.max(...todos.map((p) => p[0]));
+    if (t2 <= t1) t2 = t1 + 3600;
+    let v1 = Math.min(...todos.map((p) => p[1])), v2 = Math.max(...todos.map((p) => p[1]));
+    if (this.op.cero || this.op.barras) v1 = Math.min(0, v1);
+    if (v2 - v1 < 1e-9) (v2 += 1), (v1 -= this.op.cero ? 0 : 1);
+    const paso = pasoBonito(v2 - v1, 4);
+    v1 = Math.floor(v1 / paso) * paso;
+    v2 = Math.ceil(v2 / paso) * paso;
+    const X = (t) => izq + ((t - t1) / (t2 - t1)) * (W - izq - der);
+    const Y = (v) => arr + (1 - (v - v1) / (v2 - v1)) * (H - arr - aba);
+    c.font = `500 11px Barlow, system-ui, sans-serif`;
+    c.fillStyle = tinta2;
+    c.strokeStyle = costura;
     c.lineWidth = 1;
     c.textAlign = "right";
     c.textBaseline = "middle";
-    const dec = paso < 1 ? Math.min(3, Math.ceil(-Math.log10(paso))) : 0;
-    for (let v = yMin; v <= yMax + paso / 2; v += paso) {
+    const dec = this.series[0].dec ?? 1;
+    for (let v = v1; v <= v2 + paso / 2; v += paso) {
+      const y = Math.round(Y(v)) + 0.5;
       c.beginPath();
-      c.moveTo(izq, y(v) + 0.5);
-      c.lineTo(W - der, y(v) + 0.5);
+      c.moveTo(izq, y);
+      c.lineTo(W - der, y);
       c.stroke();
-      c.fillText(v.toFixed(dec), izq - 6, y(v));
+      c.fillText(fmtN(v, paso < 1 ? Math.min(dec, 2) : 0), izq - 6, y);
     }
+    const largo = t2 - t1;
+    const pasoT = largo <= 86400 * 1.1 ? 3 * 3600 : largo <= 8 * 86400 ? 86400 : 5 * 86400;
     c.textAlign = "center";
     c.textBaseline = "top";
-    const span = tMax - tMin;
-    const nx = Math.max(2, Math.floor((W - izq - der) / 80));
-    for (let k = 0; k <= nx; k++) {
-      const t = tMin + (span * k) / nx;
-      const d = new Date(t * 1000);
-      c.textAlign = k === nx ? "right" : "center";
-      c.fillText(span > 2 * 86400 ? fmtDia.format(d) : fmtHora.format(d), x(t), H - aba + 6);
+    const inicio = Math.ceil((t1 + 5 * 3600) / pasoT) * pasoT - 5 * 3600;
+    for (let t = inicio; t <= t2; t += pasoT) {
+      const x = X(t);
+      if (x < izq + 12 || x > W - der - 12) continue;
+      c.fillText(pasoT < 86400 ? fmtHora.format(t * 1000) : fmtDia.format(t * 1000), x, H - aba + 7);
     }
-
+    c.save();
+    c.beginPath();
+    c.rect(izq, 0, (W - izq - der) * this.revelado, H);
+    c.clip();
     for (const s of this.series) {
       if (!s.puntos.length) continue;
-      c.strokeStyle = s.color;
+      const col = css(s.color);
+      if (this.op.barras) {
+        const ancho = Math.max(3, ((W - izq - der) / Math.max(1, largo / 86400)) * 0.62);
+        for (const [t, v] of s.puntos) {
+          const x = X(t + 43200), y = Y(v), y0 = Y(0);
+          c.fillStyle = col;
+          c.globalAlpha = 0.9;
+          const r = Math.min(3, ancho / 2);
+          c.beginPath();
+          c.roundRect(x - ancho / 2, y, ancho, Math.max(1, y0 - y), [r, r, 0, 0]);
+          c.fill();
+        }
+        c.globalAlpha = 1;
+        continue;
+      }
+      const hueco = s.hueco || Math.max(900, (largo / 600) * 4);
       c.lineWidth = 2;
       c.lineJoin = "round";
-      c.beginPath();
-      let antes = null;
-      const hueco = this.op.hueco || Infinity;
+      c.strokeStyle = col;
+      const grad = c.createLinearGradient(0, arr, 0, H - aba);
+      grad.addColorStop(0, col + "38");
+      grad.addColorStop(1, col + "00");
+      let tramo = [];
+      const cerrar = () => {
+        if (!tramo.length) return;
+        c.beginPath();
+        tramo.forEach(([x, y], k) => (k ? c.lineTo(x, y) : c.moveTo(x, y)));
+        c.stroke();
+        if (s.relleno !== false) {
+          c.lineTo(tramo.at(-1)[0], Y(Math.max(v1, 0)));
+          c.lineTo(tramo[0][0], Y(Math.max(v1, 0)));
+          c.closePath();
+          c.fillStyle = grad;
+          c.fill();
+        }
+        tramo = [];
+      };
+      let ant = null;
       for (const [t, v] of s.puntos) {
-        if (antes === null || t - antes > hueco) c.moveTo(x(t), y(v));
-        else c.lineTo(x(t), y(v));
-        antes = t;
+        if (ant !== null && t - ant > hueco) cerrar();
+        tramo.push([X(t), Y(v)]);
+        ant = t;
       }
-      c.stroke();
-      if (s.relleno) {
-        c.globalAlpha = 0.12;
-        c.fillStyle = s.color;
-        c.lineTo(x(s.puntos.at(-1)[0]), y(Math.max(yMin, 0)));
-        c.lineTo(x(s.puntos[0][0]), y(Math.max(yMin, 0)));
-        c.closePath();
-        c.fill();
-        c.globalAlpha = 1;
-      }
+      cerrar();
     }
-
+    c.restore();
     if (this.raton !== null && this.raton >= izq) {
-      const t = tMin + ((this.raton - izq) / (W - izq - der)) * span;
-      c.strokeStyle = colTexto;
-      c.setLineDash([3, 3]);
-      c.beginPath();
-      c.moveTo(this.raton + 0.5, arr);
-      c.lineTo(this.raton + 0.5, H - aba);
-      c.stroke();
-      c.setLineDash([]);
+      const t = t1 + ((this.raton - izq) / (W - izq - der)) * (t2 - t1);
       const filas = [];
+      let tx = null;
       for (const s of this.series) {
         if (!s.puntos.length) continue;
         let mejor = s.puntos[0];
         for (const p of s.puntos) if (Math.abs(p[0] - t) < Math.abs(mejor[0] - t)) mejor = p;
-        filas.push(`<span style="color:${s.color}">●</span> ${s.nombre}: <b>${mejor[1].toFixed(s.dec ?? 1)}</b> ${s.unidad || ""}`);
-        c.fillStyle = s.color;
+        tx = mejor[0];
+        const x = X(this.op.barras ? mejor[0] + 43200 : mejor[0]), y = Y(mejor[1]);
+        c.strokeStyle = tinta2;
+        c.setLineDash([3, 3]);
         c.beginPath();
-        c.arc(x(mejor[0]), y(mejor[1]), 3.5, 0, 7);
+        c.moveTo(x + 0.5, arr);
+        c.lineTo(x + 0.5, H - aba);
+        c.stroke();
+        c.setLineDash([]);
+        c.fillStyle = css(s.color);
+        c.beginPath();
+        c.arc(x, y, 4, 0, 7);
         c.fill();
+        filas.push(`<i class="muestra" style="background:${css(s.color)}"></i>${s.nombre}: <b>${fmtN(mejor[1], s.dec ?? 1)} ${s.unidad || ""}</b>`);
       }
-      this.tip.innerHTML = `<div class="suave">${fmtTodo.format(new Date(t * 1000))}</div>${filas.join("<br>")}`;
-      this.tip.hidden = false;
-      const ancho = this.tip.offsetWidth;
-      this.tip.style.left = Math.min(W - ancho - 4, Math.max(4, this.raton + 10)) + "px";
-      this.tip.style.top = "6px";
+      if (filas.length) {
+        this.tip.hidden = false;
+        this.tip.innerHTML = `<small>${this.op.barras ? fmtDia.format(tx * 1000) : fmtTodo.format(tx * 1000)}</small>${filas.join("<br>")}`;
+        const x = X(tx);
+        this.tip.style.left = Math.min(W - this.tip.offsetWidth - 4, Math.max(4, x - this.tip.offsetWidth / 2)) + "px";
+      }
     }
   }
 }

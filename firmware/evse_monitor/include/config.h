@@ -45,14 +45,15 @@ constexpr uint8_t TEMP_DISPAROS_MAX = 3;         // disparos por temperatura en 
 constexpr float RED_BAJA_FRACCION = 0.70f;
 constexpr uint32_t ARRANQUE_ESPERA_MS = 10000;   // verificaciones antes de restaurar K1
 
-// ---------------------------------------------------------------- red
-constexpr uint16_t SERVIDOR_PUERTO = 443;
-constexpr const char *SERVIDOR_RUTA_WS = "/api/dispositivo/ws";
-constexpr const char *SERVIDOR_RUTA_FW = "/api/dispositivo/firmware/";
-constexpr uint32_t PING_PERIODO_MS = 30000;
-constexpr uint32_t SIN_DATOS_MS = 75000;         // sin nada del servidor: reconectar
-constexpr uint32_t TEL_VIVO_MS = 2000;           // telemetría con la app abierta
-constexpr int REG_LOTE = 20;                     // registros por mensaje «reg»
+// ---------------------------------------------------------------- red (Firebase, D31)
+constexpr const char *FB_LOGIN = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=";
+constexpr uint32_t FB_TOKEN_RENOVAR_S = 300;      // se vuelve a entrar 5 min antes de que venza el token (1 h)
+constexpr uint32_t FLUJO_SIN_DATOS_MS = 90000;    // Firebase manda «keep-alive» cada 30 s: sin nada, se reabre
+constexpr uint32_t ORDEN_VENCE_MS = 120000;       // una orden más vieja que esto no se ejecuta
+constexpr uint32_t MIRANDO_MS = 45000;            // la app avisa cada 20 s que está abierta
+constexpr uint32_t TEL_VIVO_MS = 2000;            // telemetría con la app abierta
+constexpr int REG_LOTE = 40;                      // registros del búfer por envío
+constexpr uint32_t OTA_PARTE_MAX = 49152;         // bytes de firmware por parte (la app usa 32 KB)
 constexpr const char *NTP_1 = "pool.ntp.org";
 constexpr const char *NTP_2 = "time.google.com";
 constexpr uint32_t PORTAL_DURACION_MS = 10UL * 60000;

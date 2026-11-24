@@ -1,6 +1,8 @@
 #include "almacen.h"
 #include <Preferences.h>
+#include <ArduinoJson.h>
 #include <esp_partition.h>
+#include <mbedtls/base64.h>
 #include "secretos.h"
 
 namespace almacen {
@@ -9,8 +11,8 @@ static constexpr uint32_t MAGIA = 0xE75E0001;
 
 void begin() {}
 
-static String leerTexto(Preferences &p, const char *k, const char *defecto) {
-  String v = p.getString(k, "");
+static String leerTexto(Preferences &p, const char *k, const char *defecto = "") {
+  String v = p.isKey(k) ? p.getString(k, "") : String();
   return v.length() ? v : String(defecto);
 }
 
@@ -19,10 +21,12 @@ void redLeer(Red &r) {
   p.begin("red", true);
   r.ssid = leerTexto(p, "ssid", SECRETO_WIFI_SSID);
   r.clave = leerTexto(p, "clave", SECRETO_WIFI_CLAVE);
-  r.servidor = leerTexto(p, "servidor", SECRETO_SERVIDOR);
-  r.id = leerTexto(p, "id", SECRETO_EQUIPO_ID);
-  r.token = leerTexto(p, "token", SECRETO_EQUIPO_TOKEN);
+  r.db = leerTexto(p, "db");
+  r.apikey = leerTexto(p, "key");
+  r.correo = leerTexto(p, "correo");
+  r.pass = leerTexto(p, "pass");
   p.end();
+  if (!r.db.length() && strlen(SECRETO_ENLACE)) enlaceLeer(SECRETO_ENLACE, r);
 }
 
 void redGuardar(const Red &r) {
@@ -30,10 +34,35 @@ void redGuardar(const Red &r) {
   p.begin("red", false);
   p.putString("ssid", r.ssid);
   p.putString("clave", r.clave);
-  p.putString("servidor", r.servidor);
-  p.putString("id", r.id);
-  p.putString("token", r.token);
+  p.putString("db", r.db);
+  p.putString("key", r.apikey);
+  p.putString("correo", r.correo);
+  p.putString("pass", r.pass);
   p.end();
+}
+
+bool enlaceLeer(const String &codigo, Red &r) {
+  String c = codigo;
+  c.trim();
+  if (!c.startsWith("EVSE1.")) return false;
+  String b = c.substring(6);
+  b.replace('-', '+');
+  b.replace('_', '/');
+  while (b.length() % 4) b += '=';
+  size_t n = 0;
+  static uint8_t json[512];
+  if (mbedtls_base64_decode(json, sizeof(json) - 1, &n, (const uint8_t *)b.c_str(), b.length()) != 0) return false;
+  json[n] = 0;
+  JsonDocument d;
+  if (deserializeJson(d, (const char *)json, n)) return false;
+  String db = d["d"] | "", k = d["k"] | "", e = d["e"] | "", pw = d["c"] | "";
+  if (!db.startsWith("https://") || !k.length() || e.indexOf('@') < 1 || pw.length() < 8) return false;
+  while (db.endsWith("/")) db.remove(db.length() - 1);
+  r.db = db;
+  r.apikey = k;
+  r.correo = e;
+  r.pass = pw;
+  return true;
 }
 
 void redBorrar() {
@@ -124,6 +153,26 @@ void arranquesOtaSumar() {
   p.putUChar("arr", p.getUChar("arr", 0) + 1);
   p.end();
 }
+
+static void otaTexto(const char *k, const String &v) {
+  Preferences p;
+  p.begin("ota", false);
+  p.putString(k, v);
+  p.end();
+}
+
+static String otaTexto(const char *k) {
+  Preferences p;
+  p.begin("ota", true);
+  String v = p.isKey(k) ? p.getString(k, "") : String();
+  p.end();
+  return v;
+}
+
+void otaVersion(const String &ver) { otaTexto("ver", ver); }
+String otaVersion() { return otaTexto("ver"); }
+void otaMala(const String &ver) { otaTexto("mala", ver); }
+String otaMala() { return otaTexto("mala"); }
 
 }  // namespace almacen
 

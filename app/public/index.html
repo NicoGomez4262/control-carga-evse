@@ -3,42 +3,46 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0f172a">
   <title>EVSE Monitor</title>
-  <link rel="icon" href="/icono.svg" type="image/svg+xml">
-  <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/estilo.css">
-  <script type="module" src="/app.js"></script>
+  <meta name="description" content="Monitor y control de la carga del vehículo eléctrico">
+  <meta name="theme-color" content="#E4E8EB" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0E1317" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="icono.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="estilo.css">
+  <script>
+    // tema guardado (día / noche / automático) antes de pintar, para que no parpadee
+    try { const t = localStorage.getItem("tema"); if (t) document.documentElement.dataset.tema = t; } catch {}
+  </script>
+  <script type="module" src="app.js"></script>
 </head>
 <body>
-  <header class="barra">
-    <a class="marca" href="#/">
-      <img src="/icono.svg" alt="" width="26" height="26">
-      <span>EVSE Monitor</span>
-    </a>
-    <nav class="usuario" id="menu-usuario" hidden>
-      <a href="#/perfil" id="nombre-usuario">Perfil</a>
-    </nav>
-  </header>
-  <main id="vista" aria-live="polite">
-    <p class="cargando">Cargando…</p>
-  </main>
-  <nav class="pestanas" id="pestanas" hidden>
-    <a data-p="panel">Panel</a>
-    <a data-p="historial">Historial</a>
-    <a data-p="alarmas">Alarmas</a>
-    <a data-p="ajustes">Ajustes</a>
-  </nav>
-  <dialog id="dialogo">
-    <form method="dialog" class="dialogo">
-      <h2 id="dialogo-titulo"></h2>
-      <div id="dialogo-texto"></div>
-      <div class="acciones">
-        <button value="no" class="boton secundario" id="dialogo-no">Cancelar</button>
-        <button value="si" class="boton" id="dialogo-si">Aceptar</button>
+<!--
+THESIS: la app es el frente de un tablero eléctrico del futuro: módulos sobre riel DIN, un diagrama mímico vivo del
+circuito RED → F1 → K1 → J2 → VE, pilotos de luz y un selector que no se asienta hasta que el equipo confirma. Rechaza
+el panel oscuro de tarjetas iguales con anillo de progreso y acento neón.
+OWN-WORLD: policarbonato blanco frío de día y vidrio antracita de noche; costuras de 1 px, riel visible, rótulos
+grabados en Barlow (DIN) con los designadores de la placa (K1, P1, T1, E1); verde, ámbar y rojo solo como luz de estado.
+STORY: en un vistazo sabes si carga y, si no, por qué; giras el selector para permitir o detener y ves al equipo
+confirmarlo; el anunciador te dice qué alarma pasó y la reconoces.
+FIRST VIEWPORT: nombre del equipo y piloto de enlace arriba; mímico a todo el ancho; medidor de aguja de potencia con
+la lectura grande; módulo K1 con el selector al alcance del pulgar; sesión en kWh, pesos y tiempo.
+FORM: tablero eléctrico en clave futurista (pedido del usuario), 3.º de la lista; semilla 4f3d7d5e.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+-->
+  <div class="tablero">
+    <nav class="mando" id="mando" aria-label="Secciones" hidden></nav>
+    <main id="vista" class="vista" tabindex="-1">
+      <div class="arranque" aria-live="polite">
+        <span class="piloto verde respira"></span><span>Encendiendo el tablero…</span>
       </div>
-    </form>
-  </dialog>
-  <div id="aviso" class="notif" role="status" hidden></div>
+    </main>
+  </div>
+  <div class="notif" id="notif" role="status" aria-live="polite" hidden></div>
+  <dialog id="dialogo" aria-labelledby="dialogo-titulo"></dialog>
+  <noscript><p class="noscript">La app necesita JavaScript.</p></noscript>
 </body>
 </html>

@@ -519,11 +519,21 @@ static void cmdAtmSecuencia() {
   int warn = digitalRead(PIN_MEAS_WARN), irq = digitalRead(PIN_MEAS_IRQ);
   Serial.printf("S5-4 · escrito 8765H sin CS1 válido → SysStatus (01H) = %04XH, CalErr = %d%d\n", st, (st >> 15) & 1,
                 (st >> 14) & 1);
-  Serial.printf("  WarnOut (IO21): %d → %d · IRQ (IO14): %d → %d\n", warnAntes, warn, irqAntes, irq);
   resultado((st & 0xC000) == 0xC000, "CalErr = 11");
   resultado(warn != warnAntes && irq != irqAntes, "WarnOut e IRQ cambiaron de estado");
-  Serial.printf("  Polaridad: activos en %s. Anótalo en S5-4 (el datasheet no la dice).\n",
-                (warn == 1 && irq == 1) ? "ALTO" : ((warn == 0 && irq == 0) ? "BAJO" : "distinta en cada pin"));
+  // Polaridad: el nivel «sin error» es el de antes; el nivel «con error» es el de ahora.
+  const char *nombres[2] = {"WarnOut (red MEAS_WARN, IO21)", "IRQ (red MEAS_IRQ, IO14)"};
+  int antes[2] = {warnAntes, irqAntes}, ahora[2] = {warn, irq};
+  Serial.println("  ┌─ Copia estas dos líneas en el registro del protocolo (S5-4):");
+  for (int k = 0; k < 2; k++) {
+    if (antes[k] == ahora[k])
+      Serial.printf("  │ %s: NO cambió (se quedó en %s). Revisa la soldadura de ese pin y la pista al ESP32.\n", nombres[k],
+                    ahora[k] ? "ALTO, 3,3 V" : "BAJO, 0 V");
+    else
+      Serial.printf("  │ %s: normal %s → con error %s ⇒ ACTIVO EN %s\n", nombres[k], antes[k] ? "ALTO (3,3 V)" : "BAJO (0 V)",
+                    ahora[k] ? "ALTO (3,3 V)" : "BAJO (0 V)", ahora[k] ? "ALTO" : "BAJO");
+  }
+  Serial.println("  └─ (el datasheet no dice la polaridad; el firmware final no depende de ella)");
   if (!pausa()) return;
 
   atmEscribir(0x00, 0x789A);

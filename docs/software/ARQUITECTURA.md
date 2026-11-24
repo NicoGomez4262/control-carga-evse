@@ -1,31 +1,31 @@
 # Arquitectura del software — EVSE Monitor Rev 1.0 (Fase 10)
 
-Cómo está hecho el software y por qué. Las decisiones van de D21 a D30 en `docs/DECISIONES.md`. El protocolo entre el equipo y el servidor está en `PROTOCOLO_MENSAJES.md`, y los pasos para compilar, subir a la PCB y publicar la app, en `GUIA_INSTALACION.md`.
+Cómo está hecho el software y por qué. Las decisiones van de D21 a D32 en `docs/DECISIONES.md` (D31 cambió el servidor de Cloudflare a Firebase el 24 nov). Las rutas de la base y lo que escribe cada uno están en `PROTOCOLO_MENSAJES.md`, y los pasos para compilar, subir a la PCB y publicar la app, en `GUIA_INSTALACION.md`.
 
 ## 1. Vista general
 
 ```text
- PLACA (SELV)                         INTERNET                       NUBE (Cloudflare, plan gratis)                  USUARIO
- ┌──────────────────────────────┐                                   ┌────────────────────────────────────────┐
- │ ATM90E26 ─SPI─┐              │                                   │ Worker «evse-monitor»                  │
- │ AHT20, DS3231 ─I²C─┐         │   WebSocket seguro (wss, TLS)     │  ├─ /api/dispositivo/ws ──► Durable    │   https://…
- │ DS18B20 ─1-Wire─┐  │         │   SALIENTE desde el ESP32 (D8)    │  │                          Object     │◄── app web (celular)
- │ PARAR, LEDs, K1 │  │         │ ────────────────────────────────► │  │                          «Equipo»  │    panel en vivo (wss)
- │         ┌───────▼──▼──────┐  │   hola · tel · reg · ack · cfg    │  │                          por equipo │    órdenes (HTTPS)
- │         │ ESP32-S3        │  │ ◄──────────────────────────────── │  ├─ /api/* (REST) ─────────►  │         │
- │         │ tarea control ──┼──┼─ protecciones sin internet        │  │                           ▼         │
- │         │ tarea red ──────┼──┼─ bienvenida · orden · cfg · vivo  │  ├─ D1 (SQLite): usuarios, equipos,    │
- │         │ NVS · búfer 7 MB│  │                                   │  │   mediciones, sesiones, eventos     │
- │         └─────────────────┘  │   HTTPS con token: firmware (OTA) │  ├─ KV: firmware .bin                  │
- └──────────────────────────────┘                                   │  └─ archivos estáticos: la app web     │
-                                                                    └──────────────┬─────────────────────────┘
-                                                                                   └─► Telegram (alarmas)
+ PLACA (SELV)                          INTERNET                    FIREBASE (plan Spark, gratis)              USUARIO
+ ┌──────────────────────────────┐                                 ┌──────────────────────────────────────┐
+ │ ATM90E26 ─SPI─┐              │   1 · inicio de sesión          │ Authentication                       │
+ │ AHT20, DS3231 ─I²C─┐         │   (cuenta propia del equipo)    │  usuarios y una cuenta por equipo     │
+ │ DS18B20 ─1-Wire─┐  │         │ ──────────────────────────────► │                                      │   https://<id>.web.app
+ │ PARAR, LEDs, K1 │  │         │   2 · flujo SSE de /entrada     │ Realtime Database                    │◄── app web (celular / PC)
+ │         ┌───────▼──▼──────┐  │ ◄══════════════════════════════ │  /entrada  config · órdenes · OTA    │    SDK web de Firebase:
+ │         │ ESP32-S3        │  │   órdenes y configuración       │  /estado   telemetría en vivo        │    escucha en vivo y escribe
+ │         │ tarea control ──┼──┼─ protecciones sin internet      │  /respuestas · /bitacora             │    órdenes y ajustes
+ │         │ tarea red ──────┼──┼─ 3 · REST: estado, historial,   │  /mediciones · /eventos · /sesiones  │
+ │         │ NVS · búfer 7 MB│  │   respuestas, partes de OTA     │  /firmware (el .bin en partes)       │
+ │         └─────────────────┘  │ ──────────────────────────────► │  reglas de seguridad por ruta        │
+ └──────────────┬───────────────┘                                 │ Hosting: la app web (archivos)       │
+                └──► Telegram (lo manda el propio equipo)         └──────────────────────────────────────┘
 ```
 
-- **El equipo inicia todo**: abre un WebSocket cifrado hacia el servidor y por ahí sube datos y recibe órdenes (D8). No hay puertos abiertos en el router ni VPN.
+- **El equipo inicia todo**: entra con su cuenta, deja abierta una conexión cifrada que escucha `/entrada/{id}` y escribe por REST (D8). No hay puertos abiertos en el router ni servidor propio que mantener.
 - **Las protecciones viven en el ESP32.** El corte por temperatura, PARAR, la falla del medidor o de la sonda, la tensión baja y los límites de sesión los decide la tarea de control, que no depende de la red. La app solo ordena y muestra.
-- **Sin internet no se pierde nada.** Cada medición, evento y sesión se escribe primero en un búfer circular de 7 MB en la flash. El servidor confirma lo que guardó y el equipo sube lo pendiente cuando vuelve la conexión.
-- **Costo mensual: US$ 0** con el plan gratis de Cloudflare (sección 6). El dominio propio es opcional.
+- **Sin internet no se pierde nada.** Cada medición, evento y sesión se escribe primero en un búfer circular de 7 MB en la flash. El equipo anota en la base hasta dónde subió y sigue desde ahí al volver la conexión.
+- **Las reglas de seguridad son el servidor.** Firebase revisa cada lectura y escritura contra `app/database.rules.json`: un equipo solo toca lo suyo, un usuario de solo lectura no manda órdenes, la calibración y la OTA son del administrador. `npm run probar` las prueba (64 casos).
+- **Costo mensual: US$ 0** con el plan Spark, sin tarjeta (sección 7). El dominio propio es opcional.
 
 ## 2. Firmware (`firmware/`)
 
@@ -41,7 +41,7 @@ Dos proyectos de PlatformIO con Arduino-ESP32 2.0.17 (ESP-IDF 4.4):
 | Tarea | Prioridad | Qué hace |
 |---|---|---|
 | **control** (`src/control.cpp`), cada 250 ms | 3 (alta) | PARAR con antirrebote e interrupción; ATM90E26 cada 1 s; AHT20 y DS18B20 cada 5 s sin bloquear; energía (integra P cada segundo); sesiones; protecciones; K1; LEDs; registros al búfer; energía a la NVS cada minuto |
-| **loop de Arduino** (`src/red.cpp`, `portal.cpp`, `consola.cpp`) | 1 | WiFi (TX ≤ 17 dBm), NTP, WebSocket con TLS, telemetría, subida del búfer, órdenes, configuración, OTA, portal y consola |
+| **loop de Arduino** (`src/red.cpp`, `fb.cpp`, `portal.cpp`, `consola.cpp`) | 1 | WiFi (TX ≤ 17 dBm), NTP, Firebase con TLS (inicio de sesión, flujo de `/entrada`, REST), telemetría, subida del búfer, órdenes, configuración, OTA, Telegram, portal y consola |
 
 Las dos se suscriben al watchdog de tareas (30 s). Se comunican con una cola de órdenes, una cola de respuestas y una «foto» del estado protegida con un mutex. Todo el I²C y el SPI lo usa solo la tarea de control (la lectura de registros para «cal_leer» pasa por el mismo mutex).
 
@@ -55,10 +55,11 @@ Las dos se suscriben al watchdog de tareas (30 s). Se comunican con una cola de 
 | `src/sensores.*` | AHT20 (CRC), DS18B20 por Skip ROM (CRC, descarta 85 °C de encendido), DS3231 en UTC (OSF) |
 | `src/almacen.*` | NVS (red, configuración, calibración, estado persistente, OTA) y búfer circular en la partición `buffer` |
 | `src/control.*` | Tarea de control (sección 3) |
-| `src/red.*` | WiFi, NTP, WebSocket, protocolo y OTA |
-| `src/portal.*` | Punto de acceso «EVSE-XXXX» con clave y formulario de configuración |
+| `src/fb.*` | Cliente mínimo de Firebase: inicio de sesión (Identity Toolkit), REST con conexión reutilizada y flujo SSE con redirecciones y `chunked` |
+| `src/red.*` | WiFi, NTP, conexión paso a paso (sesión → id del equipo → `subido` → flujo), órdenes, configuración, historial, OTA por partes y avisos de Telegram |
+| `src/portal.*` | Punto de acceso «EVSE-XXXX» con clave: WiFi y código de enlace |
 | `src/consola.*` | Comandos por el monitor serie |
-| `src/ca_raiz.h` | Certificados raíz (Google Trust Services, Let's Encrypt, SSL.com), generados con `tools/generar_ca.py` desde `certifi` |
+| `src/ca_raiz.h` | Certificados raíz (Google Trust Services para Firebase, GoDaddy para Telegram, ISRG), generados con `tools/generar_ca.py` desde `certifi` |
 | `particiones.csv` | NVS de 64 KB, 2 × 4 MB de aplicación (OTA), búfer de 7 MB, coredump |
 
 ### 2.3 Medición
@@ -77,7 +78,7 @@ Cada 250 ms se calcula el motivo de detención. Manda el primero que se cumpla:
 
 | Prioridad | Motivo | Cuándo | Cómo se sale |
 |---|---|---|---|
-| 1 | `falla` | ATM90E26 sin responder, con CalErr/AdjErr o WarnOut ≥ 5 s; sonda obligatoria sin lectura ≥ 30 s; 3 reinicios anormales en 10 min | Sola, cuando la causa desaparece; el bloqueo por reinicios, al reconocer |
+| 1 | `falla` | ATM90E26 sin responder o con CalErr/AdjErr ≥ 5 s; sonda obligatoria sin lectura ≥ 30 s; 3 reinicios anormales en 10 min | Sola, cuando la causa desaparece; el bloqueo por reinicios, al reconocer |
 | 2 | `temperatura` | Sonda ≥ `tmax_sonda` o placa (AHT20) ≥ `tmax_amb` | Sola, 5 min por debajo de (límite − histéresis). Al tercer disparo en la misma sesión queda enclavada hasta reconocer |
 | 3 | `parar` | Pulsación de SW1 o del botón de J7 (enclavado y guardado en la NVS) | Mantener PARAR 3 s, o «Liberar PARAR» en la app (con confirmación) |
 | 4 | `red` | Con el medidor calibrado: tensión < 70 % de la nominal durante 3 s | Sola, con tensión ≥ 85 % durante 1 min |
@@ -91,61 +92,65 @@ Cada 250 ms se calcula el motivo de detención. Manda el primero que se cumpla:
 - **Alarmas:** temp_sonda, temp_amb, sonda_falla, medidor_falla, red_baja, parar y reinicio son graves: quedan «sin reconocer» y avisan por Telegram. temp_aviso (sonda a 10 °C del corte), amb_falla, sin_hora y sin_calibrar son avisos.
 - **LEDs:** LED3 fijo = en línea, lento = WiFi sin servidor, rápido = portal. LED4 fijo = cargando, destello corto = permitida sin consumo. LED5 fijo = falla o temperatura, rápido = PARAR enclavado, lento = alarmas sin reconocer.
 
-## 4. Servidor (`app/`)
+## 4. Servidor: Firebase (`app/`, D31)
 
-Cloudflare Workers con tres piezas:
+No hay código de servidor: el plan Spark no tiene Cloud Functions ni Cloud Storage (los dos piden Blaze, con tarjeta), así que todo se resolvió con tres servicios gratis.
 
 | Pieza | Para qué |
 |---|---|
-| **Worker** (`src/index.js`) | API REST, autenticación, rutas del equipo y del navegador, limpieza diaria (cron) |
-| **Durable Object `Equipo`** (`src/equipo.js`), uno por equipo | Tiene el WebSocket del ESP32 y los de los navegadores con la API de hibernación (no se cobra duración en reposo). Guarda el último estado, escribe el historial en D1, reenvía órdenes y espera su confirmación (10 s), pide telemetría cada 2 s cuando alguien mira el panel, detecta «fuera de línea» con una alarma cada minuto y avisa por Telegram |
-| **D1** (SQLite, `migrations/0001_inicial.sql`) | usuarios, sesiones web, equipos y su configuración, permisos, mediciones, sesiones de carga, eventos, órdenes, firmware |
-| **KV `FIRMWARE`** | los .bin para la OTA |
+| **Authentication** (correo y clave) | Usuarios de la app y una cuenta por equipo (`<id>.<4 letras>@equipos.invalid`, clave de 24 caracteres). La app crea la cuenta del equipo con una segunda instancia del SDK, sin cerrar la sesión del administrador |
+| **Realtime Database** (`us-central1`) | Todo lo demás: configuración, órdenes y respuestas, estado en vivo, historial, permisos, firmware. Rutas en `PROTOCOLO_MENSAJES.md` |
+| **Reglas** (`database.rules.json`) | Quién lee y escribe cada ruta; validan órdenes (`por` = quien manda, hora del servidor), versión de la configuración que no baja y el id del equipo |
+| **Hosting** | La app web; entrega la configuración del proyecto en `/__/firebase/init.json`, así no hay claves en el repositorio |
 
-La configuración del equipo vive en D1 con un número de versión. Si el equipo se conecta con una versión menor, el servidor le manda la nueva; el equipo la valida, la guarda y devuelve la que quedó.
+- **OTA sin Cloud Storage:** el .bin se guarda en la base en partes de 32 KB en base64 (`/firmware/{versión}/partes/n`, ≈ 1,4 MB por versión) y el equipo las baja una por una.
+- **Telegram sin servidor:** lo manda el equipo cuando aparece una alarma grave o termina una carga. Lo que se pierde frente a Cloudflare: el aviso de «equipo fuera de línea» (no hay quién lo detecte); la app lo muestra al abrirla.
+- **«Alguien mira el panel»:** la app escribe `/entrada/{id}/mirando` con la hora del servidor cada 20 s; el equipo lo recibe por el flujo y manda telemetría cada 2 s mientras sea de los últimos 45 s.
+- **Primer administrador:** se marca a mano en la consola (`/admins/{uid}: true`); las reglas no dejan que nadie se lo ponga solo.
 
 ## 5. App web (`app/public/`)
 
-HTML, CSS y JavaScript sin framework ni paso de compilación, servidos como archivos estáticos. Las gráficas se dibujan en un `<canvas>` con `grafica.js`, sin librerías. En español, pensada primero para el celular, con modo claro u oscuro según el sistema.
+HTML, CSS y JavaScript sin framework ni paso de compilación (D24), con el SDK web de Firebase 13.4 desde gstatic. Diseño (D32): un **tablero eléctrico futurista**, con módulos montados en un riel DIN, rótulos con los designadores de la placa (K1, P1, T1, E1), pilotos de luz y un diagrama mímico del circuito; policarbonato frío de día y vidrio antracita de noche (sigue el tema del sistema o se elige en Perfil). Pensada primero para el celular (barra de mando abajo) y en el computador con columna lateral y rejilla de 12. Detalle del sistema visual en `DESIGN.md` (raíz del repo).
 
 | Pantalla | Contenido |
 |---|---|
-| Entrar | correo y clave; la primera vez, crear el administrador con `CODIGO_INICIAL` |
-| Equipos | lista con estado en línea y resumen |
-| Panel | estado de la carga y su motivo, botones de permitir/detener, liberar PARAR y reconocer (con confirmación); alarmas activas; P, V, I, FP, f, energía y costo de la sesión, duración, energía total, temperaturas, humedad y WiFi; gráfica de la última media hora en vivo; último estado y «hace cuánto» si está fuera de línea |
-| Historial | 24 h, 7 días, 30 días o 1 año: potencia, tensión, corriente y temperaturas; sesiones con kWh, duración, costo y motivo de fin; totales; CSV de sesiones y de mediciones |
-| Alarmas | alarmas y avisos (o todos los eventos) de 90 días, reconocer, bitácora de órdenes |
-| Ajustes | nombre, tensión nominal, tarifa, límites por sesión, hasta 4 franjas de horario, temperaturas, sonda obligatoria, política de arranque, avanzado. Para administradores: calibración, firmware y OTA, reiniciar, token nuevo, permisos y borrar |
-| Perfil | nombre, chat de Telegram y prueba, cambio de clave, salir |
-| Administración | agregar equipos (muestra el token una vez y los comandos para el equipo), crear y borrar usuarios |
+| Entrar | placa de características del equipo; entrar, crear cuenta, recuperar la clave |
+| Equipos | lista con piloto de enlace, potencia y estado (si hay más de uno) |
+| Panel | **X0** mímico RED → F1 → K1 → J2 → VE (la cuchilla de K1 se abre y cierra; la energía corre por el bus con la velocidad de la potencia); **P1** medidor de aguja con resorte, lectura grande, I, V y FP; **K1** selector giratorio Detener/Permitir que gira en azul hasta que el equipo confirma, con el motivo y las acciones (nueva sesión, soltar PARAR); **E1** sesión: kWh, costo, tiempo, pico; **H1** anunciador con las alarmas (titila lo no reconocido); **T1/T2** temperaturas con barra y marca de corte; **V1** red; **E0** energía total en un registro de rodillos |
+| Historial | 24 h, 7 días o 30 días: resumen, potencia, tensión, temperaturas y energía por día; sesiones con kWh, costo, duración y motivo de fin; CSV de sesiones y de mediciones |
+| Alarmas | anunciador completo con «Reconocer»; registro del equipo; bitácora de órdenes (quién, qué y qué contestó el equipo) |
+| Ajustes | red, tarifa, límites, horario (hasta 4 franjas), temperaturas, sonda obligatoria, política de arranque, avanzado, Telegram. Administrador: código de enlace, calibración, firmware (instalar por OTA y ver el avance), acceso de usuarios, renombrar, reiniciar, clave nueva y borrar |
+| Perfil | nombre, identificador (para hacerse administrador), tema, cambio de clave, salir |
+| Administración | equipos (agregar), subir firmware, usuarios, mantenimiento (borrar historial viejo) |
+
+Movimiento: una secuencia de encendido al abrir cada vista (los módulos se asientan en el riel y los pilotos destellan en orden), transiciones de vista con View Transitions, números que corren hasta su valor, la aguja con resorte, el flujo de energía del mímico y el giro del selector. Todo respeta «reducir movimiento» del sistema.
 
 ## 6. Seguridad
 
-- **TLS en todo.** El ESP32 verifica el certificado del servidor con las raíces de `src/ca_raiz.h` (no usa `setInsecure`). La hora para TLS sale del NTP, del DS3231 o de la «bienvenida» del servidor.
-- **Credencial propia por equipo:** id + token de 192 bits, enviado en la cabecera `Authorization` del WebSocket y de la descarga OTA. En D1 solo queda su SHA-256. Se puede regenerar desde la app.
-- **Usuarios:** la clave se deriva en el navegador con PBKDF2-SHA256 (300 000 iteraciones, sal = «evse-monitor|» + correo) y el servidor guarda SHA-256(sal aleatoria : derivada). Así el plan gratis (10 ms de CPU por petición) alcanza, y un volcado de la base no sirve sin repetir el PBKDF2. Sesión en una cookie HttpOnly, SameSite=Lax y Secure, de 30 días. Bloqueo de 15 min después de 5 intentos fallidos.
-- **CSRF:** toda petición que cambia algo exige la cabecera `X-EVSE: 1`, que otro sitio no puede poner sin CORS.
-- **Roles:** administrador (todo), propietario (controla su equipo) y solo lectura. La calibración y la OTA son solo para administradores.
-- **OTA:** el .bin se sube con sesión de administrador, se guarda privado en KV y el equipo lo baja con su token. Se revisa tamaño y SHA-256 antes de cambiar de partición. Si el firmware nuevo se reinicia más de 3 veces sin llegar al servidor, el equipo vuelve al anterior.
-- **Repo público:** nada secreto en git. `include/secrets.h` y `app/.dev.vars` están en `.gitignore`; en la nube, los secretos van con `wrangler secret put`.
+- **TLS en todo.** El ESP32 verifica los certificados con las raíces de `src/ca_raiz.h` (no usa `setInsecure`). La hora para TLS sale del NTP, del DS3231 o de la cabecera `Date` del inicio de sesión.
+- **Cuenta propia por equipo**, con clave de 24 caracteres al azar. Su token dura 1 h y el equipo vuelve a entrar antes de que venza. La clave se puede cambiar desde la app (Clave nueva) y el código viejo deja de servir.
+- **Usuarios:** Firebase Authentication guarda las claves con scrypt y limita los intentos. La sesión del navegador la maneja el SDK.
+- **Reglas por ruta** (sección 4) en vez de un servidor: probadas con 64 casos contra el emulador (`app/pruebas/probar_reglas.mjs`).
+- **Roles:** administrador (todo), propietario (manda su equipo) y solo lectura (ve; no lee el token de Telegram). La calibración y la OTA son solo para administradores.
+- **OTA:** solo el administrador sube y pide; el equipo revisa tamaño y SHA-256 antes de cambiar de partición, no instala con una carga en curso y vuelve al anterior si el nuevo no llega a la app en 3 arranques.
+- **Repo público:** nada secreto en git. La configuración web de Firebase (API key) no es secreta y además no está en el repo: la sirve Hosting. `include/secrets.h` y `app/.firebaserc` están en `.gitignore`.
 
-## 7. Límites del plan gratis de Cloudflare (revisados el 23 nov 2026)
+## 7. Límites del plan Spark de Firebase (revisados el 24 nov 2026)
 
 | Recurso | Límite gratis | Uso estimado con 1 equipo |
 |---|---|---|
-| Peticiones al Worker | 100 000/día | cientos (la app web es estática y no cuenta) |
-| Durable Objects: peticiones | 100 000/día; los mensajes entrantes de WebSocket cuentan 20:1 | ≈ 12 000 mensajes → ≈ 600 |
-| Durable Objects: duración | 13 000 GB-s/día; no se cobra mientras hiberna | poca: despierta solo con cada mensaje |
-| Durable Objects: filas escritas | 100 000/día | ≈ 6 000 (una por telemetría cada 15 s) |
-| D1: filas escritas / leídas | 100 000 / 5 000 000 por día | ≈ 3 000 escritas cargando 24 h; lecturas según cuánto se mire el historial |
-| D1: tamaño | 500 MB por base | ≈ 25 MB/año (se borran mediciones de más de 2 años) |
-| KV | 1 000 escrituras/día, 1 GB, 25 MiB por valor | una escritura por .bin |
-| CPU | 10 ms por petición | por eso el PBKDF2 corre en el navegador |
+| Realtime Database: conexiones a la vez | 100 | 1 por equipo + 1 por navegador abierto |
+| Realtime Database: almacenamiento | 1 GB | ≈ 50 MB/año de historial + ≈ 1,4 MB por versión de firmware |
+| Realtime Database: descarga | 10 GB/mes | telemetría cada 2 s con la app abierta ≈ 1 KB → ≈ 1,8 MB/h mirando; historial de 30 días ≈ 3 MB por consulta |
+| Hosting | 10 GB guardados, 360 MB/día de descarga | la app pesa ≈ 120 KB |
+| Authentication | correo y clave sin costo (con Identity Platform, 50 000 usuarios activos al mes) | 2–5 cuentas |
+| Cloud Functions y Cloud Storage | no disponibles en Spark | no se usan |
 
-Fuentes: [Durable Objects](https://developers.cloudflare.com/durable-objects/platform/pricing/), [D1](https://developers.cloudflare.com/d1/platform/limits/), [KV](https://developers.cloudflare.com/kv/platform/limits/), [Workers](https://developers.cloudflare.com/workers/platform/limits/), [archivos estáticos](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/).
+Fuente: [precios de Firebase](https://firebase.google.com/pricing) (consultada el 24 nov 2026).
 
-## 8. Pruebas hechas en esta fase (23 nov 2026)
+## 8. Pruebas hechas (24 nov 2026)
 
-- Los dos firmwares compilan sin errores ni advertencias propias (prueba_placa 778 KB; evse_monitor 1,06 MB de 4 MB por ranura).
-- Servidor y app en local (`wrangler dev`) con el simulador: registro del administrador con código y cierre del registro, alta del equipo, conexión con el búfer acumulado sin internet, telemetría en vivo, órdenes con confirmación (detener, permitir, cal_leer, orden inválida), configuración v1→v3 empujada y aplicada, límite de 2 kWh que cierra la sesión y detiene la carga, sobretemperatura que abre K1 y queda como alarma sin reconocer, OTA de un .bin real (subida, descarga con token, SHA-256 y «reinicio» con la versión nueva), CSV de sesiones y bitácora de órdenes. Se revisó la app en tamaño de celular.
-- **Falta en la placa:** todo lo de S1–S8 con el hardware real (sección «S» del protocolo de pruebas) y la publicación en Cloudflare con tu cuenta.
+- Los dos firmwares compilan sin errores ni advertencias propias (prueba_placa 779 KB; evse_monitor 1,08 MB de 4 MB por ranura).
+- **Reglas de seguridad:** 64 de 64 casos bien en el emulador (administrador, propietario, solo lectura, cuenta extraña, equipo propio y equipo ajeno).
+- **App + simulador contra el emulador de Firebase** (Authentication, Realtime Database y Hosting en local): crear cuenta, hacerse administrador, alta del equipo con su cuenta y código de enlace, conexión del simulador con 25 s de búfer sin internet, panel en vivo, Detener/Permitir con confirmación del equipo en ≈ 0,4 s, configuración v2 «aplicada en el equipo», límite de 1 kWh con «Nueva sesión», sobretemperatura con K1 abierto y alarma titilando, reconocer, historial con sesiones y costos, bitácora de órdenes, OTA de 244 KB en 8 partes con SHA-256 y confirmación de la versión nueva. Revisada en celular (375 px) y computador (1280 px), en tema oscuro y claro.
+- **Falta en la placa:** S1–S8 con el hardware real (sección «S» del protocolo de pruebas) y publicar en Firebase con tu cuenta (guía, parte B). El cliente de Firebase del firmware (`fb.cpp`) se probó solo a través del simulador, que hace las mismas llamadas: la primera conexión real de la placa es la prueba que falta.

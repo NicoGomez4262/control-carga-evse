@@ -25,15 +25,17 @@
 | D19 | 2026-10-23 | **Sin pedido de DigiKey** (nadie más del curso pidió; solo no sale rentable). K1 sigue siendo el AQY414EHAX, pero lo **compra PCBWay** en DigiKey o Mouser dentro del turnkey y lo suelda. El repuesto de F1/F2 son 2 fusibles 3403.0274.11 extra en el mismo pedido. Los repuestos de U1 y U3 no se piden. Plan B para K1: AQY214EHAX (NA, invierte P3). Cambia D16 y D17 en lo de DigiKey | adoptada | F9 |
 | D20 | 2026-10-30 | **Pedido en JLCPCB en lugar de PCBWay** (PCBWay podía tardar más de un mes; la clase pide en JLC). La PCB no cambia (mismos Gerber). Ensamble **Economic de 2 placas** (mínimo de JLC) con piezas de su stock. **K1 = AQY214EHAX (NA)**: el AQY414EHAX está en 0 y por Global Sourcing tarda 9–15 días; misma familia, footprint y aislamiento reforzado, pero invierte P3 (sin energía el EVSE no carga; LED6 encendido = carga permitida). 11 líneas genéricas pasan a piezas Basic de JLC (resistencias 0805 1 %, 100 nF y 1 µF X7R, MMBT3904) para no pagar US$ 3,07 por referencia extendida. Sin fusibles de repuesto (la segunda placa sirve). Reemplaza D16, D17 y D19 en proveedor y montaje | adoptada | F9 |
 | D21 | 2026-11-23 | Firmware en **Arduino-ESP32 2.0.17 (ESP-IDF 4.4) sobre PlatformIO**, con dos tareas: control (prioridad 3: medición, protecciones, K1) y red (loop). Dos proyectos: `firmware/prueba_placa` (S1–S6) y `firmware/evse_monitor` | adoptada | F10 |
-| D22 | 2026-11-23 | Transporte: **WebSocket seguro (wss) saliente** del ESP32 al servidor, mensajes JSON (`docs/software/PROTOCOLO_MENSAJES.md`); el ESP32 verifica el certificado con raíces de GTS, ISRG y SSL.com | adoptada | F10 |
-| D23 | 2026-11-23 | Servidor: **Cloudflare Workers + un Durable Object por equipo (WebSocket con hibernación) + D1 (SQLite) + KV** para el firmware, en el plan gratis (US$ 0/mes) | adoptada | F10 |
-| D24 | 2026-11-23 | App web en **HTML, CSS y JS sin framework ni compilación**, gráficas propias en canvas, servida como archivos estáticos del mismo Worker; dominio `*.workers.dev` o `evse.nicolasgomez.dev` si el DNS pasa a Cloudflare | adoptada | F10 |
-| D25 | 2026-11-23 | Autenticación: usuarios con correo y clave derivada en el navegador (PBKDF2-SHA256, 300 000 iteraciones), cookie HttpOnly de 30 días, roles administrador / propietario / solo lectura, cabecera anti-CSRF; cada equipo con **id + token de 192 bits** (SHA-256 en D1) | adoptada | F10 |
-| D26 | 2026-11-23 | WiFi del equipo por **consola serie o portal cautivo** (AP «EVSE-XXXX» con clave, PARAR 5 s al encender); `secrets.h` opcional. Sin WiFi guardado no se enciende la radio (sin U1 tumbaría la fuente de banco) | adoptada | F10 |
-| D27 | 2026-11-23 | **OTA desde la app** (el administrador sube el .bin a KV; el equipo lo baja con su token, revisa SHA-256 y vuelve al anterior si se reinicia más de 3 veces sin llegar al servidor) y siempre por USB | adoptada | F10 |
+| D22 | 2026-11-23 | Transporte: **WebSocket seguro (wss) saliente** del ESP32 al servidor, mensajes JSON (`docs/software/PROTOCOLO_MENSAJES.md`); el ESP32 verifica el certificado con raíces de GTS, ISRG y SSL.com | reemplazada por D31 (24 nov) | F10 |
+| D23 | 2026-11-23 | Servidor: **Cloudflare Workers + un Durable Object por equipo (WebSocket con hibernación) + D1 (SQLite) + KV** para el firmware, en el plan gratis (US$ 0/mes) | reemplazada por D31 (24 nov) | F10 |
+| D24 | 2026-11-23 | App web en **HTML, CSS y JS sin framework ni compilación**, gráficas propias en canvas, servida como archivos estáticos del mismo Worker; dominio `*.workers.dev` o `evse.nicolasgomez.dev` si el DNS pasa a Cloudflare | adoptada; hosting en Firebase (D31) y diseño en D32 | F10 |
+| D25 | 2026-11-23 | Autenticación: usuarios con correo y clave derivada en el navegador (PBKDF2-SHA256, 300 000 iteraciones), cookie HttpOnly de 30 días, roles administrador / propietario / solo lectura, cabecera anti-CSRF; cada equipo con **id + token de 192 bits** (SHA-256 en D1) | usuarios: reemplazada por D31; la cuenta por equipo sigue | F10 |
+| D26 | 2026-11-23 | WiFi del equipo por **consola serie o portal cautivo** (AP «EVSE-XXXX» con clave, PARAR 5 s al encender); `secrets.h` opcional. Sin WiFi guardado no se enciende la radio (sin U1 tumbaría la fuente de banco) | adoptada; desde D31 se pega un código de enlace | F10 |
+| D27 | 2026-11-23 | **OTA desde la app** (el administrador sube el .bin a KV; el equipo lo baja con su token, revisa SHA-256 y vuelve al anterior si se reinicia más de 3 veces sin llegar al servidor) y siempre por USB | ajustada por D31: el .bin va en la base, en partes | F10 |
 | D28 | 2026-11-23 | Arranque de K1 (P3 con el AQY214EHAX): política configurable desde la app, **por defecto «restaurar» el último permiso después de 10 s**; alternativas «detenida» y «permitida»; 3 reinicios anormales en 10 min dejan la carga detenida hasta reconocer | propuesta: la decide el usuario | F10 |
 | D29 | 2026-11-23 | Energía por **integración de Pmean2 a 1 Hz** en el firmware (no los registros de energía del ATM90E26, que dependen de PL_constant). Todo el historial (muestras, eventos y sesiones) pasa por el búfer circular de 7 MB, con o sin internet, y el servidor confirma por número de registro | adoptada | F10 |
-| D30 | 2026-11-23 | Notificaciones por **Telegram** (bot propio, gratis): alarmas graves y equipo fuera de línea más de 2 min | adoptada | F10 |
+| D30 | 2026-11-23 | Notificaciones por **Telegram** (bot propio, gratis): alarmas graves y equipo fuera de línea más de 2 min | ajustada por D31: Telegram lo manda el equipo | F10 |
+| D31 | 2026-11-24 | Servidor: **Firebase (plan Spark, gratis)**: Authentication (usuarios y una cuenta por equipo), Realtime Database (configuración, órdenes, estado en vivo, historial, firmware en partes) con reglas de seguridad por ruta, y Hosting para la app. El equipo escucha `/entrada/{id}` por SSE y escribe por REST; se enlaza con un código `EVSE1.` que da la app | adoptada (pedido del usuario) | F10 |
+| D32 | 2026-11-24 | Diseño de la app: **tablero eléctrico futurista** (módulos en riel DIN, rótulos con designadores, pilotos, mímico del circuito, medidor de aguja, selector giratorio que espera la confirmación del equipo, anunciador); Barlow; policarbonato de día y antracita de noche; mobile-first | adoptada (el usuario eligió la dirección) | F10 |
 
 ## D2 · Verificación del R-78CK3.3-0.5
 
@@ -677,6 +679,20 @@ En las tres: K1 está abierto mientras arranca (R40); PARAR, temperatura, fallas
 - WiFi a 17 dBm (D2: el R-78CK da 0,5 A).
 
 **Probado (23 nov):** los dos firmwares compilan sin advertencias propias; servidor y app en local con el simulador (lista en ARQUITECTURA §8). **Falta:** S1–S8 en la placa y la publicación en Cloudflare con la cuenta del usuario.
+
+**24 nov · D31 · Cambio de Cloudflare a Firebase.** El usuario pidió publicar en Vercel o Firebase porque ya tiene cuenta en los dos y los conoce. Comparación:
+
+| Opción | Tiempo real equipo ↔ app | Base de datos | Lo que falta | Resultado |
+|---|---|---|---|---|
+| **Firebase (Spark)** | Realtime Database: el equipo escucha por SSE (REST) y la app con el SDK, sin servidor | incluida, 1 GB | Cloud Functions y Cloud Storage piden Blaze (tarjeta): el .bin va en la base en partes y Telegram lo manda el equipo; no hay aviso de «fuera de línea» | **elegida** |
+| Vercel (Hobby) | WebSocket en Functions todavía en beta y se corta a los ~5 min; sin difusión a varios navegadores | aparte (Neon u otra, otra cuenta) | un servidor de tiempo real o sondeo; más cuentas y piezas | descartada |
+| Cloudflare (lo que había, D23) | WebSocket con Durable Objects | D1 | nada técnico; el usuario no conoce la plataforma | reemplazada |
+
+Fuentes: [precios de Firebase](https://firebase.google.com/pricing) (Spark: base de 1 GB, 10 GB/mes de descarga, 100 conexiones; Hosting 10 GB y 360 MB/día; Functions y Storage «no aplica»), [WebSocket en Vercel Functions](https://vercel.com/docs/functions/websockets) (beta), [API REST de la Realtime Database](https://firebase.google.com/docs/reference/rest/database) (streaming con `text/event-stream`).
+
+Qué cambió en el código: `firmware/evse_monitor/src/fb.cpp` (cliente nuevo), `red.cpp` (reescrito), consola y portal con `enlazar`; `app/` entera (sin `src/` ni D1: `database.rules.json`, `firebase.json`, `public/fb.js`); el simulador habla REST + SSE. Las protecciones, el búfer y la tarea de control no cambiaron.
+
+**24 nov · D32 · Diseño de la app.** Se ofrecieron cuatro mundos visuales (tablero eléctrico, contador de energía con disco, pulsos sobre negro y la app de carga estándar). El usuario eligió el tablero eléctrico «no tan industrial, más bien futurista». Queda documentado en `DESIGN.md` y en el comentario de dirección de `app/public/index.html`.
 
 ## Componentes elegidos
 

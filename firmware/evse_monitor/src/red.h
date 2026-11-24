@@ -1,5 +1,6 @@
-// Red: WiFi (TX ≤ 17 dBm), hora por NTP, WebSocket saliente con TLS hacia la app (D8),
-// subida del búfer, órdenes, configuración y OTA. Corre en la tarea de Arduino (loop).
+// Red: WiFi (TX ≤ 17 dBm), hora por NTP y Firebase (D31): flujo de /entrada/{id} para órdenes y
+// configuración, telemetría en /estado, subida del búfer, OTA y avisos por Telegram.
+// Corre en la tarea de Arduino (loop); la tarea de control no depende de esto.
 #pragma once
 #include <Arduino.h>
 

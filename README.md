@@ -21,9 +21,9 @@ Mide cada carga, la habilita o la detiene y lo sube todo por WiFi a una app prop
 </div>
 
 > [!NOTE]
-> **En proceso.** Las placas llegaron ensambladas de JLCPCB y pasaron las primeras pruebas de hardware (H1–H3).
-> El software ya está escrito: firmware del ESP32-S3, servidor y app web ([`docs/software/`](docs/software/)).
-> Falta soldar el regulador U1, probarlo todo en la placa y publicar la app.
+> **En proceso.** Las placas llegaron ensambladas de JLCPCB; la placa 1 ya tiene el regulador U1 y pasó las pruebas
+> de hardware H0–H5. El software está escrito y probado sin la placa: firmware del ESP32-S3 y app web en Firebase
+> ([`docs/software/`](docs/software/)). Falta correrlo en la placa (S1–S8) y publicar la app.
 
 ## Qué es
 
@@ -149,12 +149,12 @@ La lista completa, con las alternativas comparadas, el proveedor y la forma de m
 | Parte | Dónde | Qué hace |
 |---|---|---|
 | Firmware de pruebas | [`firmware/prueba_placa/`](firmware/prueba_placa/) | Menú por consola para las pruebas S1–S6 de la placa, un comando por bloque |
-| Firmware final | [`firmware/evse_monitor/`](firmware/evse_monitor/) | Medición, energía, sesiones, protecciones locales (temperatura, PARAR, fallas, tensión baja, límites, horario), K1, búfer de 7 MB sin internet, WebSocket con TLS, portal de configuración y OTA |
-| Servidor y app | [`app/`](app/) | Cloudflare Workers + un Durable Object por equipo + D1, en el plan gratis. App web en español, primero para el celular: panel en vivo, control, historial con costos y CSV, alarmas por Telegram, ajustes y OTA |
-| Simulador | [`tools/simulador/`](tools/simulador/) | Habla el mismo protocolo que el firmware, para probar la app sin la placa |
+| Firmware final | [`firmware/evse_monitor/`](firmware/evse_monitor/) | Medición, energía, sesiones, protecciones locales (temperatura, PARAR, fallas, tensión baja, límites, horario), K1, búfer de 7 MB sin internet, Firebase con TLS, portal de configuración, OTA y avisos por Telegram |
+| App y base de datos | [`app/`](app/) | Firebase en el plan gratis (Authentication, Realtime Database con reglas de seguridad y Hosting). App web en español con diseño de tablero eléctrico, primero para el celular: panel en vivo con el circuito y un selector que espera la confirmación del equipo, historial con costos y CSV, anunciador de alarmas, ajustes, usuarios y OTA |
+| Simulador | [`tools/simulador/`](tools/simulador/) | Hace las mismas llamadas a Firebase que el firmware, para probar la app sin la placa (con el emulador local o con el proyecto real) |
 
-El ESP32 abre una conexión saliente cifrada hacia el servidor y por ahí sube los datos y recibe las órdenes: sin
-puertos abiertos ni VPN. Las protecciones se deciden en el ESP32 y funcionan sin internet. Cómo está hecho:
+El ESP32 entra a Firebase con su propia cuenta, escucha sus órdenes por una conexión saliente cifrada y sube los
+datos: sin puertos abiertos, sin VPN y sin servidor propio. Las protecciones se deciden en el ESP32 y funcionan sin internet. Cómo está hecho:
 [`ARQUITECTURA.md`](docs/software/ARQUITECTURA.md) · protocolo: [`PROTOCOLO_MENSAJES.md`](docs/software/PROTOCOLO_MENSAJES.md) ·
 cómo subirlo a la placa y publicar la app: [`GUIA_INSTALACION.md`](docs/software/GUIA_INSTALACION.md).
 
@@ -171,7 +171,7 @@ cómo subirlo a la placa y publicar la app: [`GUIA_INSTALACION.md`](docs/softwar
 | F7 | todas | Compilación, footprints, clases de red y BOM con proveedores | ✅ |
 | F8 | `EVSE_Monitor.PcbDoc` | Contorno, reglas de aislamiento, ubicación, ruteo, DRC y archivos de fabricación | ✅ |
 | F9 | pedido y banco de pruebas | Pedido a JLCPCB, montaje, soldadura a mano y pruebas por etapas | 🔧 placas recibidas, H1–H3 bien; falta U1 |
-| F10 | `firmware/` y `app/` | Firmware del ESP32-S3, protocolo, servidor y app web | 🔧 código listo y probado con el simulador; falta la placa |
+| F10 | `firmware/` y `app/` | Firmware del ESP32-S3, protocolo, app web en Firebase | 🔧 código listo y probado con el emulador de Firebase y el simulador; falta la placa |
 
 El esquemático completo está en [`docs/revisiones/PROYECTO_F7.pdf`](docs/revisiones/PROYECTO_F7.pdf). El detalle de
 cada fase, con sus tareas, está en [`docs/PLAN_FASES.md`](docs/PLAN_FASES.md), y lo que sigue, en
@@ -200,11 +200,11 @@ Las vistas de cada capa de los Gerber, tal como deben verse en el visor del fabr
 ├── NEXT_SESSION.md           plan de la fase en curso
 ├── altium/                   proyecto de Altium Designer (.PrjPcb, hojas, PCB, OutJob, plantilla y librerías)
 ├── firmware/                 PlatformIO: prueba_placa (S1–S6) y evse_monitor (firmware final)
-├── app/                      servidor (Cloudflare Workers, D1) y app web
+├── app/                      app web y reglas de Firebase (Authentication, Realtime Database, Hosting)
 ├── tools/simulador/          simulador del equipo
 └── docs/
     ├── PLAN_FASES.md         las 10 fases, con sus tareas y el mapa de bloques
-    ├── DECISIONES.md         registro de decisiones (D1–D30) y componentes elegidos
+    ├── DECISIONES.md         registro de decisiones (D1–D32) y componentes elegidos
     ├── BOM_F7.md             BOM con proveedor y montaje de cada línea
     ├── GUIA_RUTEO_F8.md      distribución, distancias, anchos y reglas de la PCB
     ├── EXPLICACION_PCB_F8.md por qué la PCB quedó así

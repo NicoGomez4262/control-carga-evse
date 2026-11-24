@@ -1,6 +1,6 @@
 # Siguiente sesión → Fase 10 (continuación): software en la placa real
 
-El software de la Fase 10 ya está escrito y probado sin la placa (23 nov). Falta **10H**: publicar la app, correr S1–S8 con el firmware en la PCB, calibrar el ATM90E26 y la prueba de punta a punta. La Fase 9 sigue abierta solo por U1 (R-78CK), H0 con lupa, H5 y la etiqueta Rev 1.0.
+El software de la Fase 10 está escrito y probado sin la placa. El 24 nov la app pasó de Cloudflare a **Firebase** (D31, pedido del usuario) y se rediseñó como tablero eléctrico (D32). Falta **10H**: publicar la app en Firebase, correr S1–S8 con el firmware en la PCB, calibrar el ATM90E26 y la prueba de punta a punta. La Fase 9 sigue abierta por H6, SW2/SW3 y la etiqueta Rev 1.0.
 
 ## Prompt para iniciar
 
@@ -14,7 +14,8 @@ Antes de nada, lee:
   docs/tools/sincronizar_altium.py --commit).
 - NEXT_SESSION.md y docs/PLAN_FASES.md (Fases 9 y 10).
 - docs/pruebas/PROTOCOLO_PRUEBAS.md (H6, S1–S8 y el registro) y docs/pruebas/mapa_puntos.png.
-- docs/software/GUIA_INSTALACION.md (cómo subir cada firmware y publicar la app) y docs/DECISIONES.md (D20–D30).
+- docs/software/GUIA_INSTALACION.md (cómo subir cada firmware, S5-4 paso a paso y cómo publicar la app en Firebase)
+  y docs/DECISIONES.md (D20–D32).
 
 Estado de la placa 1 (24 nov):
 - H0 (lupa), H1, H2, H3, H4 (U1 soldado, encendido escalonado 3 → 6 → 12 V) y H5 aprobadas.
@@ -24,7 +25,7 @@ Estado de la placa 1 (24 nov):
 - Con U1 soldado, NUNCA 3,3 V en TP3: todo por J6 (12 V, límite 0,15–0,2 A) o por la red en S7.
 - Compré en Sigma: CT SCT-013-000V, sonda SEN DS18B20 2M, 4 pulsadores KFC-A04-02 (para SW2 y SW3) y el botón
   de panel SW730RD (va por cables a J7, no en la placa). Ya tenía la CR2032.
-- [Di aquí si ya creaste la cuenta de Cloudflare y publicaste la app (guía, parte B), y la dirección.]
+- [Di aquí si ya creaste el proyecto de Firebase y publicaste la app (guía, parte B), y la dirección .web.app.]
 - [Di qué política de arranque de K1 eliges (D28): restaurar, detenida o permitida.]
 
 Qué quiero en esta sesión, en este orden:
@@ -34,8 +35,8 @@ Qué quiero en esta sesión, en este orden:
 3. H6: pila, CT y sonda, cada uno conectado con la placa apagada, con lo que hay que medir.
 4. Firmware de pruebas (firmware/prueba_placa): súbelo tú a COM8 y acompáñame en S1–S6, anotando cada
    resultado en el registro del protocolo. S5-4: anotar la polaridad de WarnOut e IRQ.
-5. Firmware final (firmware/evse_monitor) con mi WiFi (secrets fuera de git) y, si la app ya está publicada,
-   la conexión a Cloudflare.
+5. Firmware final (firmware/evse_monitor): borrar la flash, subirlo y enlazarlo con `wifi` + `enlazar CÓDIGO`
+   (el código sale en la app, Ajustes → Enlace del equipo; nada de eso va a git).
 6. S7 con transformador de aislamiento, regleta con interruptor, carga resistiva de 1–1,5 kW y pinza:
    calibración (cal_auto) y verificación con otra carga. Primero repetir el aislamiento de H1-5 y los
    fusibles de H1-6 con la placa apagada.
@@ -59,6 +60,14 @@ Reglas:
 - **`app/`:** servidor y app web. Probados en local con `tools/simulador`: registro, alta del equipo, búfer sin internet, panel en vivo, órdenes con confirmación, configuración empujada, límite de kWh, sobretemperatura, OTA, historial con costos y CSV.
 - **Docs:** `docs/software/ARQUITECTURA.md`, `PROTOCOLO_MENSAJES.md`, `GUIA_INSTALACION.md`; README con la sección Software; `PROTOCOLO_PRUEBAS.md` con los comandos de cada etapa y la calibración de S7.
 - Ajustes por seguridad de la placa: sin WiFi guardado, el firmware final no enciende la radio (sin U1, los picos tumbarían la fuente de 0,25 A); la falla del medidor se decide con CalErr/AdjErr y no con el nivel de WarnOut (el datasheet no dice la polaridad: se anota en S5-4).
+
+## Qué se hizo (24 nov, F10: Firebase y diseño)
+
+- **Servidor → Firebase (D31):** Authentication (usuarios y una cuenta por equipo), Realtime Database con reglas de seguridad por ruta y Hosting, en el plan Spark gratis. Sin Cloud Functions ni Storage (piden tarjeta): el firmware para OTA va en la base en partes de 32 KB y Telegram lo manda el propio equipo. Vercel se descartó (WebSocket en beta que se corta a los ~5 min y base aparte).
+- **Firmware final:** cliente propio de Firebase (`src/fb.cpp`: inicio de sesión, REST con keep-alive y flujo SSE de `/entrada/{id}`), `red.cpp` reescrito, consola y portal con `enlazar CÓDIGO`, raíces TLS de Google y GoDaddy (Telegram), OTA por partes que no se reintenta si una versión no arrancó. Compila sin advertencias (1,08 MB).
+- **Firmware de pruebas:** S5-4 imprime la polaridad de WarnOut e IRQ en dos líneas listas para copiar al protocolo.
+- **App nueva (D32):** tablero eléctrico futurista elegido por el usuario: mímico del circuito, medidor de aguja, selector K1 que espera la confirmación del equipo, anunciador, rodillos de energía; día y noche; celular y computador.
+- **Pruebas:** reglas 64/64 en el emulador; app + simulador contra el emulador (órdenes con confirmación en ≈ 0,4 s, configuración, límites, sobretemperatura, reconocer, historial, bitácora, OTA de 244 KB en 8 partes). Lo único sin probar es la conexión real de la placa a Firebase.
 
 ## Dónde estamos
 
@@ -97,9 +106,9 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 ```text
 SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: integración con la placa (10H)
 
-[Placa: sensores · ATM90E26 · K1] ─► [ESP32-S3: firmware ✓] ═wss saliente═► [Cloudflare: Worker + DO + D1 ✓] ─► [App web ✓] ─► usuario
-          ▲ ▐S1–S8 en la placa▌            │ protecciones locales ✓              ▲   ▐publicar (guía B)▌        │
-          └────────────────────────────────┴─ NVS + búfer 7 MB + DS3231 ✓        └────── órdenes ◄─────────────┘
+[Placa: sensores · ATM90E26 · K1] ─► [ESP32-S3: firmware ✓] ═TLS saliente═► [Firebase: Auth + Realtime DB + reglas ✓] ─► [App web ✓] ─► usuario
+          ▲ ▐S1–S8 en la placa▌            │ protecciones locales ✓                  ▲   ▐publicar (guía B)▌          │
+          └────────────────────────────────┴─ NVS + búfer 7 MB + DS3231 ✓            └────── órdenes ◄───────────────┘
 ```
 
 ## Tareas pendientes de la Fase 9 (hardware)
@@ -116,7 +125,7 @@ SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: integración con la placa (10H)
 
 ## Tareas de la Fase 10 (software)
 
-- [x] 10A · Arquitectura (D21–D30). **Falta tu decisión de D28** (arranque de K1).
+- [x] 10A · Arquitectura (D21–D32; Firebase desde el 24 nov). **Falta tu decisión de D28** (arranque de K1).
 - [x] 10B · Firmware de pruebas (`firmware/prueba_placa`).
 - [x] 10C · Protocolo de mensajes.
 - [x] 10D · Firmware final (`firmware/evse_monitor`).
@@ -124,11 +133,11 @@ SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: integración con la placa (10H)
 - [x] 10F · Servidor y base de datos.
 - [x] 10G · Aplicación web.
 - [ ] 10H · Integración con la placa:
-  - [ ] Publicar la app en Cloudflare (guía, parte B): cuenta, `wrangler login`, D1, KV, migraciones, `CODIGO_INICIAL`, `deploy`; crear el administrador y el equipo `evse-01`.
-  - [ ] Opcional: dominio `evse.nicolasgomez.dev` y bot de Telegram.
-  - [ ] S1–S5 con `firmware/prueba_placa` (sin U1: 3,30 V en TP3; S4 con 12 V en J6). Anotar la polaridad de WarnOut e IRQ (S5-4).
-  - [ ] U1 + H4; S6 (`s6 scan`, `s6 con`, `s6 carga`).
-  - [ ] Borrar la flash y subir `firmware/evse_monitor`; conectarlo por consola o portal; LED3 fijo y «En línea» en la app.
+  - [ ] Publicar la app en Firebase (guía, parte B): proyecto, Authentication con correo, Realtime Database en us-central1, app web con Hosting, `npx firebase login`, `npx firebase use --add`, `npm run desplegar`; crear tu cuenta, ponerte en `admins` y crear el equipo `evse-01`.
+  - [ ] Opcional: dominio `evse.nicolasgomez.dev` (Hosting → dominio personalizado) y bot de Telegram (Ajustes → Avisos por Telegram).
+  - [ ] S1–S5 con `firmware/prueba_placa` (12 V en J6; U1 ya está). Anotar la polaridad de WarnOut e IRQ (S5-4, guía A3).
+  - [x] U1 + H4 (24 nov). [ ] S6 (`s6 scan`, `s6 con`, `s6 carga`).
+  - [ ] Borrar la flash y subir `firmware/evse_monitor`; `wifi` + `enlazar CÓDIGO` (o el portal); LED3 fijo y «En línea» en la app.
   - [ ] S7: calibración con `cal_auto` y verificación con otra carga (error < 1–2 %).
   - [ ] S8: Detener/Permitir desde la app y medir J2 (17–18); protecciones sin internet; historial completo al volver la red.
   - [ ] Probar una OTA real (1.0.0 → 1.0.1).
@@ -140,7 +149,7 @@ SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: integración con la placa (10H)
 - La placa 1, la fuente de banco de dos canales, el Keysight 34461A, el cable USB-C de datos, cables dupont para J8 y caimanes.
 - La sonda DS18B20, la pila CR2032, el CT, U1 y el cautín.
 - Para S7: transformador de aislamiento, regleta con interruptor, carga resistiva de 1–1,5 kW y pinza amperimétrica.
-- El nombre y la clave del WiFi (no van en el repo) y tu correo para la cuenta de Cloudflare.
+- El nombre y la clave del WiFi (no van en el repo) y tu cuenta de Google para Firebase.
 
 ## Pendientes fuera de esta fase
 

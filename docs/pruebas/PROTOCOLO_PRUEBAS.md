@@ -460,7 +460,7 @@ SPI en modo 3, 100 kHz (máximo 160 kbps). Trama de 24 bits: 1 bit de lectura (1
 | 1 | Leer CalStart (20H) | 6886H (valor de encendido) | |
 | 2 | Leer MMode (2BH) | 9422H | |
 | 3 | Escribir 5678H en CalStart, releer y leer LastData (06H) | 5678H en los dos | |
-| 4 | Escribir 8765H en CalStart sin CS1 válido | CalErr en SysStatus (01H); IO21 (WarnOut) e IO14 (IRQ) cambian de estado. El datasheet no dice la polaridad: anótala (el firmware muestra «activos en ALTO» o «en BAJO») | |
+| 4 | Escribir 8765H en CalStart sin CS1 válido | CalErr en SysStatus (01H); IO21 (WarnOut) e IO14 (IRQ) cambian de estado. El datasheet no dice la polaridad: el firmware imprime un recuadro con una línea por pin («normal … → con error … ⇒ ACTIVO EN ALTO/BAJO»); copia esas dos líneas aquí. Paso a paso en `docs/software/GUIA_INSTALACION.md`, A3 | |
 | 5 | SoftReset: 789AH en 00H | CalStart vuelve a 6886H | |
 | 6 | Urms (49H) e Irms2 (68H) sin red ni CT | ≈ 0 | |
 

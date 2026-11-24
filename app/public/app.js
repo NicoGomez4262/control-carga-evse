@@ -1,737 +1,882 @@
-// EVSE Monitor · app web (sin dependencias). Rutas con #: #/entrar, #/, #/e/<id>[/historial|/alarmas|/ajustes],
-// #/perfil, #/admin. Los datos en vivo llegan por WebSocket desde el Durable Object del equipo.
+// EVSE Monitor · app web (Firebase, sin framework). Rutas con #: #/entrar, #/, #/e/<id>[/historial|/alarmas|/ajustes],
+// #/perfil, #/admin. Los datos en vivo llegan de la Realtime Database (docs/software/PROTOCOLO_MENSAJES.md).
 
+import * as fb from "./fb.js";
 import { Grafica } from "./grafica.js";
+import { encender, icono, Medidor, mimico, numero, pintarMimico, pintarSelector, rodillos, selector, termometro } from "./instrumentos.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const vista = $("#vista");
-const app = { usuario: null, ws: null, wsReintento: null, graficas: [], temporizadores: [], equipo: null, estado: null };
+const mando = $("#mando");
+const app = { u: null, limpiar: [], estados: {} };
 
 // ------------------------------------------------------------------ formato
-const nf = {};
+const nfs = {};
 const fmt = (v, d = 1) => {
   if (v === null || v === undefined || v === "" || !Number.isFinite(Number(v))) return "—";
-  nf[d] ??= new Intl.NumberFormat("es-CO", { minimumFractionDigits: d, maximumFractionDigits: d });
-  return nf[d].format(Number(v));
+  nfs[d] ??= new Intl.NumberFormat("es-CO", { minimumFractionDigits: d, maximumFractionDigits: d });
+  return nfs[d].format(Number(v));
 };
 const cop = (v) => (Number.isFinite(Number(v)) ? "$ " + fmt(v, 0) : "—");
-const fFecha = (ts) =>
-  ts ? new Date(ts * 1000).toLocaleString("es-CO", { timeZone: "America/Bogota", dateStyle: "medium", timeStyle: "short" }) : "—";
-const fCorta = (ts) =>
-  ts
-    ? new Date(ts * 1000).toLocaleString("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })
-    : "—";
+const tz = { timeZone: "America/Bogota" };
+const fFecha = (s) => (s ? new Date(s * 1000).toLocaleString("es-CO", { ...tz, dateStyle: "medium", timeStyle: "short" }) : "—");
+const fCorta = (s) => (s ? new Date(s * 1000).toLocaleString("es-CO", { ...tz, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false }) : "—");
+const fDia = (s) => new Date(s * 1000).toLocaleDateString("es-CO", { ...tz, weekday: "short", day: "numeric", month: "short" });
 const ahora = () => Math.floor(Date.now() / 1000);
 function duracion(s) {
   if (!Number.isFinite(s) || s < 0) return "—";
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
-  return h ? `${h} h ${m} min` : m ? `${m} min` : `${Math.floor(s)} s`;
+  return h ? `${h} h ${String(m).padStart(2, "0")} min` : m ? `${m} min` : `${Math.floor(s)} s`;
 }
-function hace(ts) {
-  if (!ts) return "—";
-  const d = ahora() - ts;
-  if (d < 60) return "hace un momento";
-  if (d < 3600) return `hace ${Math.floor(d / 60)} min`;
-  if (d < 86400) return `hace ${Math.floor(d / 3600)} h ${Math.floor((d % 3600) / 60)} min`;
-  return `hace ${Math.floor(d / 86400)} días`;
+function hace(seg) {
+  if (!Number.isFinite(seg)) return "—";
+  if (seg < 10) return "ahora";
+  if (seg < 60) return `hace ${Math.floor(seg)} s`;
+  if (seg < 3600) return `hace ${Math.floor(seg / 60)} min`;
+  if (seg < 86400) return `hace ${Math.floor(seg / 3600)} h`;
+  return `hace ${Math.floor(seg / 86400)} días`;
 }
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
+// ------------------------------------------------------------------ textos del equipo
 const ALARMAS = {
-  temp_sonda: "Sobretemperatura en la sonda",
-  temp_amb: "Sobretemperatura en la placa",
-  sonda_falla: "Sonda DS18B20 sin respuesta",
-  medidor_falla: "Falla del medidor ATM90E26",
-  red_baja: "Tensión de red baja",
-  parar: "PARAR pulsado",
-  amb_falla: "Sensor de ambiente sin respuesta",
-  sin_hora: "Sin hora (sin NTP ni RTC)",
-  reinicio: "Reinicio inesperado",
-  sin_calibrar: "Medidor sin calibrar",
-  temp_aviso: "Sonda cerca del límite de temperatura",
+  temp_sonda: ["Sobretemp. sonda", "Sobretemperatura en la sonda"],
+  temp_amb: ["Sobretemp. placa", "Sobretemperatura en la placa"],
+  sonda_falla: ["Sonda sin respuesta", "La sonda DS18B20 no responde"],
+  medidor_falla: ["Falla medidor", "Falla del medidor ATM90E26"],
+  red_baja: ["Red baja", "Tensión de red baja"],
+  parar: ["PARAR", "Se pulsó PARAR"],
+  amb_falla: ["Sensor placa", "El sensor de ambiente no responde"],
+  sin_hora: ["Sin hora", "Sin hora (sin NTP ni RTC)"],
+  reinicio: ["Reinicio", "Reinicio inesperado (brownout o watchdog)"],
+  sin_calibrar: ["Sin calibrar", "El medidor aún no está calibrado"],
+  temp_aviso: ["Sonda caliente", "La sonda está cerca del límite de temperatura"],
 };
 const GRAVES = new Set(["temp_sonda", "temp_amb", "sonda_falla", "medidor_falla", "red_baja", "parar", "reinicio"]);
 const MOTIVOS = {
-  falla: ["mal", "Falla del medidor o de la sonda. Revisa las alarmas."],
-  temperatura: ["mal", "Sobretemperatura. Vuelve a cargar sola 5 min después de enfriarse."],
-  parar: ["mal", "Se pulsó PARAR. Se libera manteniendo PARAR 3 s en la placa o con el botón de aquí."],
-  red: ["mal", "Tensión de red baja. Vuelve sola cuando la red se normaliza durante 1 min."],
-  limite: ["aviso", "Se alcanzó el límite de la sesión. «Permitir» empieza otra."],
-  horario: ["aviso", "Fuera del horario de carga. Vuelve sola al entrar al horario."],
-  app: ["aviso", "Detenida desde la app."],
-  arranque: ["aviso", "El equipo acaba de arrancar o espera tu confirmación."],
+  falla: ["rojo", "Detenida por falla", "El medidor o la sonda fallan. Mira el anunciador."],
+  temperatura: ["rojo", "Detenida por temperatura", "Vuelve sola 5 min después de enfriarse por debajo de la histéresis."],
+  parar: ["rojo", "PARAR pulsado", "Se libera manteniendo PARAR 3 s en la placa o con «Soltar PARAR»."],
+  red: ["rojo", "Tensión de red baja", "Vuelve sola cuando la red se normaliza durante 1 min."],
+  limite: ["ambar", "Límite de la sesión", "Se alcanzó el límite. «Nueva sesión» empieza otra."],
+  horario: ["ambar", "Fuera del horario", "Vuelve sola al entrar en una franja de carga."],
+  app: ["ambar", "Detenida desde la app", "Gira el selector a Permitir para cargar."],
+  arranque: ["ambar", "Arrancando", "El equipo acaba de encender: verifica 10 s o espera tu permiso."],
 };
-const RESETS = { 1: "encendido", 2: "pin EN", 3: "software", 4: "excepción", 5: "watchdog", 6: "watchdog de tareas", 7: "watchdog", 9: "brownout" };
+const RESETS = { encendido: "encendido", pin_en: "botón EN", software: "software", panic: "excepción", wdt_int: "watchdog", wdt_tarea: "watchdog de tareas", wdt: "watchdog", brownout: "brownout" };
+const FIN = { sin_corriente: "terminó la carga", limite: "límite", otro: "otro" };
+const ORDENES = { permitir: "Permitió la carga", detener: "Detuvo la carga", reconocer: "Reconoció las alarmas", soltar_parar: "Soltó PARAR", reiniciar: "Reinició el equipo", estado: "Pidió el estado", cal_leer: "Leyó la calibración", cal_auto: "Calibró el medidor", cal_escribir: "Escribió la calibración", cal_fabrica: "Volvió a la calibración de fábrica", telegram_probar: "Probó Telegram" };
+const DIAS = ["D", "L", "M", "M", "J", "V", "S"];
+const NOMBRE_DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
-// ------------------------------------------------------------------ API y avisos
-async function api(ruta, { metodo = "GET", datos, crudo } = {}) {
-  const op = { method: metodo, headers: {} };
-  if (metodo !== "GET") op.headers["x-evse"] = "1";
-  if (datos !== undefined) {
-    op.headers["content-type"] = "application/json";
-    op.body = JSON.stringify(datos);
+function textoEvento(e) {
+  const al = ALARMAS[e.a]?.[1] || e.txt || e.a;
+  switch (e.c) {
+    case "alarma": {
+      const v = Number(e.x) / 10;
+      const extra = e.a?.startsWith("temp") && v > 0 ? ` (${fmt(v, 1)} °C)` : "";
+      return [GRAVES.has(e.a) ? "rojo" : "ambar", `${al}${extra}`];
+    }
+    case "alarma_fin": return ["verde", `Se despejó: ${al}`];
+    case "arranque": return ["", `Arranque del equipo${e.x ? ` · ${e.x} reinicios seguidos` : ""}`];
+    case "k1": return Number(e.val) ? ["verde", "K1 cerrado: carga permitida"] : ["", `K1 abierto${e.mot ? ` (${MOTIVOS[e.mot]?.[1] || e.mot})` : ""}`];
+    case "sesion_inicio": return ["verde", `Empezó la sesión nº ${fmt(e.val, 0)}`];
+    case "limite": return ["ambar", `Límite de la sesión: ${["", "energía", "tiempo", "costo"][Number(e.val)] || ""}`];
+    case "config": return ["", `Configuración v${fmt(e.val, 0)} aplicada en el equipo`];
+    case "calibracion": return ["ambar", "Calibración del medidor cambiada"];
+    case "orden_local": return ["", ["", "PARAR pulsado en la placa", "PARAR liberado en la placa", "PARAR liberado desde la app"][Number(e.val)] || "Orden local"];
+    case "hora": return ["", "Hora puesta por NTP y copiada al DS3231"];
+    case "ota": return [Number(e.val) ? "verde" : "rojo", Number(e.val) ? "Firmware actualizado" : "Volvió al firmware anterior"];
+    default: return ["", e.c];
   }
-  if (crudo) {
-    op.headers["content-type"] = "application/octet-stream";
-    op.body = crudo;
-  }
-  const r = await fetch(ruta, op);
-  let j = {};
-  try {
-    j = await r.json();
-  } catch {}
-  if (r.status === 401 && !ruta.startsWith("/api/auth/")) {
-    app.usuario = null;
-    location.hash = "#/entrar";
-    throw new Error(j.error || "Inicia sesión.");
-  }
-  if (!r.ok) throw new Error(j.error || j.msg || `Error ${r.status}`);
-  return j;
 }
 
-let avisoT;
-function aviso(msg, mal = false) {
-  const a = $("#aviso");
-  a.textContent = msg;
-  a.className = "notif" + (mal ? " mal" : "");
-  a.hidden = false;
-  clearTimeout(avisoT);
-  avisoT = setTimeout(() => (a.hidden = true), mal ? 6000 : 3500);
+// ------------------------------------------------------------------ avisos, diálogos y botones
+let tNotif;
+function notif(msg, tipo = "verde") {
+  const n = $("#notif");
+  n.hidden = false;
+  n.innerHTML = `<span class="piloto ${tipo}"></span><span>${esc(msg)}</span>`;
+  n.style.animation = "none";
+  void n.offsetWidth;
+  n.style.animation = "";
+  clearTimeout(tNotif);
+  tNotif = setTimeout(() => (n.hidden = true), tipo === "rojo" ? 6500 : 3800);
+}
+const fallo = (e) => notif(traducir(e), "rojo");
+
+function traducir(e) {
+  const c = e?.code || "";
+  const m = {
+    "auth/invalid-credential": "Correo o clave incorrectos.",
+    "auth/invalid-email": "Ese correo no es válido.",
+    "auth/user-disabled": "Esta cuenta está deshabilitada.",
+    "auth/email-already-in-use": "Ya hay una cuenta con ese correo. Entra con ella.",
+    "auth/weak-password": "La clave es muy corta (mínimo 8 caracteres).",
+    "auth/too-many-requests": "Demasiados intentos. Espera unos minutos.",
+    "auth/network-request-failed": "Sin conexión a internet.",
+    "auth/requires-recent-login": "Vuelve a entrar para hacer esto.",
+    "auth/operation-not-allowed": "Activa «Correo y contraseña» en Firebase Authentication.",
+    PERMISSION_DENIED: "No tienes permiso para esto.",
+  };
+  return m[c] || (String(e?.message || e).includes("permission_denied") ? m.PERMISSION_DENIED : e?.message || String(e));
 }
 
-function confirmar(titulo, html, si = "Aceptar", peligro = false) {
+function dialogo({ titulo, html = "", si = "Aceptar", no = "Cancelar", peligro = false, formulario = false }) {
   const d = $("#dialogo");
-  $("#dialogo-titulo").textContent = titulo;
-  $("#dialogo-texto").innerHTML = html;
-  $("#dialogo-si").textContent = si;
-  $("#dialogo-si").className = "boton" + (peligro ? " peligro" : "");
-  $("#dialogo-no").hidden = false;
+  d.innerHTML = `<form method="dialog" class="formulario"><h2 id="dialogo-titulo">${esc(titulo)}</h2><div>${html}</div>
+    <div class="acciones">${no ? `<button class="boton sec" value="no" formnovalidate>${esc(no)}</button>` : ""}<button class="boton ${peligro ? "peligro" : ""}" value="si">${esc(si)}</button></div></form>`;
   d.showModal();
-  return new Promise((res) => d.addEventListener("close", () => res(d.returnValue === "si"), { once: true }));
+  return new Promise((ok) => {
+    d.onclose = () => ok(d.returnValue === "si" ? (formulario ? new FormData($("form", d)) : true) : false);
+  });
 }
+const mostrar = (titulo, html) => dialogo({ titulo, html, si: "Listo", no: "" });
 
-function mostrar(titulo, html) {
-  const d = $("#dialogo");
-  $("#dialogo-titulo").textContent = titulo;
-  $("#dialogo-texto").innerHTML = html;
-  $("#dialogo-si").textContent = "Listo";
-  $("#dialogo-si").className = "boton";
-  $("#dialogo-no").hidden = true;
-  d.showModal();
-}
-
-async function conBoton(boton, f) {
-  const texto = boton.textContent;
-  boton.disabled = true;
-  boton.textContent = "Un momento…";
+async function conBoton(b, f) {
+  if (b.disabled) return;
+  b.disabled = true;
+  b.classList.add("cargando");
   try {
     return await f();
   } catch (e) {
-    aviso(e.message, true);
+    fallo(e);
   } finally {
-    boton.disabled = false;
-    boton.textContent = texto;
+    b.disabled = false;
+    b.classList.remove("cargando");
   }
 }
 
-// La clave se deriva aquí (PBKDF2-SHA256, 300 000 iteraciones); al servidor solo llega el resultado.
-async function derivar(email, clave) {
-  const enc = new TextEncoder();
-  const k = await crypto.subtle.importKey("raw", enc.encode(clave), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt: enc.encode("evse-monitor|" + email.trim().toLowerCase()), iterations: 300000 },
-    k,
-    256,
-  );
-  return [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-// ------------------------------------------------------------------ navegación
-function limpiar() {
-  if (app.ws) {
-    app.ws.onclose = null;
-    app.ws.close();
-    app.ws = null;
-  }
-  clearTimeout(app.wsReintento);
-  app.graficas.forEach((g) => g.destruir());
-  app.graficas = [];
-  app.temporizadores.forEach(clearInterval);
-  app.temporizadores = [];
-}
-
-function pestanas(id, activa) {
-  const n = $("#pestanas");
-  n.hidden = !id;
-  if (!id) return;
-  for (const a of $$("a", n)) {
-    const p = a.dataset.p;
-    a.href = p === "panel" ? `#/e/${id}` : `#/e/${id}/${p}`;
-    a.classList.toggle("activa", p === activa);
-  }
-}
-
-async function navegar() {
-  limpiar();
-  const h = location.hash || "#/";
-  if (!app.usuario && h !== "#/entrar") {
-    try {
-      const r = await api("/api/auth/estado", { metodo: "POST", datos: {} });
-      app.usuario = r.usuario;
-    } catch {}
-    if (!app.usuario) {
-      location.hash = "#/entrar";
-      return;
-    }
-  }
-  $("#menu-usuario").hidden = !app.usuario;
-  if (app.usuario) $("#nombre-usuario").textContent = app.usuario.nombre;
-  window.scrollTo(0, 0);
+async function copiar(txt) {
   try {
-    let m;
-    if (h === "#/entrar") return await vEntrar();
-    if (h === "#/perfil") return pestanas(null), await vPerfil();
-    if (h === "#/admin") return pestanas(null), await vAdmin();
-    if ((m = /^#\/e\/([a-z0-9-]+)(?:\/(historial|alarmas|ajustes))?$/.exec(h))) {
-      const p = m[2] || "panel";
-      pestanas(m[1], p);
-      if (p === "panel") return await vPanel(m[1]);
-      if (p === "historial") return await vHistorial(m[1]);
-      if (p === "alarmas") return await vAlarmas(m[1]);
-      return await vAjustes(m[1]);
-    }
-    pestanas(null);
-    return await vInicio();
-  } catch (e) {
-    vista.innerHTML = `<div class="tarjeta"><h2>No se pudo cargar</h2><p class="error">${esc(e.message)}</p><a href="#/">Volver al inicio</a></div>`;
+    await navigator.clipboard.writeText(txt);
+    notif("Copiado.");
+  } catch {
+    notif("No se pudo copiar: selecciónalo a mano.", "ambar");
   }
 }
-window.addEventListener("hashchange", navegar);
-navegar();
 
-// ------------------------------------------------------------------ entrar
-async function vEntrar() {
-  pestanas(null);
-  $("#menu-usuario").hidden = true;
-  const est = await api("/api/auth/estado", { metodo: "POST", datos: {} });
-  if (est.usuario) {
-    app.usuario = est.usuario;
-    location.hash = "#/";
+function descargar(nombre, filas) {
+  const csv = "﻿" + filas.map((f) => f.map((x) => (/[;"\n]/.test(String(x ?? "")) ? `"${String(x).replace(/"/g, '""')}"` : x ?? "")).join(";")).join("\n");
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: nombre });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+// Repinta un bloque solo si cambió (así un botón no se reemplaza bajo el dedo ni pierde su estado «cargando»).
+function cambia(el, html) {
+  if (el.dataset.h === html) return false;
+  el.dataset.h = html;
+  el.innerHTML = html;
+  return true;
+}
+
+// ------------------------------------------------------------------ estado en línea
+function edad(est) {
+  return est?.ts ? (fb.ahoraServidor() - est.ts) / 1000 : Infinity;
+}
+function enLinea(est, cfg) {
+  const lim = Math.max(25, (Number(cfg?.tel_s) || 15) * 2.5 + 5);
+  return edad(est) < lim;
+}
+const corriendo = (e) => !!e?.k1 && Number(e?.i) >= 0.3;
+const rol = (id) => (app.u?.admin ? "propietario" : app.u?.equipos?.[id]);
+const puedeMandar = (id) => rol(id) === "propietario";
+
+// ------------------------------------------------------------------ mando (navegación)
+function pintarMando(id, seccion) {
+  if (!app.u) {
+    mando.hidden = true;
     return;
   }
-  const primero = !est.hay_usuarios;
-  vista.innerHTML = `
-    <div class="centro tarjeta">
-      <h1>${primero ? "Crear el administrador" : "Entrar"}</h1>
-      <p class="suave">${primero ? "No hay usuarios todavía. El primero es el administrador y necesita el código de instalación (CODIGO_INICIAL)." : "Monitor y control de la carga del vehículo."}</p>
-      <form id="f">
-        ${primero ? `<label for="nombre">Nombre</label><input id="nombre" required autocomplete="name">` : ""}
-        <label for="email">Correo</label><input id="email" type="email" required autocomplete="username">
-        <label for="clave">Clave</label><input id="clave" type="password" required minlength="${primero ? 10 : 1}" autocomplete="${primero ? "new-password" : "current-password"}">
-        ${primero ? `<p class="ayuda">Mínimo 10 caracteres.</p><label for="codigo">Código de instalación</label><input id="codigo" required>` : ""}
-        <p class="error" id="err" hidden></p>
-        <button class="boton ancho" style="margin-top:1rem">${primero ? "Crear y entrar" : "Entrar"}</button>
-      </form>
-    </div>`;
-  $("#f").onsubmit = async (e) => {
-    e.preventDefault();
-    const b = $("button", e.target);
-    const err = $("#err");
-    err.hidden = true;
-    await conBoton(b, async () => {
-      const email = $("#email").value.trim();
-      const clave = await derivar(email, $("#clave").value);
-      try {
-        if (primero) await api("/api/auth/registro", { metodo: "POST", datos: { email, clave, nombre: $("#nombre").value, codigo: $("#codigo").value } });
-        else await api("/api/auth/entrar", { metodo: "POST", datos: { email, clave } });
-      } catch (x) {
-        err.textContent = x.message;
-        err.hidden = false;
-        return;
+  mando.hidden = false;
+  const ids = Object.keys(app.u.equipos);
+  const eq = id || ids[0];
+  const nr = (app.estados[eq]?.nr || []).length;
+  const item = (h, ic, txt, actual, extra = "") => `<a href="${h}" ${actual ? 'aria-current="page"' : ""}>${icono(ic)}<span>${txt}</span>${extra}</a>`;
+  mando.innerHTML = `
+    <div class="marca"><div class="marca-nombre">${icono("rayo")}EVSE Monitor</div><div class="marca-sub">Tablero de carga · Rev 1.0</div></div>
+    ${ids.length > 1 ? `<div class="equipos-lista">${ids.map((k) => `<a href="#/e/${k}" ${k === id ? 'aria-current="page"' : ""}>${icono("equipo")}<span>${esc(app.nombres?.[k] || k)}</span></a>`).join("")}</div>` : ""}
+    ${eq
+      ? item(`#/e/${eq}`, "panel", "Panel", seccion === "panel") +
+        item(`#/e/${eq}/historial`, "historial", "Historial", seccion === "historial") +
+        item(`#/e/${eq}/alarmas`, "alarmas", "Alarmas", seccion === "alarmas", nr ? `<span class="alerta">${nr}</span>` : "") +
+        item(`#/e/${eq}/ajustes`, "ajustes", "Ajustes", seccion === "ajustes")
+      : item("#/", "panel", "Inicio", seccion === "inicio") + (app.u.admin ? item("#/admin", "admin", "Admin", seccion === "admin") : "") + item("#/perfil", "usuario", "Perfil", seccion === "perfil")}
+    ${eq ? `<div class="cuenta">
+      ${app.u.admin ? item("#/admin", "admin", "Administración", seccion === "admin") : ""}
+      ${item("#/perfil", "usuario", esc(app.u.nombre), seccion === "perfil")}
+    </div>` : ""}`;
+}
+
+// ------------------------------------------------------------------ rutas
+function limpiar() {
+  for (const f of app.limpiar.splice(0)) {
+    try {
+      f();
+    } catch {}
+  }
+}
+const alSalir = (f) => app.limpiar.push(f);
+
+async function navegar() {
+  const h = location.hash.replace(/^#\/?/, "");
+  const [a, id, sub] = h.split("/");
+  const pintar = async () => {
+    limpiar();
+    vista.scrollTop = 0;
+    window.scrollTo(0, 0);
+    try {
+      if (!app.u) {
+        pintarMando();
+        return await vEntrar();
       }
-      app.usuario = (await api("/api/auth/yo")).usuario;
-      location.hash = "#/";
+      if (a === "e" && id) {
+        if (!rol(id)) return (location.hash = "#/");
+        const s = sub || "panel";
+        pintarMando(id, s);
+        if (s === "historial") return await vHistorial(id);
+        if (s === "alarmas") return await vAlarmas(id);
+        if (s === "ajustes") return await vAjustes(id);
+        return await vPanel(id);
+      }
+      if (a === "perfil") return pintarMando(null, "perfil"), await vPerfil();
+      if (a === "admin" && app.u.admin) return pintarMando(null, "admin"), await vAdmin();
+      pintarMando(null, "inicio");
+      return await vInicio();
+    } catch (e) {
+      console.error(e);
+      vista.innerHTML = `<div class="riel"><article class="mod"><h2>No se pudo abrir esta vista</h2><p class="suave">${esc(traducir(e))}</p><a class="boton sec" href="#/">Volver al inicio</a></article></div>`;
+    }
+  };
+  if (document.startViewTransition && app.pintada && document.visibilityState === "visible" && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const t = document.startViewTransition(pintar);
+    t.ready.catch(() => {});
+    await t.updateCallbackDone.catch(() => {});
+  } else {
+    await pintar();
+  }
+  app.pintada = true;
+  vista.focus({ preventScroll: true });
+}
+window.addEventListener("hashchange", navegar);
+
+// ------------------------------------------------------------------ entrada
+async function vEntrar() {
+  let modo = "entrar";
+  const dibujar = () => {
+    vista.innerHTML = `
+    <div class="puerta"><div class="riel placa-datos"><article class="mod">
+      <div class="marca-nombre">${icono("rayo")}EVSE Monitor</div>
+      <div class="marca-sub">Monitor y control de carga de vehículo eléctrico</div>
+      <dl class="datos-nominales">
+        <dt>Entrada</dt><dd>100–264 VAC · 120 V L–N o 240 V L1–L2</dd>
+        <dt>Medición</dt><dd>ATM90E26 · tensión, corriente, potencia, energía</dd>
+        <dt>Mando</dt><dd>K1 AQY214EHAX (NA) en J2 del EVSE</dd>
+        <dt>Control</dt><dd>ESP32-S3 · protecciones sin internet</dd>
+      </dl>
+      <div class="pestanas rango" role="tablist">
+        <button type="button" data-m="entrar" aria-pressed="${modo === "entrar"}">Entrar</button>
+        <button type="button" data-m="crear" aria-pressed="${modo === "crear"}">Crear cuenta</button>
+      </div>
+      <form class="formulario" id="f-entrar">
+        ${modo === "crear" ? `<label class="campo"><span>Tu nombre</span><input name="nombre" autocomplete="name" required maxlength="60"></label>` : ""}
+        <label class="campo"><span>Correo</span><input name="correo" type="email" autocomplete="email" required></label>
+        <label class="campo"><span>Clave</span><input name="clave" type="password" autocomplete="${modo === "crear" ? "new-password" : "current-password"}" minlength="${modo === "crear" ? 8 : 1}" required></label>
+        <button class="boton ancho verde">${modo === "crear" ? "Crear la cuenta" : "Entrar"}</button>
+      </form>
+      <div class="pie-enlaces">
+        ${modo === "entrar" ? `<button class="enlace-boton" id="olvide" type="button">Olvidé mi clave</button>` : `<span class="suave">Después, quien administra te da acceso a un equipo.</span>`}
+        ${fb.local ? `<span class="suave">Emulador local</span>` : ""}
+      </div>
+      <div class="pilotos-fila" aria-hidden="true"><span class="piloto verde"></span><span class="piloto ambar"></span><span class="piloto rojo"></span><small>Rev 1.0 · firmware evse_monitor</small></div>
+    </article></div></div>`;
+    for (const b of $$(".pestanas button")) b.onclick = () => ((modo = b.dataset.m), dibujar());
+    $("#f-entrar").onsubmit = (e) => {
+      e.preventDefault();
+      const d = new FormData(e.target);
+      conBoton($("button.boton", e.target), async () => {
+        if (modo === "crear") {
+          app.nombreNuevo = d.get("nombre").trim();
+          await fb.crearCuenta(d.get("correo").trim(), d.get("clave"));
+        } else {
+          await fb.entrar(d.get("correo").trim(), d.get("clave"));
+        }
+      });
+    };
+    if ($("#olvide"))
+      $("#olvide").onclick = async () => {
+        const correo = $('[name="correo"]').value.trim();
+        if (!correo) return notif("Escribe tu correo primero.", "ambar");
+        try {
+          await fb.recuperar(correo);
+          notif("Te mandé un correo para cambiar la clave.");
+        } catch (e) {
+          fallo(e);
+        }
+      };
+    encender(vista);
+  };
+  dibujar();
+}
+
+// ------------------------------------------------------------------ inicio
+async function vInicio() {
+  const ids = Object.keys(app.u.equipos);
+  if (ids.length === 1 && !app.u.admin) return (location.hash = `#/e/${ids[0]}`);
+  if (!ids.length) {
+    vista.innerHTML = `
+    <header class="cabecera"><div class="titulo"><h1>Hola, ${esc(app.u.nombre)}</h1><div class="enlace-estado">Todavía no tienes equipos en tu tablero.</div></div></header>
+    <div class="riel">
+      ${app.u.admin ? htmlAgregar() : `
+      <article class="mod" style="--d:7"><div class="mod-cab"><span class="rotulo"><b>?</b> Acceso</span></div>
+        <h2>Pídele acceso a quien administra el equipo</h2>
+        <p>Dile tu correo, <b>${esc(app.u.email)}</b>. Cuando te dé permiso, el equipo aparece aquí solo.</p>
+        <details><summary>¿Eres tú quien administra?</summary>
+          <p class="ayuda">La primera vez, en la consola de Firebase: Realtime Database → Datos → <b>+</b> en la raíz → clave <code>admins</code>, y dentro tu identificador con el valor <code>true</code>. Después recarga esta página.</p>
+          <div class="secreto"><code>${esc(app.u.uid)}</code><button class="boton-icono" id="c-uid" aria-label="Copiar identificador">${icono("copiar")}</button></div>
+        </details>
+      </article>`}
+    </div>`;
+    if ($("#c-uid")) $("#c-uid").onclick = () => copiar(app.u.uid);
+    enlazarAgregar();
+    return encender(vista);
+  }
+  vista.innerHTML = `
+    <header class="cabecera"><div class="titulo"><h1>Tus equipos</h1><div class="enlace-estado">${ids.length} en el tablero</div></div></header>
+    <div class="riel">${ids.map((k) => `
+      <a class="mod tarjeta-equipo" href="#/e/${k}" style="--m:4;--d:4;text-decoration:none;color:inherit" data-id="${k}">
+        <div class="mod-cab"><span class="rotulo"><b>${esc(k)}</b></span><span class="piloto"></span></div>
+        <h2 class="nombre">${esc(app.nombres?.[k] || k)}</h2>
+        <p class="lectura l-l pot">—</p><p class="dato-pie txt">Sin datos todavía</p>
+      </a>`).join("")}
+      ${app.u.admin ? htmlAgregar() : ""}
+    </div>`;
+  enlazarAgregar();
+  for (const k of ids) {
+    const t = $(`.tarjeta-equipo[data-id="${k}"]`);
+    alSalir(fb.escuchar(`equipos/${k}/nombre`, (n) => n && ($(".nombre", t).textContent = n)));
+    alSalir(
+      fb.escuchar(`estado/${k}`, (e) => {
+        app.estados[k] = e;
+        const on = enLinea(e);
+        $(".piloto", t).className = `piloto ${on ? (corriendo(e) ? "verde respira" : "verde") : ""}`;
+        $(".pot", t).innerHTML = on && Number.isFinite(e?.p) ? `${fmt(e.p / 1000, 2)}<span class="u">kW</span>` : "—";
+        $(".txt", t).textContent = !e ? "El equipo aún no se ha conectado" : !on ? `Sin conexión · ${hace(edad(e))}` : corriendo(e) ? `Cargando · ${fmt(e.es, 2)} kWh` : MOTIVOS[e.mot]?.[1] || "En reposo";
+      }),
+    );
+  }
+  encender(vista);
+}
+
+function htmlAgregar() {
+  return `<article class="mod" style="--m:4;--d:5"><div class="mod-cab"><span class="rotulo">${icono("mas")}Nuevo equipo</span></div>
+    <form class="formulario" id="f-agregar">
+      <div class="campos">
+        <label class="campo"><span>Id</span><input name="id" required pattern="[a-z0-9][a-z0-9_\\-]{1,23}" placeholder="evse-01" autocapitalize="off"></label>
+        <label class="campo"><span>Nombre</span><input name="nombre" required maxlength="40" placeholder="Garaje"></label>
+      </div>
+      <label class="campo"><span>Red</span><select name="vnom"><option value="240">240 V (L1–L2)</option><option value="120">120 V (L–N)</option></select></label>
+      <button class="boton verde">Agregar equipo</button>
+    </form></article>`;
+}
+function enlazarAgregar() {
+  const f = $("#f-agregar");
+  if (!f) return;
+  f.onsubmit = (e) => {
+    e.preventDefault();
+    const d = new FormData(f);
+    conBoton($("button", f), async () => {
+      const id = await fb.crearEquipo(d.get("id").trim(), d.get("nombre").trim(), Number(d.get("vnom")));
+      app.u = await fb.perfil(fb.auth.currentUser);
+      notif(`Equipo «${id}» creado. Ahora enlázalo con la placa.`);
+      location.hash = `#/e/${id}/ajustes`;
     });
   };
 }
 
-// ------------------------------------------------------------------ inicio: lista de equipos
-function resumenEstado(est) {
-  if (!est || !est.tel) return { clase: "", texto: "Sin datos todavía" };
-  const t = est.tel;
-  if (!est.en_linea) return { clase: "", texto: `Fuera de línea · ${hace(est.hasta)}` };
-  if (t.k1 && t.i >= 1) return { clase: "ok", texto: `Cargando · ${fmt(t.p / 1000, 2)} kW` };
-  if (t.k1) return { clase: "ok", texto: "Carga permitida · sin consumo" };
-  return { clase: (MOTIVOS[t.mot] || ["aviso"])[0], texto: `Detenida · ${est.motivo_texto || t.mot}` };
-}
-
-async function vInicio() {
-  const { equipos } = await api("/api/equipos");
-  if (equipos.length === 1 && !app.usuario.admin) {
-    location.hash = `#/e/${equipos[0].id}`;
-    return;
-  }
-  vista.innerHTML = `
-    <div class="cabecera"><h1>Equipos</h1>${app.usuario.admin ? `<a class="boton chico" href="#/admin">Administrar</a>` : ""}</div>
-    ${equipos.length ? "" : `<div class="tarjeta"><p>No tienes equipos todavía.</p>${app.usuario.admin ? `<a class="boton" href="#/admin">Agregar el primer equipo</a>` : "<p class='suave'>Pídele acceso al administrador.</p>"}</div>`}
-    ${equipos
-      .map((e) => {
-        const r = resumenEstado(e.estado);
-        return `<a class="tarjeta equipo" href="#/e/${e.id}">
-          <div class="cabecera" style="margin:0"><div><h2 style="margin:0">${esc(e.nombre)}</h2><small>${esc(e.id)} · firmware ${esc(e.estado?.fw || e.fw || "—")}</small></div>
-          <span class="chip ${e.estado?.en_linea ? "ok" : ""}">${e.estado?.en_linea ? "En línea" : "Fuera de línea"}</span></div>
-          <p style="margin:.6rem 0 0" class="${r.clase === "mal" ? "error" : ""}">${esc(r.texto)}</p></a>`;
-      })
-      .join("")}`;
-}
-
-// ------------------------------------------------------------------ panel en vivo
-const MEDIDAS = [
-  ["p", "Potencia", "kW", (t) => fmt(t.p / 1000, 2), "destacada"],
-  ["v", "Tensión", "V", (t) => fmt(t.v, 1)],
-  ["i", "Corriente", "A", (t) => fmt(t.i, 2)],
-  ["pf", "Factor de potencia", "", (t) => fmt(t.pf, 2)],
-  ["f", "Frecuencia", "Hz", (t) => fmt(t.f, 2)],
-  ["es", "Energía de la sesión", "kWh", (t) => fmt(t.es, 2), "", (t, c) => (t.ses ? cop(t.es * (c?.tarifa || 0)) : "sin sesión abierta")],
-  ["dur", "Duración de la sesión", "", (t) => (t.ses ? duracion(t.dur) : "—"), "", (t) => (t.ses ? `sesión nº ${t.ses}` : "")],
-  ["et", "Energía total", "kWh", (t) => fmt(t.et, 1)],
-  ["tsn", "Sonda (conector)", "°C", (t) => fmt(t.tsn, 1), "", (t, c) => `corte a ${fmt(c?.tmax_sonda, 0)} °C`],
-  ["tam", "Placa", "°C", (t) => fmt(t.tam, 1), "", (t, c) => `corte a ${fmt(c?.tmax_amb, 0)} °C`],
-  ["hum", "Humedad", "%HR", (t) => fmt(t.hum, 0)],
-  ["rssi", "WiFi", "dBm", (t) => fmt(t.rssi, 0), "", (t) => (t.pend ? `${t.pend} registros por subir` : "historial al día")],
-];
-
+// ------------------------------------------------------------------ panel
 async function vPanel(id) {
-  const r = await api(`/api/equipos/${id}`);
-  app.equipo = r.equipo;
-  app.rol = r.rol;
-  app.estado = r.estado;
+  const manda = puedeMandar(id);
   vista.innerHTML = `
-    <div class="cabecera">
-      <div><h1>${esc(r.equipo.nombre)}</h1><small id="sub"></small></div>
-      <span class="chip" id="chip-linea"></span>
-    </div>
-    <section class="estado gris" id="estado"><div class="titulo">…</div></section>
-    <div id="alarmas"></div>
-    <div class="medidas">
-      ${MEDIDAS.map(([k, et, u, , cl]) => `<div class="medida ${cl || ""}" data-k="${k}"><div class="etiqueta">${et}</div><div class="valor"><span class="x">—</span><span class="u">${u}</span></div><div class="sub"></div></div>`).join("")}
-    </div>
-    <div class="tarjeta"><h2>Potencia · última media hora</h2><div id="g-vivo"></div></div>
-    <p class="suave" id="pie" style="font-size:.85rem"></p>`;
-  const g = new Grafica($("#g-vivo"), {
-    alto: 200,
-    cero: true,
-    hueco: 120,
-    series: [{ nombre: "Potencia", color: "#2f6fec", unidad: "kW", dec: 2, relleno: true }],
-    vacio: "Sin datos de la última media hora",
-  });
-  app.graficas.push(g);
-  const t = ahora();
-  api(`/api/equipos/${id}/mediciones?desde=${t - 1800}&hasta=${t}&max=200`)
-    .then((m) => g.datos([m.puntos.map((p) => [p.ts, p.p / 1000])]))
-    .catch(() => {});
-  app.grafVivo = g;
-  pintarPanel();
-  conectarWs(id);
-  app.temporizadores.push(setInterval(pintarPanel, 30000)); // «hace X min» al día
-}
+    <header class="cabecera">
+      <div class="titulo"><h1 id="t-nombre">${esc(app.nombres?.[id] || id)}</h1>
+        <div class="enlace-estado"><span class="piloto" id="p-enlace"></span><span id="t-enlace">Conectando…</span></div></div>
+      ${Object.keys(app.u.equipos).length > 1 ? `<a class="boton-icono" href="#/" aria-label="Todos los equipos">${icono("equipo")}</a>` : ""}
+      <a class="boton-icono solo-movil" href="#/perfil" aria-label="Tu perfil">${icono("usuario")}</a>
+    </header>
+    <section class="riel"><article class="mod" style="--d:12"><div class="mod-cab"><span class="rotulo"><b>X0</b> Circuito de carga</span><small id="t-red"></small></div><div id="mimico"></div></article></section>
+    <section class="riel">
+      <article class="mod" style="--d:5"><div class="mod-cab"><span class="rotulo"><b>P1</b> Potencia</span><span class="piloto" id="p-p1"></span></div>
+        <div id="medidor"></div>
+        <div class="potencia"><div class="lectura l-xl"><span id="l-p">—</span><span class="u">kW</span></div><div class="dato-pie" id="l-pmax"></div></div>
+        <div class="fila-lecturas">
+          <div><small>Corriente</small><span class="lectura l-m"><span id="l-i">—</span><span class="u">A</span></span></div>
+          <div><small>Tensión</small><span class="lectura l-m"><span id="l-v">—</span><span class="u">V</span></span></div>
+          <div><small>FP</small><span class="lectura l-m" id="l-pf">—</span></div>
+        </div>
+      </article>
+      <article class="mod" style="--d:4"><div class="mod-cab"><span class="rotulo"><b>K1</b> Permiso de carga</span><span class="piloto" id="p-k1"></span></div>
+        <div id="selector"></div>
+        <p class="k1-estado" id="t-k1"></p>
+        <div class="acciones centro" id="k1-acciones"></div>
+      </article>
+      <article class="mod" style="--d:3"><div class="mod-cab"><span class="rotulo"><b>E1</b> Sesión</span><small id="t-ses"></small></div>
+        <div class="lectura l-l"><span id="l-es">—</span><span class="u">kWh</span></div>
+        <div class="resumen" style="grid-template-columns:1fr 1fr;margin-top:12px">
+          <div><small>Costo</small><b id="l-cop">—</b></div>
+          <div><small>Tiempo</small><b id="l-dur">—</b></div>
+          <div><small>Pico</small><b id="l-pico">—</b></div>
+          <div><small>Tarifa / kWh</small><b id="l-tar">—</b></div>
+        </div>
+      </article>
+    </section>
+    <section class="riel" id="r-anun" hidden><article class="mod" style="--d:12">
+      <div class="mod-cab"><span class="rotulo"><b>H1</b> Anunciador</span><a href="#/e/${id}/alarmas" class="suave" style="margin-left:auto">Ver todo</a></div>
+      <div class="anunciador" id="anun"></div>
+      <div class="acciones" id="anun-acc"></div>
+    </article></section>
+    <section class="riel">
+      <article class="mod" style="--m:2;--d:3"><div class="mod-cab"><span class="rotulo"><b>T1</b> Sonda</span></div>
+        <div class="lectura l-m"><span id="l-tsn">—</span><span class="u">°C</span></div><div class="termo" id="b-tsn"></div><div class="dato-pie" id="c-tsn"></div></article>
+      <article class="mod" style="--m:2;--d:3"><div class="mod-cab"><span class="rotulo"><b>T2</b> Placa</span></div>
+        <div class="lectura l-m"><span id="l-tam">—</span><span class="u">°C</span></div><div class="termo" id="b-tam"></div><div class="dato-pie" id="c-tam"></div></article>
+      <article class="mod" style="--d:3"><div class="mod-cab"><span class="rotulo"><b>V1</b> Red</span></div>
+        <div class="fila-lecturas" style="margin-top:0">
+          <div><small>Frecuencia</small><span class="lectura l-m"><span id="l-f">—</span><span class="u">Hz</span></span></div>
+          <div><small>WiFi</small><span class="lectura l-m"><span id="l-rssi">—</span><span class="u">dBm</span></span></div>
+          <div><small>Nominal</small><span class="lectura l-m"><span id="l-vnom">—</span><span class="u">V</span></span></div>
+        </div></article>
+      <article class="mod" style="--d:3"><div class="mod-cab"><span class="rotulo"><b>E0</b> Energía total</span></div>
+        <div class="rodillos" id="l-et"></div><div class="dato-pie">kWh medidos desde que se instaló</div></article>
+    </section>`;
+  const mim = mimico();
+  $("#mimico").append(mim);
+  const med = new Medidor(8);
+  $("#medidor").append(med.el);
+  const sel = selector();
+  $("#selector").append(sel);
+  let est = app.estados[id] || null, cfg = null, esperando = false, ultimaOrden = 0;
 
-function pintarPanel() {
-  const est = app.estado;
-  const t = est?.tel || {};
-  const c = app.equipo?.config;
-  if (!$("#estado")) return;
-  $("#chip-linea").className = "chip " + (est?.en_linea ? "ok" : "");
-  $("#chip-linea").textContent = est?.en_linea ? "En línea" : "Fuera de línea";
-  $("#sub").textContent = `${app.equipo.id} · firmware ${est?.fw || app.equipo.fw || "—"}`;
+  const pintar = () => {
+    const e = est || {};
+    const on = enLinea(est, cfg);
+    const vnom = Number(cfg?.vnom) || 240;
+    med.escala(vnom >= 200 ? 8 : 4);
+    $("#p-enlace").className = `piloto ${on ? "verde" : est ? "" : "ambar respira"}`;
+    $("#t-enlace").textContent = !est ? "El equipo todavía no se ha conectado" : on ? `En línea · ${hace(edad(est))}${e.fw ? ` · firmware ${e.fw}` : ""}` : `Sin conexión · último dato ${hace(edad(est))}`;
+    $("#t-red").textContent = vnom >= 200 ? "240 V L1–L2" : "120 V L–N";
+    pintarMimico(mim, on ? e : null, vnom);
+    const kw = on && Number.isFinite(e.p) ? Math.max(0, e.p / 1000) : NaN;
+    med.ir(Number.isFinite(kw) ? kw : 0, on ? (Number(e.pmax) || 0) / 1000 : 0);
+    numero($("#l-p"), kw, 2);
+    $("#l-pmax").textContent = on && e.ses ? `Pico de la sesión ${fmt((e.pmax || 0) / 1000, 2)} kW` : on ? "Sin sesión abierta" : "";
+    numero($("#l-i"), on ? e.i : NaN, 1);
+    numero($("#l-v"), on ? e.v : NaN, 1);
+    $("#l-pf").textContent = on ? fmt(e.pf, 2) : "—";
+    const carga = on && corriendo(e);
+    $("#p-p1").className = `piloto ${carga ? "verde respira" : ""}`;
+    // K1
+    const mot = e.mot || "";
+    const espera = !e.k1 && ["limite", "arranque"].includes(mot);
+    $("#p-k1").className = `piloto ${!on ? "" : e.k1 ? "verde" : MOTIVOS[mot]?.[0] || "ambar"}`;
+    if (!esperando) pintarSelector(sel, { permiso: on ? !!e.perm && !espera : !!e.perm, k1: on && e.k1, esperando: false, bloqueado: !manda || !on });
+    let txt;
+    if (!est) txt = "Cuando el equipo se conecte, aquí verás el permiso de carga.";
+    else if (!on) txt = "<b>Sin conexión con el equipo.</b> Sus protecciones siguen funcionando solas.";
+    else if (carga) txt = "<b>Cargando.</b> K1 cerrado: el EVSE tiene permiso y el vehículo toma corriente.";
+    else if (e.k1) txt = "<b>Permitida.</b> K1 cerrado; el vehículo no está tomando corriente.";
+    else if (MOTIVOS[mot]) txt = `<b>${MOTIVOS[mot][1]}.</b> ${MOTIVOS[mot][2]}`;
+    else txt = "<b>Detenida.</b>";
+    if (!manda && est) txt += "<br><small>Tu usuario es de solo lectura.</small>";
+    $("#t-k1").innerHTML = txt;
+    const acc = [];
+    if (on && manda && mot === "limite") acc.push(`<button class="boton chico verde" data-o="permitir">Nueva sesión</button>`);
+    if (on && manda && (mot === "parar" || (e.al || []).includes("parar"))) acc.push(`<button class="boton chico sec" data-o="soltar_parar">Soltar PARAR</button>`);
+    if (cambia($("#k1-acciones"), acc.join(""))) for (const b of $$("#k1-acciones button")) b.onclick = () => conBoton(b, () => mandar(b.dataset.o));
+    // sesión
+    numero($("#l-es"), on || est ? Number(e.es) : NaN, 2);
+    const tarifa = Number(cfg?.tarifa) || 0;
+    $("#l-cop").textContent = est ? cop((Number(e.es) || 0) * tarifa) : "—";
+    $("#l-dur").textContent = e.ses ? duracion(Number(e.dur)) : "—";
+    $("#l-pico").textContent = e.ses ? `${fmt((e.pmax || 0) / 1000, 2)} kW` : "—";
+    $("#l-tar").textContent = tarifa ? cop(tarifa) : "—";
+    $("#t-ses").textContent = e.ses ? `nº ${e.ses} · desde ${fCorta(e.sini)}` : "sin sesión";
+    // anunciador
+    const al = new Set(e.al || []), nr = new Set(e.nr || []);
+    const visibles = Object.keys(ALARMAS).filter((k) => al.has(k) || nr.has(k));
+    $("#r-anun").hidden = !visibles.length;
+    cambia($("#anun"), visibles.map((k) => `<div class="ventana ${al.has(k) ? "activa" : ""} ${GRAVES.has(k) ? "grave" : "leve"} ${nr.has(k) ? "sin-rec" : ""}" title="${esc(ALARMAS[k][1])}">${esc(ALARMAS[k][0])}</div>`).join(""));
+    if (cambia($("#anun-acc"), nr.size && manda && on ? `<button class="boton chico" id="b-rec">Reconocer alarmas</button>` : "") && $("#b-rec"))
+      $("#b-rec").onclick = () => conBoton($("#b-rec"), () => mandar("reconocer"));
+    // sensores y red
+    const tmaxS = Number(cfg?.tmax_sonda) || 60, tmaxA = Number(cfg?.tmax_amb) || 60;
+    numero($("#l-tsn"), on ? e.tsn : NaN, 1);
+    termometro($("#b-tsn"), on ? e.tsn : NaN, tmaxS);
+    $("#c-tsn").textContent = on && !Number.isFinite(e.tsn) ? "Sin lectura de la sonda" : `Corte a ${fmt(tmaxS, 0)} °C`;
+    numero($("#l-tam"), on ? e.tam : NaN, 1);
+    termometro($("#b-tam"), on ? e.tam : NaN, tmaxA);
+    $("#c-tam").textContent = on && Number.isFinite(e.hum) ? `${fmt(e.hum, 0)} % HR · corte a ${fmt(tmaxA, 0)} °C` : `Corte a ${fmt(tmaxA, 0)} °C`;
+    $("#l-f").textContent = on ? fmt(e.f, 2) : "—";
+    $("#l-rssi").textContent = on ? fmt(e.rssi, 0) : "—";
+    $("#l-vnom").textContent = fmt(vnom, 0);
+    rodillos($("#l-et"), Number.isFinite(e.et) ? Number(e.et) : NaN, 1);
+  };
 
-  // estado de la carga
-  const caja = $("#estado");
-  let clase, titulo, detalle;
-  if (!est?.tel) {
-    [clase, titulo, detalle] = ["gris", "Sin datos todavía", "El equipo no se ha conectado nunca. Revisa la guía de instalación."];
-  } else if (t.k1) {
-    clase = "ok";
-    titulo = t.i >= (c?.i_inicio || 1) ? `Cargando · ${fmt(t.p / 1000, 2)} kW` : "Carga permitida";
-    detalle = t.i >= (c?.i_inicio || 1) ? `${fmt(t.i, 1)} A a ${fmt(t.v, 0)} V` : "El vehículo no está tomando corriente.";
-  } else {
-    const [cl, txt] = MOTIVOS[t.mot] || ["aviso", t.mot];
-    clase = cl;
-    titulo = "Carga detenida";
-    detalle = txt;
+  async function mandar(o) {
+    if (!enLinea(est, cfg)) throw new Error("El equipo no está en línea: la orden no le llegaría.");
+    ultimaOrden = Date.now();
+    const r = await fb.orden(id, o);
+    notif(r.msg || "Hecho.");
+    return r;
   }
-  if (est?.tel && !est.en_linea) {
-    clase = "gris";
-    detalle = `Fuera de línea ${hace(est.hasta)}. Último estado: ${titulo.toLowerCase()}.`;
-    titulo = "Equipo fuera de línea";
-  }
-  const puede = app.rol === "propietario" && est?.en_linea;
-  const al = t.al || [];
-  const nr = t.nr || [];
-  const botones = [];
-  if (puede) {
-    // «Permitir» también cuando el permiso sigue pero la carga espera (límite alcanzado o arranque).
-    const espera = !t.k1 && ["limite", "arranque"].includes(t.mot);
-    if (t.perm && !espera) botones.push(`<button class="boton peligro" data-o="detener">Detener carga</button>`);
-    else botones.push(`<button class="boton verde" data-o="permitir">${t.mot === "limite" ? "Permitir (nueva sesión)" : "Permitir carga"}</button>`);
-    if (al.includes("parar")) botones.push(`<button class="boton secundario" data-o="soltar_parar">Liberar PARAR</button>`);
-    if (nr.length) botones.push(`<button class="boton secundario" data-o="reconocer">Reconocer alarmas (${nr.length})</button>`);
-  }
-  caja.className = "estado " + clase;
-  caja.innerHTML = `<div><div class="titulo">${esc(titulo)}</div><div class="detalle">${esc(detalle)}</div></div>${botones.length ? `<div class="acciones">${botones.join("")}</div>` : ""}`;
-  for (const b of $$("button[data-o]", caja)) b.onclick = () => ordenPanel(b);
-
-  // alarmas activas
-  const activas = al.filter((a) => a !== "sin_calibrar" || app.usuario.admin);
-  $("#alarmas").innerHTML = activas.length
-    ? `<div class="tarjeta"><h2>Alarmas activas</h2><ul class="lista">${activas
-        .map((a) => `<li><span class="punto ${GRAVES.has(a) ? "n2" : "n1"}"></span><div>${esc(ALARMAS[a] || a)}${nr.includes(a) ? ' <span class="chip mal">sin reconocer</span>' : ""}</div></li>`)
-        .join("")}</ul></div>`
-    : "";
-
-  // medidas
-  for (const [k, , , f, , sub] of MEDIDAS) {
-    const el = $(`.medida[data-k="${k}"]`);
-    if (!el) continue;
-    $(".x", el).textContent = est?.tel ? f(t) : "—";
-    $(".sub", el).textContent = est?.tel && sub ? sub(t, c) : "";
-    el.style.opacity = est?.en_linea ? 1 : 0.6;
-  }
-  $('.medida[data-k="tsn"]')?.classList.toggle("alerta", al.includes("temp_sonda") || al.includes("temp_aviso"));
-  $('.medida[data-k="tam"]')?.classList.toggle("alerta", al.includes("temp_amb"));
-  $("#pie").textContent = est?.tel
-    ? `Último dato ${hace(est.tel.rx)} (${fFecha(est.tel.rx)}) · equipo encendido hace ${duracion(t.up)}${est.viendo > 1 ? ` · ${est.viendo} personas viendo` : ""}`
-    : "";
-}
-
-async function ordenPanel(b) {
-  const o = b.dataset.o;
-  const textos = {
-    detener: ["¿Detener la carga?", "K1 abre los bornes de habilitación (J2) y el EVSE deja de cargar.", "Detener", true],
-    permitir: ["¿Permitir la carga?", "K1 cierra J2 y el EVSE puede cargar, si nada más lo impide (horario, temperatura, PARAR…).", "Permitir", false],
-    soltar_parar: ["¿Liberar PARAR?", "Alguien pulsó PARAR en la placa o en el botón del panel. Libéralo solo si sabes por qué se pulsó.", "Liberar", true],
-    reconocer: ["¿Reconocer las alarmas?", "Las alarmas quedan marcadas como vistas. Si la causa sigue, siguen activas.", "Reconocer", false],
-  }[o];
-  if (!(await confirmar(textos[0], `<p>${textos[1]}</p>`, textos[2], textos[3]))) return;
-  await conBoton(b, async () => {
-    const r = await api(`/api/equipos/${app.equipo.id}/orden`, { metodo: "POST", datos: { o } });
-    aviso(r.msg || "Hecho");
-  });
-}
-
-function conectarWs(id) {
-  const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/equipos/${id}/ws`;
-  const ws = new WebSocket(url);
-  app.ws = ws;
-  ws.onmessage = (ev) => {
-    let m;
+  const girar = async (o) => {
+    if (esperando) return;
+    if (!manda) return notif("Tu usuario es de solo lectura.", "ambar");
+    const e = est || {};
+    if (!enLinea(est, cfg)) {
+      sel.classList.remove("no-cuadra");
+      void sel.offsetWidth;
+      sel.classList.add("no-cuadra");
+      return notif("El equipo no está en línea: la orden no le llegaría.", "ambar");
+    }
+    const quiere = o === "permitir";
+    const espera = !e.k1 && ["limite", "arranque"].includes(e.mot);
+    if (quiere === (!!e.perm && !espera) && !(quiere && espera)) return;
+    esperando = true;
+    pintarSelector(sel, { permiso: quiere, k1: false, esperando: true });
     try {
-      m = JSON.parse(ev.data);
-    } catch {
-      return;
+      await mandar(o);
+    } catch (err) {
+      fallo(err);
+      sel.classList.remove("no-cuadra");
+      void sel.offsetWidth;
+      sel.classList.add("no-cuadra");
+    } finally {
+      esperando = false;
+      pintar();
     }
-    if (m.t === "estado") {
-      delete m.t;
-      app.estado = m;
-    } else if (m.t === "tel") {
-      app.estado = { ...app.estado, tel: m.d, en_linea: true };
-      if (app.grafVivo && Number.isFinite(m.d.p)) app.grafVivo.agregar(m.d.rx, [m.d.p / 1000], 1800);
-    } else if (m.t === "conexion") {
-      app.estado = { ...app.estado, en_linea: m.en_linea, hasta: m.hasta || null, fw: m.fw || app.estado?.fw };
-    } else if (m.t === "eventos") {
-      for (const e of m.eventos) if (e.codigo === "alarma" && e.nivel >= 2) aviso(`Alarma: ${e.texto || e.alarma}`, true);
-    } else if (m.t === "cfg") {
-      app.estado = { ...app.estado, cfg_rep: { v: m.v, c: m.c } };
-    } else if (m.t === "ota") {
-      aviso(`OTA: ${m.fase} ${m.pct ?? ""}% ${m.msg || ""}`, m.fase === "error");
-    }
-    pintarPanel();
   };
-  ws.onclose = () => {
-    app.wsReintento = setTimeout(() => {
-      if (location.hash.startsWith(`#/e/${id}`) && !/historial|alarmas|ajustes/.test(location.hash)) conectarWs(id);
-    }, 4000);
-  };
+  $(".perilla", sel).onclick = () => girar(sel.classList.contains("en-per") ? "detener" : "permitir");
+  for (const b of $$(".pos", sel)) b.onclick = () => girar(b.dataset.o);
+
+  alSalir(fb.mirar(id));
+  alSalir(fb.escuchar(`equipos/${id}/nombre`, (n) => n && ($("#t-nombre").textContent = (app.nombres ??= {})[id] = n)));
+  alSalir(fb.escuchar(`entrada/${id}/config`, (c) => ((cfg = c), pintar())));
+  alSalir(
+    fb.escuchar(`estado/${id}`, (e) => {
+      est = e;
+      const antes = (app.estados[id]?.nr || []).length;
+      app.estados[id] = e;
+      if ((e?.nr || []).length !== antes) pintarMando(id, "panel");
+      pintar();
+    }),
+  );
+  const reloj = setInterval(pintar, 5000);
+  alSalir(() => clearInterval(reloj));
+  pintar();
+  encender(vista);
 }
 
 // ------------------------------------------------------------------ historial
 async function vHistorial(id) {
-  const r = await api(`/api/equipos/${id}`);
-  app.equipo = r.equipo;
+  let dias = 1;
   vista.innerHTML = `
-    <div class="cabecera"><div><h1>Historial</h1><small>${esc(r.equipo.nombre)}</small></div>
-      <div class="segmentos" id="rango"><button data-d="1" class="activo">24 h</button><button data-d="7">7 días</button><button data-d="30">30 días</button><button data-d="365">1 año</button></div></div>
-    <div class="tarjeta"><h2>Potencia</h2><div class="leyenda"><span style="--c:#2f6fec">promedio (kW)</span><span style="--c:#9db6f2">máxima (kW)</span></div><div id="g-p"></div></div>
-    <div class="tarjeta"><h2>Tensión y corriente</h2><div class="leyenda"><span style="--c:#d97706">tensión (V)</span></div><div id="g-v"></div>
-      <div class="leyenda" style="margin-top:.6rem"><span style="--c:#059669">corriente (A)</span></div><div id="g-i"></div></div>
-    <div class="tarjeta"><h2>Temperatura</h2><div class="leyenda"><span style="--c:#dc2626">sonda (°C)</span><span style="--c:#7c3aed">placa (°C)</span></div><div id="g-t"></div></div>
-    <div class="tarjeta"><div class="cabecera"><h2 style="margin:0">Sesiones de carga</h2><div><a class="boton chico secundario" id="csv-s">CSV sesiones</a> <a class="boton chico secundario" id="csv-m">CSV mediciones</a></div></div>
-      <div id="totales" class="medidas"></div><div class="desliza" id="sesiones"></div></div>`;
-  const gp = new Grafica($("#g-p"), { cero: true, series: [{ nombre: "Máxima", color: "#9db6f2", unidad: "kW", dec: 2 }, { nombre: "Promedio", color: "#2f6fec", unidad: "kW", dec: 2, relleno: true }] });
-  const gv = new Grafica($("#g-v"), { alto: 170, series: [{ nombre: "Tensión", color: "#d97706", unidad: "V", dec: 1 }] });
-  const gi = new Grafica($("#g-i"), { alto: 170, cero: true, series: [{ nombre: "Corriente", color: "#059669", unidad: "A", dec: 2 }] });
-  const gt = new Grafica($("#g-t"), { series: [{ nombre: "Sonda", color: "#dc2626", unidad: "°C", dec: 1 }, { nombre: "Placa", color: "#7c3aed", unidad: "°C", dec: 1 }] });
-  app.graficas.push(gp, gv, gi, gt);
+    <header class="cabecera"><div class="titulo"><h1>Historial</h1><div class="enlace-estado" id="t-rango">—</div></div>
+      <div class="rango" role="group" aria-label="Rango">${[[1, "24 h"], [7, "7 días"], [30, "30 días"]].map(([d, t]) => `<button type="button" data-d="${d}" aria-pressed="${d === dias}">${t}</button>`).join("")}</div></header>
+    <section class="riel"><article class="mod" style="--d:12"><div class="resumen" id="resumen"></div></article></section>
+    <section class="riel">
+      <article class="mod" style="--d:12"><div class="mod-cab"><span class="rotulo"><b>P1</b> Potencia</span><small>kW</small></div><div id="g-p"></div></article>
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>V1</b> Tensión</span><small>V</small></div><div id="g-v"></div></article>
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>T1</b> Temperaturas</span><small><i class="muestra" style="background:var(--rojo)"></i>sonda <i class="muestra" style="background:var(--azul);margin-left:8px"></i>placa</small></div><div id="g-t"></div></article>
+      <article class="mod" style="--d:12" id="m-dias"><div class="mod-cab"><span class="rotulo"><b>E1</b> Energía por día</span><small>kWh</small></div><div id="g-e"></div></article>
+    </section>
+    <section class="riel"><article class="mod" style="--d:12">
+      <div class="mod-cab"><span class="rotulo"><b>S</b> Sesiones</span></div>
+      <ul class="lista sesiones" id="sesiones"><li class="suave">Cargando…</li></ul>
+      <div class="acciones"><button class="boton chico sec" id="csv-s">${icono("bajar")}CSV de sesiones</button><button class="boton chico sec" id="csv-m">${icono("bajar")}CSV de mediciones</button></div>
+    </article></section>`;
+  const gp = new Grafica($("#g-p"), { series: [{ nombre: "Potencia", color: "--verde", unidad: "kW", dec: 2 }], alto: 220, cero: true });
+  const gv = new Grafica($("#g-v"), { series: [{ nombre: "Tensión", color: "--ambar", unidad: "V", dec: 1, relleno: false }], alto: 170 });
+  const gt = new Grafica($("#g-t"), { series: [{ nombre: "Sonda", color: "--rojo", unidad: "°C", dec: 1, relleno: false }, { nombre: "Placa", color: "--azul", unidad: "°C", dec: 1, relleno: false }], alto: 170 });
+  const ge = new Grafica($("#g-e"), { series: [{ nombre: "Energía", color: "--verde", unidad: "kWh", dec: 2 }], alto: 170, barras: true, vacio: "Sin sesiones en este rango." });
+  alSalir(() => [gp, gv, gt, ge].forEach((g) => g.destruir()));
+  const cfg = (await fb.leer(`entrada/${id}/config`).catch(() => null)) || {};
+  let med = [], ses = [];
 
-  async function cargar(dias) {
+  async function cargar() {
     const hasta = ahora(), desde = hasta - dias * 86400;
-    $("#csv-s").href = `/api/equipos/${id}/sesiones.csv?desde=${desde}&hasta=${hasta}`;
-    $("#csv-m").href = `/api/equipos/${id}/mediciones.csv?desde=${desde}&hasta=${hasta}`;
-    const [m, s] = await Promise.all([
-      api(`/api/equipos/${id}/mediciones?desde=${desde}&hasta=${hasta}&max=500`),
-      api(`/api/equipos/${id}/sesiones?desde=${desde}&hasta=${hasta}`),
-    ]);
-    const P = m.puntos;
-    const hueco = Math.max(m.paso * 3, 900);
-    for (const g of [gp, gv, gi, gt]) g.op.hueco = hueco;
-    gp.datos([P.map((p) => [p.ts, p.pmax / 1000]), P.map((p) => [p.ts, p.p / 1000])]);
-    gv.datos([P.map((p) => [p.ts, p.v])]);
-    gi.datos([P.map((p) => [p.ts, p.i])]);
-    gt.datos([P.map((p) => [p.ts, p.tsn]), P.map((p) => [p.ts, p.tam])]);
-    const ses = s.sesiones;
-    const kwh = ses.reduce((a, x) => a + (x.kwh || 0), 0);
-    const costo = ses.reduce((a, x) => a + (x.costo || 0), 0);
-    const seg = ses.reduce((a, x) => a + (x.fin ? x.fin - x.inicio : 0), 0);
-    $("#totales").innerHTML = [
-      ["Sesiones", fmt(ses.length, 0), ""],
-      ["Energía", fmt(kwh, 1), "kWh"],
-      ["Costo", cop(costo), ""],
-      ["Tiempo", duracion(seg), ""],
-    ].map(([e, v, u]) => `<div class="medida"><div class="etiqueta">${e}</div><div class="valor">${v}<span class="u">${u}</span></div></div>`).join("");
-    const fin = { sin_corriente: "terminó la carga", limite: "límite", otro: "—" };
-    $("#sesiones").innerHTML = ses.length
-      ? `<table class="tabla"><thead><tr><th>Inicio</th><th class="n">Duración</th><th class="n">kWh</th><th class="n">Costo</th><th class="n">P máx</th><th>Fin</th></tr></thead><tbody>${ses
-          .map((x) => `<tr><td>${fCorta(x.inicio)}</td><td class="n">${duracion(x.fin - x.inicio)}</td><td class="n">${fmt(x.kwh, 2)}</td><td class="n">${cop(x.costo)}</td><td class="n">${fmt((x.p_max || 0) / 1000, 1)} kW</td><td>${esc(fin[x.motivo_fin] || x.motivo_fin || "")}</td></tr>`)
-          .join("")}</tbody></table>`
-      : `<p class="suave">No hay sesiones en este rango.</p>`;
-  }
-  for (const b of $$("#rango button"))
-    b.onclick = () => {
-      $$("#rango button").forEach((x) => x.classList.toggle("activo", x === b));
-      cargar(Number(b.dataset.d)).catch((e) => aviso(e.message, true));
+    $("#t-rango").textContent = `${fDia(desde)} – ${fDia(hasta)}`;
+    for (const b of $$(".rango button")) b.setAttribute("aria-pressed", String(Number(b.dataset.d) === dias));
+    [med, ses] = await Promise.all([fb.mediciones(id, desde, hasta), fb.sesiones(id, 400)]);
+    ses = ses.filter((s) => (s.ini || s.fin) >= desde);
+    // ≤ 600 puntos por gráfica: promedio por tramo
+    const tramo = Math.max(1, Math.ceil(med.length / 600));
+    const prom = (k, f = (x) => x) => {
+      const out = [];
+      for (let i = 0; i < med.length; i += tramo) {
+        const g = med.slice(i, i + tramo).filter((m) => Number.isFinite(m[k]));
+        if (g.length) out.push([g[Math.floor(g.length / 2)].ts, f(g.reduce((a, m) => a + m[k], 0) / g.length)]);
+      }
+      return out;
     };
-  await cargar(1);
-}
-
-// ------------------------------------------------------------------ alarmas y eventos
-function textoEvento(e) {
-  switch (e.codigo) {
-    case "alarma": {
-      // extra = medida × 10 (°C de la sonda o la placa, o V de la red), como lo guarda el firmware
-      const u = { temp_sonda: "°C", temp_aviso: "°C", temp_amb: "°C", red_baja: "V" }[e.alarma];
-      return (e.texto || ALARMAS[e.alarma] || e.alarma) + (u && e.extra ? ` · ${fmt(e.extra / 10, 1)} ${u}` : "");
+    const rango = [desde, hasta];
+    gp.datos([prom("p", (w) => Math.max(0, w / 1000))], rango);
+    gv.datos([prom("v")], rango);
+    gt.datos([prom("tsn"), prom("tam")], rango);
+    $("#m-dias").hidden = dias === 1;
+    const porDia = new Map();
+    for (const s of ses) {
+      const t = s.ini || s.fin;
+      const dia = Math.floor((t - 5 * 3600) / 86400) * 86400 + 5 * 3600;
+      porDia.set(dia, (porDia.get(dia) || 0) + (Number(s.kwh) || 0));
     }
-    case "alarma_fin": return `Se despejó: ${e.texto || ALARMAS[e.alarma] || e.alarma}`;
-    case "arranque": return `Arranque del equipo (${RESETS[e.valor] || "motivo " + e.valor})${e.extra ? ` · ${e.extra} reinicios seguidos` : ""}`;
-    case "k1": return e.valor ? "K1 cerrado: carga permitida" : `K1 abierto: carga detenida (${(MOTIVOS[e.mot] || [, e.mot])[1] || e.mot})`;
-    case "sesion_inicio": return `Empezó la sesión nº ${fmt(e.valor, 0)}`;
-    case "limite": return `Límite de la sesión alcanzado (${["", "kWh", "tiempo", "costo"][e.valor] || ""})`;
-    case "config": return `Configuración v${fmt(e.valor, 0)} aplicada en el equipo`;
-    case "calibracion": return "Calibración del medidor cambiada";
-    case "orden_local": return ["", "PARAR pulsado", "PARAR liberado en la placa", "PARAR liberado desde la app"][e.valor] || "Orden local";
-    case "hora": return "Hora puesta por NTP y copiada al DS3231";
-    case "ota": return "Actualización de firmware";
-    default: return e.codigo;
+    ge.datos([[...porDia.entries()].sort((a, b) => a[0] - b[0])], rango);
+    const kwh = ses.reduce((a, s) => a + (Number(s.kwh) || 0), 0);
+    const costo = ses.reduce((a, s) => a + (Number(s.cop) || (Number(s.kwh) || 0) * (cfg.tarifa || 0)), 0);
+    const pico = Math.max(0, ...med.map((m) => Number(m.p) || 0), ...ses.map((s) => Number(s.pmax) || 0));
+    $("#resumen").innerHTML = `
+      <div><small>Energía</small><span class="lectura l-m">${fmt(kwh, 2)}<span class="u">kWh</span></span></div>
+      <div><small>Costo</small><span class="lectura l-m">${cop(costo)}</span></div>
+      <div><small>Sesiones</small><span class="lectura l-m">${ses.length}</span></div>
+      <div><small>Pico</small><span class="lectura l-m">${fmt(pico / 1000, 2)}<span class="u">kW</span></span></div>`;
+    $("#sesiones").innerHTML = ses.length
+      ? ses
+          .map((s) => `<li><span class="piloto ${s.mf === "limite" ? "ambar" : "verde"}"></span><div class="crece"><b>${fCorta(s.ini)}</b><small>${duracion((s.fin || 0) - (s.ini || 0))} · pico ${fmt((s.pmax || 0) / 1000, 2)} kW · ${esc(FIN[s.mf] || s.mf || "")}</small></div>
+            <div class="cifra"><span class="lectura l-m">${fmt(s.kwh, 2)}<span class="u">kWh</span></span><small>${cop(s.cop ?? (s.kwh || 0) * (cfg.tarifa || 0))}</small></div></li>`)
+          .join("")
+      : `<li class="suave">No hubo sesiones de carga en este rango.</li>`;
   }
+  for (const b of $$(".rango button")) b.onclick = () => ((dias = Number(b.dataset.d)), cargar().catch(fallo));
+  $("#csv-s").onclick = () =>
+    descargar(`sesiones_${id}.csv`, [["inicio", "fin", "kwh", "costo_cop", "pico_w", "fin_por"], ...ses.map((s) => [fFecha(s.ini), fFecha(s.fin), String(s.kwh ?? "").replace(".", ","), s.cop ?? "", s.pmax ?? "", FIN[s.mf] || s.mf || ""])]);
+  $("#csv-m").onclick = () =>
+    descargar(`mediciones_${id}.csv`, [["fecha", "v", "i", "p_w", "fp", "hz", "kwh_sesion", "kwh_total", "t_sonda", "t_placa", "hum", "k1"], ...med.map((m) => [fFecha(m.ts), m.v, m.i, m.p, m.pf, m.f, m.es, m.et, m.tsn, m.tam, m.hum, m.k1].map((x) => (typeof x === "number" ? String(x).replace(".", ",") : x ?? "")))]);
+  await cargar();
+  encender(vista);
 }
 
+// ------------------------------------------------------------------ alarmas
 async function vAlarmas(id) {
-  const r = await api(`/api/equipos/${id}`);
-  app.equipo = r.equipo;
+  const manda = puedeMandar(id);
   vista.innerHTML = `
-    <div class="cabecera"><div><h1>Alarmas y eventos</h1><small>${esc(r.equipo.nombre)}</small></div>
-      ${r.rol === "propietario" ? `<button class="boton chico secundario" id="reconocer">Reconocer todas</button>` : ""}</div>
-    <div class="tarjeta"><div class="segmentos" id="filtro" style="margin-bottom:.6rem"><button data-n="1" class="activo">Alarmas y avisos</button><button data-n="0">Todos los eventos</button></div>
-      <ul class="lista" id="eventos"></ul></div>
-    <div class="tarjeta"><h2>Órdenes recientes</h2><div class="desliza" id="ordenes"></div></div>`;
-  async function cargar(nivel) {
-    const { eventos } = await api(`/api/equipos/${id}/eventos?nivel=${nivel}&desde=${ahora() - 90 * 86400}`);
-    $("#eventos").innerHTML = eventos.length
-      ? eventos
-          .map((e) => `<li><span class="punto n${e.nivel}"></span><div><div>${esc(textoEvento(e))}${e.nivel >= 1 && !e.reconocido && e.codigo === "alarma" ? ' <span class="chip mal">sin reconocer</span>' : ""}</div><small>${fFecha(e.ts)}</small></div></li>`)
-          .join("")
-      : `<li class="suave">Nada en los últimos 90 días.</li>`;
-  }
-  for (const b of $$("#filtro button"))
-    b.onclick = () => {
-      $$("#filtro button").forEach((x) => x.classList.toggle("activo", x === b));
-      cargar(Number(b.dataset.n));
-    };
-  if ($("#reconocer"))
-    $("#reconocer").onclick = (e) =>
-      conBoton(e.target, async () => {
-        const x = await api(`/api/equipos/${id}/orden`, { metodo: "POST", datos: { o: "reconocer" } });
-        aviso(x.msg);
-        cargar(1);
-      });
-  await cargar(1);
-  const { ordenes } = await api(`/api/equipos/${id}/ordenes`);
-  $("#ordenes").innerHTML = ordenes.length
-    ? `<table class="tabla"><thead><tr><th>Fecha</th><th>Quién</th><th>Orden</th><th>Resultado</th></tr></thead><tbody>${ordenes
-        .map((o) => `<tr><td>${fCorta(o.ts)}</td><td>${esc(o.nombre || "—")}</td><td>${esc(o.orden)}</td><td>${o.ok ? "✓" : "✗"} ${esc(o.msg || "")}</td></tr>`)
-        .join("")}</tbody></table>`
-    : `<p class="suave">Todavía no hay órdenes.</p>`;
+    <header class="cabecera"><div class="titulo"><h1>Alarmas</h1><div class="enlace-estado" id="t-anun">—</div></div></header>
+    <section class="riel"><article class="mod" style="--d:12">
+      <div class="mod-cab"><span class="rotulo"><b>H1</b> Anunciador</span><small>titila = sin reconocer</small></div>
+      <div class="anunciador" id="anun"></div><div class="acciones" id="anun-acc"></div>
+    </article></section>
+    <section class="riel">
+      <article class="mod" style="--d:7"><div class="mod-cab"><span class="rotulo"><b>R</b> Registro del equipo</span></div><div id="eventos"><p class="suave">Cargando…</p></div></article>
+      <article class="mod" style="--d:5"><div class="mod-cab"><span class="rotulo"><b>O</b> Órdenes desde la app</span></div><div id="bitacora"><p class="suave">Cargando…</p></div></article>
+    </section>`;
+  let est = null;
+  const pintar = () => {
+    const al = new Set(est?.al || []), nr = new Set(est?.nr || []);
+    cambia($("#anun"), Object.keys(ALARMAS).map((k) => `<div class="ventana ${al.has(k) ? "activa" : ""} ${GRAVES.has(k) ? "grave" : "leve"} ${nr.has(k) ? "sin-rec" : ""}" title="${esc(ALARMAS[k][1])}">${esc(ALARMAS[k][0])}</div>`).join(""));
+    $("#t-anun").textContent = !est ? "El equipo aún no se ha conectado" : al.size ? `${al.size} activa${al.size > 1 ? "s" : ""}${nr.size ? ` · ${nr.size} sin reconocer` : ""}` : nr.size ? `${nr.size} sin reconocer` : "Todo en orden";
+    if (cambia($("#anun-acc"), nr.size && manda ? `<button class="boton" id="b-rec">${icono("check")}Reconocer alarmas</button>` : "") && $("#b-rec"))
+      $("#b-rec").onclick = () =>
+        conBoton($("#b-rec"), async () => {
+          if (!enLinea(est)) throw new Error("El equipo no está en línea.");
+          notif((await fb.orden(id, "reconocer")).msg || "Reconocidas.");
+        });
+  };
+  alSalir(fb.escuchar(`estado/${id}`, (e) => ((est = e), (app.estados[id] = e), pintar())));
+  pintar();
+  const [evs, bit] = await Promise.all([fb.eventos(id, 150), fb.bitacora(id, 40).catch(() => [])]);
+  $("#eventos").innerHTML = evs.length
+    ? evs.map((e) => {
+        const [c, t] = textoEvento(e);
+        return `<div class="evento"><span class="piloto ${c}"></span><div>${esc(t)}<time>${e.ts ? fFecha(e.ts) : "sin hora"}</time></div></div>`;
+      }).join("")
+    : `<p class="suave">Todavía no hay eventos.</p>`;
+  const nombres = app.u.admin ? (await fb.leer("usuarios").catch(() => null)) || {} : {};
+  $("#bitacora").innerHTML = bit.length
+    ? bit.map((b) => {
+        const quien = b.por === app.u.uid ? "Tú" : nombres[b.por]?.nombre || "Otro usuario";
+        const r = b.resp;
+        return `<div class="evento"><span class="piloto ${!r ? "" : r.ok ? "verde" : "rojo"}"></span><div><b>${esc(quien)}</b> · ${esc((ORDENES[b.o] || b.o).toLowerCase())}<br><small>${r ? esc(r.msg || (r.ok ? "confirmada" : "rechazada")) : "sin respuesta del equipo"}</small><time>${fFecha(Math.floor((b.ts || 0) / 1000))}</time></div></div>`;
+      }).join("")
+    : `<p class="suave">Nadie ha dado órdenes todavía.</p>`;
+  encender(vista);
 }
 
 // ------------------------------------------------------------------ ajustes
-const DIAS = ["D", "L", "M", "X", "J", "V", "S"]; // bit 0 = domingo
-
-function htmlVentana(w, k) {
-  return `<div class="ventana" data-k="${k}">
-    <div class="dias">${DIAS.map((d, b) => `<label><input type="checkbox" data-b="${b}" ${w.d >> b & 1 ? "checked" : ""}>${d}</label>`).join("")}</div>
-    <div class="fila"><div><label>Desde</label><input type="time" class="vi" value="${w.i}"></div><div><label>Hasta</label><input type="time" class="vf" value="${w.f}"></div></div>
-    <button type="button" class="boton chico secundario quitar" style="margin-top:.5rem">Quitar</button></div>`;
-}
+const campoNum = (k, txt, v, unidad, extra = "") =>
+  `<label class="campo"><span>${txt}</span><span class="entrada"><input id="${k}" type="number" inputmode="decimal" value="${esc(v)}" ${extra}><span class="unidad">${unidad}</span></span></label>`;
+const htmlFranja = (w) => `
+  <div class="franja"><div class="dias">${DIAS.map((d, b) => `<label><input type="checkbox" data-b="${b}" ${(w.d >> b) & 1 ? "checked" : ""} aria-label="${NOMBRE_DIAS[b]}"><span>${d}</span></label>`).join("")}</div>
+    <div class="campos"><label class="campo"><span>Desde</span><input type="time" class="vi" value="${esc(w.i)}"></label><label class="campo"><span>Hasta</span><input type="time" class="vf" value="${esc(w.f)}"></label></div>
+    <button type="button" class="boton chico sec quitar">Quitar franja</button></div>`;
 
 async function vAjustes(id) {
-  const r = await api(`/api/equipos/${id}`);
-  app.equipo = r.equipo;
-  const c = r.equipo.config;
-  const prop = r.rol === "propietario";
-  const admin = app.usuario.admin;
-  const rep = r.estado?.cfg_rep;
-  const dis = prop ? "" : "disabled";
+  const manda = puedeMandar(id);
+  const admin = app.u.admin;
+  const [eq, c0, est, tg] = await Promise.all([
+    fb.leer(`equipos/${id}`).catch(() => null),
+    fb.leer(`entrada/${id}/config`).catch(() => null),
+    fb.leer(`estado/${id}`).catch(() => null),
+    manda ? fb.leer(`entrada/${id}/telegram`).catch(() => null) : null,
+  ]);
+  const c = { ...fb.CONFIG_DEFECTO, ...(c0 || {}) };
+  c.horario = { on: false, v: [], ...(c.horario || {}) };
+  c.horario.v = Array.isArray(c.horario.v) ? c.horario.v : Object.values(c.horario.v || {});
+  const dis = manda ? "" : "disabled";
+  const aplicada = est?.cfg_v >= (c0?.v || 0);
   vista.innerHTML = `
-    <div class="cabecera"><div><h1>Ajustes</h1><small>${esc(r.equipo.nombre)} · configuración v${r.equipo.config_v}${rep ? (rep.v >= r.equipo.config_v ? " · aplicada en el equipo" : ` · el equipo tiene la v${rep.v}`) : ""}</small></div></div>
+    <header class="cabecera"><div class="titulo"><h1>Ajustes</h1>
+      <div class="enlace-estado"><span class="piloto ${c0 ? (aplicada ? "verde" : "ambar respira") : ""}"></span><span>${esc(eq?.nombre || id)} · configuración v${c0?.v ?? 0}${c0 ? (aplicada ? " · aplicada en el equipo" : " · esperando al equipo") : ""}</span></div></div></header>
     <form id="f-cfg">
-      <div class="tarjeta"><h2>General</h2>
-        <label>Nombre</label><input id="nombre" value="${esc(r.equipo.nombre)}" ${dis}>
-        <div class="fila">
-          <div><label>Tensión nominal</label><select id="vnom" ${dis}><option value="120">120 V (L–N)</option><option value="240">240 V (L1–L2)</option></select></div>
-          <div><label>Tarifa (COP/kWh)</label><input id="tarifa" type="number" min="0" step="1" value="${c.tarifa}" ${dis}></div>
+    <section class="riel">
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>G</b> General</span></div>
+        <div class="campos">
+          <label class="campo"><span>Red</span><select id="vnom" ${dis}><option value="240">240 V (L1–L2)</option><option value="120">120 V (L–N)</option></select></label>
+          ${campoNum("tarifa", "Tarifa", c.tarifa, "$/kWh", `min="0" step="1" ${dis}`)}
+        </div><p class="ayuda">Hora de Colombia (UTC−5). La tarifa calcula el costo de cada sesión.</p></article>
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>L</b> Límites por sesión</span></div>
+        <div class="campos">${campoNum("lim_kwh", "Energía", c.lim_kwh, "kWh", `min="0" step="0.1" ${dis}`)}${campoNum("lim_min", "Tiempo", c.lim_min, "min", `min="0" step="1" ${dis}`)}${campoNum("lim_cop", "Costo", c.lim_cop, "$", `min="0" step="100" ${dis}`)}</div>
+        <p class="ayuda">0 = sin límite. Al llegar, el equipo detiene la carga y cierra la sesión.</p></article>
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>H</b> Horario de carga</span></div>
+        <label class="interruptor"><span>Cargar solo dentro de estas franjas</span><input type="checkbox" id="h_on" ${c.horario.on ? "checked" : ""} ${dis}></label>
+        <div id="franjas">${c.horario.v.map(htmlFranja).join("")}</div>
+        ${manda ? `<button type="button" class="boton chico sec" id="mas">${icono("mas")}Agregar franja</button>` : ""}
+        <p class="ayuda">Hasta 4 franjas. Si «hasta» es menor que «desde», la franja cruza la medianoche (22:00–05:00). Sin hora válida el equipo no aplica el horario.</p></article>
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>T</b> Temperatura</span></div>
+        <div class="campos">${campoNum("tmax_sonda", "Corte sonda", c.tmax_sonda, "°C", `min="30" max="90" ${dis}`)}${campoNum("tmax_amb", "Corte placa", c.tmax_amb, "°C", `min="30" max="85" ${dis}`)}${campoNum("t_hist", "Histéresis", c.t_hist, "°C", `min="2" max="30" ${dis}`)}</div>
+        <label class="interruptor"><span>Sonda obligatoria: sin sonda, la carga se detiene por falla</span><input type="checkbox" id="sonda_req" ${c.sonda_req ? "checked" : ""} ${dis}></label>
+        <p class="ayuda">Las aplica el equipo aunque no haya internet.</p></article>
+      <article class="mod" style="--d:12"><div class="mod-cab"><span class="rotulo"><b>A</b> Al volver la energía</span></div>
+        <p class="ayuda">K1 es normalmente abierto: sin energía, el EVSE no carga. Esto decide qué hace el equipo cuando vuelve la luz o tras un reinicio (decisión D28).</p>
+        <div class="posiciones3" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+          <label class="posicion"><input type="radio" name="arranque" value="restaurar" ${dis}><span><b>Restaurar</b><br><small>Vuelve el último permiso después de 10 s de verificaciones.</small></span></label>
+          <label class="posicion"><input type="radio" name="arranque" value="detenida" ${dis}><span><b>Quedar detenida</b><br><small>Espera a que alguien la permita desde la app.</small></span></label>
+          <label class="posicion"><input type="radio" name="arranque" value="permitida" ${dis}><span><b>Permitir siempre</b><br><small>Permite después de las verificaciones.</small></span></label>
         </div>
-        <p class="ayuda">Zona horaria: America/Bogota (UTC−5).</p>
-      </div>
-      <div class="tarjeta"><h2>Límites por sesión</h2><p class="ayuda">0 = sin límite. Al llegar, el equipo detiene la carga y cierra la sesión.</p>
-        <div class="fila3">
-          <div><label>Energía (kWh)</label><input id="lim_kwh" type="number" min="0" step="0.1" value="${c.lim_kwh}" ${dis}></div>
-          <div><label>Tiempo (min)</label><input id="lim_min" type="number" min="0" step="1" value="${c.lim_min}" ${dis}></div>
-          <div><label>Costo (COP)</label><input id="lim_cop" type="number" min="0" step="100" value="${c.lim_cop}" ${dis}></div>
-        </div></div>
-      <div class="tarjeta"><h2>Horario de carga</h2>
-        <label class="opcion"><input type="checkbox" id="h_on" ${c.horario.on ? "checked" : ""} ${dis}>Cargar solo dentro de estas franjas</label>
-        <p class="ayuda">Hasta 4 franjas. Si «hasta» es menor que «desde», la franja cruza la medianoche (p. ej. 22:00–05:00). Sin hora válida, el equipo no aplica el horario.</p>
-        <div id="ventanas">${c.horario.v.map(htmlVentana).join("")}</div>
-        ${prop ? `<button type="button" class="boton chico secundario" id="mas">Agregar franja</button>` : ""}
-      </div>
-      <div class="tarjeta"><h2>Temperatura</h2><p class="ayuda">Las aplica el equipo aunque no haya internet.</p>
-        <div class="fila3">
-          <div><label>Corte sonda (°C)</label><input id="tmax_sonda" type="number" min="30" max="90" step="1" value="${c.tmax_sonda}" ${dis}></div>
-          <div><label>Corte placa (°C)</label><input id="tmax_amb" type="number" min="30" max="85" step="1" value="${c.tmax_amb}" ${dis}></div>
-          <div><label>Histéresis (°C)</label><input id="t_hist" type="number" min="2" max="30" step="1" value="${c.t_hist}" ${dis}></div>
-        </div>
-        <label class="opcion"><input type="checkbox" id="sonda_req" ${c.sonda_req ? "checked" : ""} ${dis}>Sonda obligatoria: sin sonda, la carga se detiene por falla</label>
-      </div>
-      <div class="tarjeta"><h2>Al volver la energía</h2>
-        <p class="ayuda">Con el AQY214EHAX (normalmente abierto), sin energía el EVSE no carga. Esto decide qué hace el equipo cuando vuelve la luz o después de un reinicio:</p>
-        <label class="opcion"><input type="radio" name="arranque" value="restaurar" ${dis}><span><b>Restaurar</b> el último estado después de 10 s de verificaciones (recomendado).</span></label>
-        <label class="opcion"><input type="radio" name="arranque" value="detenida" ${dis}><span><b>Quedar detenida</b> hasta que alguien la permita desde la app.</span></label>
-        <label class="opcion"><input type="radio" name="arranque" value="permitida" ${dis}><span><b>Permitir siempre</b> después de las verificaciones.</span></label>
-        <p class="ayuda">En cualquier caso, tres reinicios anormales seguidos en menos de 10 min dejan la carga detenida hasta reconocer la alarma.</p>
-      </div>
-      <details class="tarjeta"><summary><b>Avanzado</b></summary>
-        <div class="fila"><div><label>Corriente de inicio de sesión (A)</label><input id="i_inicio" type="number" min="0.2" max="10" step="0.1" value="${c.i_inicio}" ${dis}></div>
-          <div><label>Fin de sesión sin corriente (min)</label><input id="fin_min" type="number" min="1" max="240" value="${c.fin_min}" ${dis}></div></div>
-        <div class="fila3"><div><label>Telemetría (s)</label><input id="tel_s" type="number" min="5" max="300" value="${c.tel_s}" ${dis}></div>
-          <div><label>Historial cargando (s)</label><input id="reg_carga_s" type="number" min="10" max="600" value="${c.reg_carga_s}" ${dis}></div>
-          <div><label>Historial en reposo (s)</label><input id="reg_reposo_s" type="number" min="60" max="3600" value="${c.reg_reposo_s}" ${dis}></div></div>
-        <label class="opcion"><input type="checkbox" id="inv_ct" ${c.inv_ct ? "checked" : ""} ${dis}>El CT quedó al revés (invierte el signo de la potencia)</label>
-      </details>
-      ${prop ? `<button class="boton ancho">Guardar configuración</button>` : `<p class="suave">Tu usuario es de solo lectura.</p>`}
+        <p class="ayuda">En los tres casos, tres reinicios anormales en menos de 10 min dejan la carga detenida hasta reconocer la alarma.</p></article>
+      <article class="mod" style="--d:12"><details><summary><span class="rotulo"><b>X</b> Avanzado</span></summary>
+        <div class="campos" style="margin-top:12px">${campoNum("i_inicio", "Corriente de inicio", c.i_inicio, "A", `min="0.2" max="10" step="0.1" ${dis}`)}${campoNum("fin_min", "Fin sin corriente", c.fin_min, "min", `min="1" max="240" ${dis}`)}${campoNum("tel_s", "Telemetría", c.tel_s, "s", `min="5" max="300" ${dis}`)}${campoNum("reg_carga_s", "Historial cargando", c.reg_carga_s, "s", `min="10" max="600" ${dis}`)}${campoNum("reg_reposo_s", "Historial en reposo", c.reg_reposo_s, "s", `min="60" max="3600" ${dis}`)}</div>
+        <label class="interruptor"><span>El CT quedó al revés (invierte el signo de la potencia)</span><input type="checkbox" id="inv_ct" ${c.inv_ct ? "checked" : ""} ${dis}></label></details></article>
+    </section>
+    ${manda ? `<div class="riel" style="padding-top:0"><div style="grid-column:1/-1"><button class="boton verde ancho" id="b-guardar">Guardar y enviar al equipo</button></div></div>` : `<p class="suave">Tu usuario es de solo lectura.</p>`}
     </form>
-    ${admin ? htmlAdminEquipo(r) : ""}`;
-  $("#vnom").value = String(c.vnom);
+    ${manda ? `<section class="riel"><article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("telegram")}Avisos por Telegram</span></div>
+      <p class="ayuda">El equipo mismo escribe a Telegram cuando hay una alarma grave o termina una carga. Crea un bot con @BotFather, pega su token y tu chat id (te lo da @userinfobot).</p>
+      <form class="formulario" id="f-tg"><div class="campos"><label class="campo"><span>Token del bot</span><input name="token" value="${esc(tg?.token || "")}" autocomplete="off" placeholder="123456:ABC…"></label>
+        <label class="campo"><span>Chat id</span><input name="chat" value="${esc(tg?.chat || "")}" inputmode="numeric" placeholder="123456789"></label></div>
+        <div class="acciones"><button class="boton chico">Guardar</button><button type="button" class="boton chico sec" id="tg-probar">Probar</button><button type="button" class="boton chico sec" id="tg-quitar">Quitar</button></div></form>
+    </article></section>` : ""}
+    ${admin ? htmlAdminEquipo(id, eq, est) : ""}`;
+  $("#vnom").value = String(c.vnom >= 200 ? 240 : 120);
   for (const x of $$('input[name="arranque"]')) x.checked = x.value === c.arranque;
-  const ventanas = $("#ventanas");
-  const enlazar = () => $$(".quitar", ventanas).forEach((b) => (b.onclick = () => b.closest(".ventana").remove()));
-  enlazar();
+  const franjas = $("#franjas");
+  const enlazarQuitar = () => $$(".quitar", franjas).forEach((b) => (b.onclick = () => b.closest(".franja").remove()));
+  enlazarQuitar();
   if ($("#mas"))
     $("#mas").onclick = () => {
-      if ($$(".ventana", ventanas).length >= 4) return aviso("Máximo 4 franjas.", true);
-      ventanas.insertAdjacentHTML("beforeend", htmlVentana({ d: 127, i: "22:00", f: "05:00" }, 0));
-      enlazar();
+      if ($$(".franja", franjas).length >= 4) return notif("Máximo 4 franjas.", "ambar");
+      franjas.insertAdjacentHTML("beforeend", htmlFranja({ d: 127, i: "22:00", f: "05:00" }));
+      enlazarQuitar();
     };
-  $("#f-cfg").onsubmit = async (e) => {
+  $("#f-cfg").onsubmit = (e) => {
     e.preventDefault();
-    const n = (k) => Number($("#" + k).value);
-    const config = {
+    if (!manda) return;
+    const n = (k) => Number($("#" + k).value) || 0;
+    const cfg = {
       vnom: n("vnom"), tarifa: n("tarifa"), tz: -300, lim_kwh: n("lim_kwh"), lim_min: n("lim_min"), lim_cop: n("lim_cop"),
       horario: {
         on: $("#h_on").checked,
-        v: $$(".ventana", ventanas).map((w) => ({
-          d: $$("input[data-b]", w).reduce((a, x) => a | (x.checked ? 1 << Number(x.dataset.b) : 0), 0),
-          i: $(".vi", w).value || "00:00",
-          f: $(".vf", w).value || "00:00",
-        })),
+        v: $$(".franja", franjas).map((w) => ({ d: $$("input[data-b]", w).reduce((a, x) => a | (x.checked ? 1 << Number(x.dataset.b) : 0), 0), i: $(".vi", w).value || "00:00", f: $(".vf", w).value || "00:00" })),
       },
       tmax_sonda: n("tmax_sonda"), tmax_amb: n("tmax_amb"), t_hist: n("t_hist"), sonda_req: $("#sonda_req").checked,
       arranque: $('input[name="arranque"]:checked')?.value || "restaurar",
       i_inicio: n("i_inicio"), fin_min: n("fin_min"), inv_ct: $("#inv_ct").checked, tel_s: n("tel_s"), reg_carga_s: n("reg_carga_s"), reg_reposo_s: n("reg_reposo_s"),
     };
-    if (config.horario.on && !config.horario.v.length) return aviso("Agrega al menos una franja o apaga el horario.", true);
-    await conBoton($("button.ancho", e.target), async () => {
-      if ($("#nombre").value.trim() !== r.equipo.nombre) await api(`/api/equipos/${id}`, { metodo: "PUT", datos: { nombre: $("#nombre").value } });
-      const x = await api(`/api/equipos/${id}/config`, { metodo: "PUT", datos: { config } });
-      aviso(x.enviada ? `Guardada (v${x.v}) y enviada al equipo.` : `Guardada (v${x.v}). Se aplica cuando el equipo se conecte.`);
+    if (cfg.horario.on && !cfg.horario.v.length) return notif("Agrega al menos una franja o apaga el horario.", "ambar");
+    conBoton($("#b-guardar"), async () => {
+      const v = await fb.guardarConfig(id, cfg);
+      notif(enLinea(est, c) ? `Guardada (v${v}). El equipo la aplica en segundos.` : `Guardada (v${v}). Se aplica cuando el equipo se conecte.`);
+      setTimeout(() => location.hash === `#/e/${id}/ajustes` && navegar(), 2500);
     });
   };
-  if (admin) enlazarAdminEquipo(id, r);
+  if ($("#f-tg")) {
+    $("#f-tg").onsubmit = (e) => {
+      e.preventDefault();
+      const d = new FormData(e.target);
+      conBoton($("button", e.target), async () => {
+        await fb.escribir(`entrada/${id}/telegram`, { token: d.get("token").trim(), chat: d.get("chat").trim() });
+        notif("Telegram guardado.");
+      });
+    };
+    $("#tg-probar").onclick = (e) => conBoton(e.currentTarget, async () => notif((await fb.orden(id, "telegram_probar")).msg));
+    $("#tg-quitar").onclick = (e) => conBoton(e.currentTarget, async () => (await fb.escribir(`entrada/${id}/telegram`, null), notif("Avisos de Telegram quitados."), navegar()));
+  }
+  if (admin) enlazarAdminEquipo(id, eq, est);
+  encender(vista);
 }
 
-function htmlAdminEquipo(r) {
+function htmlAdminEquipo(id, eq, est) {
+  const ota = est?.ota;
   return `
-    <div class="tarjeta"><h2>Calibración del medidor</h2>
-      <p class="ayuda">Solo en S7, con el transformador de aislamiento, una carga resistiva conocida y una pinza de referencia (docs/pruebas/PROTOCOLO_PRUEBAS.md). El equipo ajusta Ugain e IgainN en proporción a tu referencia.</p>
-      <button class="boton chico secundario" id="cal-leer">Leer del equipo</button>
-      <pre class="consola" id="cal-datos" hidden></pre>
-      <div class="fila"><div><label>Tensión de referencia (V)</label><input id="cal-v" type="number" step="0.01" placeholder="p. ej. 120.4"></div>
-        <div><label>Corriente de referencia (A)</label><input id="cal-i" type="number" step="0.001" placeholder="p. ej. 9.87"></div></div>
-      <p class="ayuda">Deja en blanco la que no quieras tocar. La corriente necesita ≥ 0,5 A pasando por el CT.</p>
-      <div class="acciones" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
-        <button class="boton chico" id="cal-auto">Calibrar</button><button class="boton chico secundario" id="cal-fab">Valores de fábrica</button></div>
-    </div>
-    <div class="tarjeta"><h2>Firmware</h2>
-      <p>Versión instalada: <b>${esc(r.estado?.fw || r.equipo.fw || "—")}</b>${r.estado?.ota ? ` · última OTA: ${esc(r.estado.ota.fase)} ${esc(r.estado.ota.msg || "")}` : ""}</p>
-      <div id="fw-lista" class="desliza"></div>
-      <h3>Subir un .bin nuevo</h3>
-      <p class="ayuda">El archivo es <code>firmware/evse_monitor/.pio/build/placa/firmware.bin</code> después de compilar. Sube la versión que dice FW_VERSION en include/config.h.</p>
-      <div class="fila"><div><label>Versión</label><input id="fw-ver" placeholder="1.0.1"></div><div><label>Archivo</label><input id="fw-bin" type="file" accept=".bin"></div></div>
-      <label>Notas</label><input id="fw-notas" placeholder="qué cambia">
-      <button class="boton chico" id="fw-subir" style="margin-top:.6rem">Subir</button>
-    </div>
-    <div class="tarjeta"><h2>Equipo</h2>
-      <div class="acciones" style="display:flex;gap:.5rem;flex-wrap:wrap">
-        <button class="boton chico secundario" id="eq-reiniciar">Reiniciar el equipo</button>
-        <button class="boton chico secundario" id="eq-token">Generar token nuevo</button>
-        <button class="boton chico peligro" id="eq-borrar">Borrar equipo</button></div>
-      <h3>Usuarios con acceso</h3><div id="permisos"></div>
-      <div class="fila"><div><label>Correo</label><input id="perm-email" type="email"></div>
-        <div><label>Rol</label><select id="perm-rol"><option value="propietario">Propietario (control)</option><option value="lectura">Solo lectura</option></select></div></div>
-      <button class="boton chico" id="perm-dar" style="margin-top:.6rem">Dar acceso</button>
-    </div>`;
-}
-
-function instruccionesEquipo(id, token) {
-  const host = location.host;
-  const local = location.protocol !== "https:";
-  const servidor = local ? `ws://IP-DE-TU-PC:${location.port || 80}` : host;
-  return `<p>Guárdalo ya: <b>no se vuelve a mostrar</b>.</p>
-    <label>Id</label><div class="secreto">${esc(id)}</div><label>Token</label><div class="secreto">${esc(token)}</div>
-    <p>En el monitor serie del equipo (115200):</p>
-    <pre class="consola">wifi "NOMBRE DE TU RED" CLAVE_DEL_WIFI
-servidor ${esc(servidor)}
-equipo ${esc(id)} ${esc(token)}
+    <section class="riel">
+      <article class="mod" style="--d:12"><div class="mod-cab"><span class="rotulo">${icono("enlace")}Enlace del equipo</span><small>${esc(eq?.correo || "")}</small></div>
+        <p class="ayuda">Este código lleva la base de datos, la API key del proyecto y la cuenta del equipo. Pégalo en la placa una sola vez. No lo publiques.</p>
+        <div class="secreto"><code id="enlace">••••••••</code><button class="boton-icono" type="button" id="ver-enlace" aria-label="Mostrar el código">${icono("enlace")}</button><button class="boton-icono" type="button" id="c-enlace" aria-label="Copiar el código">${icono("copiar")}</button></div>
+        <p class="ayuda" style="margin-top:12px">Por la consola serie (115200), con la placa encendida:</p>
+        <pre class="consola">wifi "NOMBRE DE TU RED" CLAVE_DEL_WIFI
+enlazar CÓDIGO_DE_ARRIBA
 reiniciar</pre>
-    <p class="ayuda">O en el portal: mantén PARAR 5 s al encender, conéctate a la red EVSE-XXXX y abre 192.168.4.1.${local ? " Estás en pruebas sin TLS: usa la IP de tu PC en la red local." : ""}</p>`;
+        <p class="ayuda">O por el portal: mantén PARAR 5 s al encender, conéctate a la red EVSE-XXXX (clave configurar-evse), abre 192.168.4.1 y pega el código.${fb.local ? " Estás en el emulador: este código sirve para el simulador (tools/simulador), no para la placa." : ""}</p>
+      </article>
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>C</b> Calibración del medidor</span></div>
+        <p class="ayuda">Solo en S7, con el transformador de aislamiento, una carga resistiva y una referencia (docs/pruebas/PROTOCOLO_PRUEBAS.md). Ajusta Ugain e IgainN en proporción a tu referencia.</p>
+        <div class="campos">${campoNum("cal-v", "Tensión de referencia", "", "V", 'step="0.01" placeholder="120,4"')}${campoNum("cal-i", "Corriente de referencia", "", "A", 'step="0.001" placeholder="9,87"')}</div>
+        <pre class="consola" id="cal-datos" hidden></pre>
+        <div class="acciones"><button type="button" class="boton chico sec" id="cal-leer">Leer del equipo</button><button type="button" class="boton chico" id="cal-auto">Calibrar</button><button type="button" class="boton chico sec" id="cal-fab">Valores de fábrica</button></div>
+      </article>
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>F</b> Firmware</span><small>instalado ${esc(est?.fw || "—")}</small></div>
+        ${ota ? `<p><span class="piloto ${ota.fase === "error" ? "rojo" : ota.fase === "ok" ? "verde" : "ambar respira"}"></span> Actualización a ${esc(ota.ver)}: ${esc(ota.fase)} ${ota.pct ? `${ota.pct} %` : ""} <small>${esc(ota.msg || "")}</small></p>` : ""}
+        <div id="fw-lista"><p class="suave">Cargando…</p></div>
+        <p class="ayuda">Los .bin se suben en Administración → Firmware.</p>
+      </article>
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("usuario")}Acceso</span></div>
+        <ul class="lista" id="permisos"><li class="suave">Cargando…</li></ul>
+        <form class="formulario" id="f-perm" style="margin-top:10px"><div class="campos">
+          <label class="campo"><span>Usuario</span><select name="uid" id="perm-uid"></select></label>
+          <label class="campo"><span>Rol</span><select name="rol"><option value="propietario">Propietario (manda)</option><option value="lectura">Solo lectura</option></select></label></div>
+          <button class="boton chico">Dar acceso</button>
+          <p class="ayuda">La persona crea su cuenta en esta app y aparece en la lista.</p></form>
+      </article>
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("equipo")}Equipo ${esc(id)}</span></div>
+        <form class="formulario" id="f-nombre"><label class="campo"><span>Nombre</span><input name="nombre" value="${esc(eq?.nombre || "")}" maxlength="40" required></label><button class="boton chico sec">Renombrar</button></form>
+        <div class="acciones" style="margin-top:14px"><button type="button" class="boton chico sec" id="eq-reiniciar">Reiniciar</button><button type="button" class="boton chico sec" id="eq-clave">Clave nueva</button><button type="button" class="boton chico peligro" id="eq-borrar">Borrar equipo</button></div>
+      </article>
+    </section>`;
 }
 
-function enlazarAdminEquipo(id, r) {
-  const orden = (o, a) => api(`/api/equipos/${id}/orden`, { metodo: "POST", datos: { o, a } });
+const hex4 = (v) => (Number.isFinite(v) ? v.toString(16).toUpperCase().padStart(4, "0") + "H" : "—");
+
+function enlazarAdminEquipo(id, eq, est) {
+  let codigo = null;
+  const traer = async () => (codigo ??= await fb.codigoEnlace(id));
+  $("#ver-enlace").onclick = async () => {
+    try {
+      $("#enlace").textContent = await traer();
+    } catch (e) {
+      fallo(e);
+    }
+  };
+  $("#c-enlace").onclick = async () => {
+    try {
+      copiar(await traer());
+    } catch (e) {
+      fallo(e);
+    }
+  };
+  const orden = (o, a) => fb.orden(id, o, a);
   $("#cal-leer").onclick = (e) =>
-    conBoton(e.target, async () => {
-      const x = await orden("cal_leer");
-      const d = x.datos || {};
+    conBoton(e.currentTarget, async () => {
+      const d = (await orden("cal_leer")).datos || {};
       $("#cal-datos").hidden = false;
       $("#cal-datos").textContent = `${d.calibrada ? "Calibrado" : "SIN CALIBRAR (valores de fábrica)"}
 Ugain ${hex4(d.ugain)}  IgainN ${hex4(d.igain_n)}  Uoffset ${hex4(d.uoffset)}  IoffsetN ${hex4(d.ioffset_n)}
@@ -740,163 +885,213 @@ Chip: ${Object.entries(d.chip || {}).map(([k, v]) => `${k} ${v}`).join("  ")}
 Ahora: ${fmt(d.v, 2)} V · ${fmt(d.i, 3)} A · ${fmt(d.p, 0)} W · FP ${fmt(d.pf, 3)}`;
     });
   $("#cal-auto").onclick = async (e) => {
+    const b = e.currentTarget;
     const v = Number($("#cal-v").value) || 0, i = Number($("#cal-i").value) || 0;
-    if (!v && !i) return aviso("Escribe la tensión o la corriente de referencia.", true);
-    if (!(await confirmar("¿Calibrar el medidor?", `<p>Referencia: ${v ? fmt(v, 2) + " V" : "—"} · ${i ? fmt(i, 3) + " A" : "—"}. Las lecturas deben estar estables.</p>`, "Calibrar"))) return;
-    conBoton(e.target, async () => aviso((await orden("cal_auto", { v, i })).msg));
+    if (!v && !i) return notif("Escribe la tensión o la corriente de referencia.", "ambar");
+    if (!(await dialogo({ titulo: "¿Calibrar el medidor?", html: `<p>Referencia: ${v ? fmt(v, 2) + " V" : "—"} · ${i ? fmt(i, 3) + " A" : "—"}. Las lecturas deben estar estables.</p>`, si: "Calibrar" }))) return;
+    conBoton(b, async () => notif((await orden("cal_auto", { v, i })).msg));
   };
   $("#cal-fab").onclick = async (e) => {
-    if (!(await confirmar("¿Volver a los valores de fábrica?", "<p>Se pierde la calibración del equipo.</p>", "Volver", true))) return;
-    conBoton(e.target, async () => aviso((await orden("cal_fabrica")).msg));
+    const b = e.currentTarget;
+    if (!(await dialogo({ titulo: "¿Volver a los valores de fábrica?", html: "<p>Se pierde la calibración del equipo.</p>", si: "Volver", peligro: true }))) return;
+    conBoton(b, async () => notif((await orden("cal_fabrica")).msg));
   };
   $("#eq-reiniciar").onclick = async (e) => {
-    if (!(await confirmar("¿Reiniciar el equipo?", "<p>K1 se abre durante el reinicio (unos 15 s) y luego aplica la política de arranque.</p>", "Reiniciar", true))) return;
-    conBoton(e.target, async () => aviso((await orden("reiniciar")).msg));
+    const b = e.currentTarget;
+    if (!(await dialogo({ titulo: "¿Reiniciar el equipo?", html: "<p>K1 se abre durante el reinicio (unos 15 s) y luego aplica la política de arranque.</p>", si: "Reiniciar", peligro: true }))) return;
+    conBoton(b, async () => notif((await orden("reiniciar")).msg));
   };
-  $("#eq-token").onclick = async (e) => {
-    if (!(await confirmar("¿Generar un token nuevo?", "<p>El token actual deja de servir: tendrás que poner el nuevo en el equipo.</p>", "Generar", true))) return;
-    conBoton(e.target, async () => {
-      const x = await api(`/api/equipos/${id}/token`, { metodo: "POST", datos: {} });
-      mostrar("Token nuevo", instruccionesEquipo(x.id, x.token));
+  $("#eq-clave").onclick = async (e) => {
+    const b = e.currentTarget;
+    if (!(await dialogo({ titulo: "¿Clave nueva para el equipo?", html: "<p>La placa deja de conectarse hasta que le pegues el código de enlace nuevo.</p>", si: "Cambiar", peligro: true }))) return;
+    conBoton(b, async () => {
+      await fb.nuevaClave(id);
+      codigo = null;
+      $("#enlace").textContent = await traer();
+      notif("Clave cambiada. Copia el código nuevo a la placa.");
     });
   };
   $("#eq-borrar").onclick = async (e) => {
-    if (!(await confirmar("¿Borrar el equipo?", "<p>Se borra el equipo y sus permisos. El historial queda en la base, pero no se ve.</p>", "Borrar", true))) return;
-    conBoton(e.target, async () => {
-      await api(`/api/equipos/${id}`, { metodo: "DELETE" });
+    const b = e.currentTarget;
+    const d = await dialogo({ titulo: `¿Borrar «${eq?.nombre || id}»?`, html: `<p>Se borran el equipo, su historial, sus permisos y su cuenta. <b>No se puede deshacer.</b></p><label class="campo"><span>Escribe ${esc(id)} para confirmar</span><input name="ok" autocomplete="off"></label>`, si: "Borrar para siempre", peligro: true, formulario: true });
+    if (!d) return;
+    if (d.get("ok") !== id) return notif("No coincide: no se borró nada.", "ambar");
+    conBoton(b, async () => {
+      await fb.borrarEquipo(id);
+      app.u = await fb.perfil(fb.auth.currentUser);
+      notif("Equipo borrado.");
       location.hash = "#/";
     });
   };
-  async function fw() {
-    const { firmware } = await api("/api/firmware");
-    $("#fw-lista").innerHTML = firmware.length
-      ? `<table class="tabla"><thead><tr><th>Versión</th><th class="n">Tamaño</th><th>Subido</th><th></th></tr></thead><tbody>${firmware
-          .map((f) => `<tr><td><b>${esc(f.version)}</b><br><small>${esc(f.notas || "")}</small></td><td class="n">${fmt(f.tam / 1024, 0)} KB</td><td>${fCorta(f.subido)}</td><td><button class="boton chico" data-v="${esc(f.version)}">Instalar</button></td></tr>`)
-          .join("")}</tbody></table>`
-      : `<p class="suave">No has subido ningún firmware.</p>`;
-    for (const b of $$("button[data-v]", $("#fw-lista")))
+  $("#f-nombre").onsubmit = (e) => {
+    e.preventDefault();
+    const n = new FormData(e.target).get("nombre").trim();
+    conBoton($("button", e.target), async () => (await fb.escribir(`equipos/${id}/nombre`, n), notif("Nombre cambiado.")));
+  };
+  (async () => {
+    const lista = await fb.listaFirmware();
+    $("#fw-lista").innerHTML = lista.length
+      ? `<ul class="lista">${lista.map((f) => `<li><div class="crece"><b>${esc(f.ver)}</b><small>${fmt(f.tam / 1024, 0)} KB · ${esc(f.notas || "")}</small></div><button type="button" class="boton chico" data-c="${esc(f.clave)}" ${f.ver === est?.fw ? "disabled" : ""}>${f.ver === est?.fw ? "Instalada" : "Instalar"}</button></li>`).join("")}</ul>`
+      : `<p class="suave">No hay firmware subido.</p>`;
+    for (const b of $$("button[data-c]", $("#fw-lista")))
       b.onclick = async () => {
-        if (!(await confirmar(`¿Instalar la versión ${b.dataset.v}?`, "<p>El equipo descarga el firmware, revisa el SHA-256 y se reinicia. Si el nuevo no llega al servidor y se reinicia más de 3 veces, vuelve al anterior.</p>", "Instalar"))) return;
-        conBoton(b, async () => aviso((await api(`/api/equipos/${id}/ota`, { metodo: "POST", datos: { ver: b.dataset.v } })).msg));
+        const f = lista.find((x) => x.clave === b.dataset.c);
+        if (!(await dialogo({ titulo: `¿Instalar la ${f.ver}?`, html: "<p>El equipo baja el firmware, revisa el SHA-256 y se reinicia (K1 abierto unos 15 s). No lo hace si hay una carga en curso. Si el nuevo no llega a la app en 3 arranques, vuelve al anterior.</p>", si: "Instalar" }))) return;
+        conBoton(b, async () => (await fb.pedirOta(id, f), notif("Pedido enviado. Mira el avance aquí.")));
       };
-  }
-  fw();
-  $("#fw-subir").onclick = (e) =>
-    conBoton(e.target, async () => {
-      const f = $("#fw-bin").files[0];
-      const ver = $("#fw-ver").value.trim();
-      if (!f || !ver) throw new Error("Falta la versión o el archivo.");
-      const x = await api(`/api/firmware?ver=${encodeURIComponent(ver)}&notas=${encodeURIComponent($("#fw-notas").value)}`, { metodo: "POST", crudo: await f.arrayBuffer() });
-      aviso(`Subido ${x.version} (${fmt(x.tam / 1024, 0)} KB)`);
-      fw();
-    });
-  async function permisos() {
-    const { permisos } = await api(`/api/equipos/${id}/permisos`);
-    $("#permisos").innerHTML = permisos.length
-      ? `<ul class="lista">${permisos.map((p) => `<li><div style="flex:1">${esc(p.nombre)} <small>${esc(p.email)} · ${esc(p.rol)}</small></div><button class="boton chico secundario" data-u="${p.id}">Quitar</button></li>`).join("")}</ul>`
-      : `<p class="suave">Solo los administradores.</p>`;
-    for (const b of $$("button[data-u]", $("#permisos")))
-      b.onclick = () => conBoton(b, async () => (await api(`/api/equipos/${id}/permisos`, { metodo: "DELETE", datos: { usuario_id: Number(b.dataset.u) } }), permisos()));
-  }
-  permisos();
-  $("#perm-dar").onclick = (e) =>
-    conBoton(e.target, async () => {
-      await api(`/api/equipos/${id}/permisos`, { metodo: "POST", datos: { email: $("#perm-email").value, rol: $("#perm-rol").value } });
-      aviso("Acceso dado.");
-      permisos();
-    });
+  })().catch(fallo);
+  (async () => {
+    const [permisos, usuarios] = await Promise.all([fb.leer(`permisos/${id}`), fb.leer("usuarios")]);
+    const us = usuarios || {};
+    const pm = permisos || {};
+    $("#permisos").innerHTML = Object.keys(pm).length
+      ? Object.entries(pm).map(([uid, r]) => `<li><div class="crece">${esc(us[uid]?.nombre || uid)}<small>${esc(us[uid]?.email || "")} · ${r === "propietario" ? "propietario" : "solo lectura"}</small></div>${uid === app.u.uid ? "" : `<button type="button" class="boton chico sec" data-u="${esc(uid)}">Quitar</button>`}</li>`).join("")
+      : `<li class="suave">Solo quien administra.</li>`;
+    for (const b of $$("button[data-u]", $("#permisos"))) b.onclick = () => conBoton(b, async () => (await fb.quitarPermiso(id, b.dataset.u), notif("Acceso quitado."), navegar()));
+    const libres = Object.entries(us).filter(([uid]) => !pm[uid]);
+    $("#perm-uid").innerHTML = libres.length ? libres.map(([uid, u]) => `<option value="${esc(uid)}">${esc(u.nombre)} · ${esc(u.email)}</option>`).join("") : `<option value="">(nadie más tiene cuenta)</option>`;
+  })().catch(fallo);
+  $("#f-perm").onsubmit = (e) => {
+    e.preventDefault();
+    const d = new FormData(e.target);
+    if (!d.get("uid")) return notif("Primero la persona debe crear su cuenta en la app.", "ambar");
+    conBoton($("button", e.target), async () => (await fb.darPermiso(id, d.get("uid"), d.get("rol")), notif("Acceso dado."), navegar()));
+  };
 }
-const hex4 = (v) => (Number.isFinite(v) ? v.toString(16).toUpperCase().padStart(4, "0") + "H" : "—");
 
 // ------------------------------------------------------------------ perfil
 async function vPerfil() {
-  const { usuario } = await api("/api/auth/yo");
-  app.usuario = usuario;
+  const tema = document.documentElement.dataset.tema || "auto";
   vista.innerHTML = `
-    <div class="cabecera"><h1>Perfil</h1>${usuario.admin ? `<a class="boton chico secundario" href="#/admin">Administración</a>` : ""}</div>
-    <form class="tarjeta" id="f-perfil"><h2>Datos y notificaciones</h2>
-      <label>Nombre</label><input id="nombre" value="${esc(usuario.nombre)}">
-      <label>Correo</label><input value="${esc(usuario.email)}" disabled>
-      <label>Chat id de Telegram</label><input id="chat" value="${esc(usuario.telegram_chat || "")}" placeholder="p. ej. 123456789" inputmode="numeric">
-      <p class="ayuda">Para recibir las alarmas: abre el bot de la app en Telegram y escríbele /start; tu chat id te lo da @userinfobot. Deja vacío para no recibir.</p>
-      <div style="display:flex;gap:.5rem;margin-top:.8rem"><button class="boton">Guardar</button><button type="button" class="boton secundario" id="probar">Probar notificación</button></div>
-    </form>
-    <form class="tarjeta" id="f-clave"><h2>Cambiar la clave</h2>
-      <label>Clave actual</label><input id="actual" type="password" required autocomplete="current-password">
-      <label>Clave nueva</label><input id="nueva" type="password" required minlength="10" autocomplete="new-password">
-      <button class="boton" style="margin-top:.8rem">Cambiar</button></form>
-    <button class="boton secundario ancho" id="salir">Cerrar sesión</button>`;
-  $("#f-perfil").onsubmit = (e) => {
+    <header class="cabecera"><div class="titulo"><h1>${esc(app.u.nombre)}</h1><div class="enlace-estado">${esc(app.u.email)}${app.u.admin ? " · administración" : ""}</div></div></header>
+    <section class="riel">
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("usuario")}Tu cuenta</span></div>
+        <form class="formulario" id="f-nombre"><label class="campo"><span>Nombre</span><input name="nombre" value="${esc(app.u.nombre)}" maxlength="60" required></label><button class="boton chico sec">Guardar nombre</button></form>
+        <p class="ayuda" style="margin-top:14px">Tu identificador (para darte permisos de administración en Firebase):</p>
+        <div class="secreto"><code>${esc(app.u.uid)}</code><button class="boton-icono" id="c-uid" aria-label="Copiar identificador">${icono("copiar")}</button></div></article>
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("tema")}Tema</span></div>
+        <div class="rango" role="group" aria-label="Tema">${[["auto", "Automático"], ["dia", "Día"], ["noche", "Noche"]].map(([k, t]) => `<button type="button" data-t="${k}" aria-pressed="${k === tema}">${t}</button>`).join("")}</div>
+        <p class="ayuda">Automático sigue el modo de tu celular o computador.</p></article>
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>*</b> Cambiar clave</span></div>
+        <form class="formulario" id="f-clave"><label class="campo"><span>Clave actual</span><input name="actual" type="password" autocomplete="current-password" required></label>
+          <label class="campo"><span>Clave nueva</span><input name="nueva" type="password" autocomplete="new-password" minlength="8" required></label><button class="boton chico">Cambiar clave</button></form></article>
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("salir")}Sesión</span></div>
+        <p class="ayuda">Cierra la sesión en este navegador.</p><button class="boton sec" id="salir">${icono("salir")}Cerrar sesión</button></article>
+    </section>`;
+  $("#c-uid").onclick = () => copiar(app.u.uid);
+  for (const b of $$(".rango button"))
+    b.onclick = () => {
+      const t = b.dataset.t;
+      if (t === "auto") delete document.documentElement.dataset.tema;
+      else document.documentElement.dataset.tema = t;
+      try {
+        t === "auto" ? localStorage.removeItem("tema") : localStorage.setItem("tema", t);
+      } catch {}
+      for (const x of $$(".rango button")) x.setAttribute("aria-pressed", String(x === b));
+    };
+  $("#f-nombre").onsubmit = (e) => {
     e.preventDefault();
+    const n = new FormData(e.target).get("nombre").trim();
     conBoton($("button", e.target), async () => {
-      await api("/api/perfil", { metodo: "POST", datos: { nombre: $("#nombre").value, telegram_chat: $("#chat").value } });
-      aviso("Guardado.");
+      await fb.guardarNombre(app.u.uid, app.u.email, n);
+      app.u.nombre = n;
+      pintarMando(null, "perfil");
+      notif("Nombre guardado.");
     });
   };
-  $("#probar").onclick = (e) => conBoton(e.target, async () => (await api("/api/perfil/probar", { metodo: "POST", datos: {} }), aviso("Mensaje enviado: revisa Telegram.")));
   $("#f-clave").onsubmit = (e) => {
     e.preventDefault();
-    conBoton($("button", e.target), async () => {
-      await api("/api/auth/clave", { metodo: "POST", datos: { actual: await derivar(usuario.email, $("#actual").value), nueva: await derivar(usuario.email, $("#nueva").value) } });
-      aviso("Clave cambiada. Las demás sesiones se cerraron.");
-      e.target.reset();
-    });
+    const d = new FormData(e.target);
+    conBoton($("button", e.target), async () => (await fb.cambiarClave(d.get("actual"), d.get("nueva")), e.target.reset(), notif("Clave cambiada.")));
   };
-  $("#salir").onclick = async () => {
-    await api("/api/auth/salir", { metodo: "POST", datos: {} });
-    app.usuario = null;
-    location.hash = "#/entrar";
-  };
+  $("#salir").onclick = () => fb.salir();
+  encender(vista);
 }
 
 // ------------------------------------------------------------------ administración
 async function vAdmin() {
-  if (!app.usuario.admin) {
-    location.hash = "#/";
-    return;
-  }
-  const [{ usuarios }, { equipos }] = await Promise.all([api("/api/usuarios"), api("/api/equipos")]);
   vista.innerHTML = `
-    <h1>Administración</h1>
-    <form class="tarjeta" id="f-equipo"><h2>Agregar un equipo</h2>
-      <div class="fila"><div><label>Id</label><input id="eq-id" required pattern="[a-z0-9][a-z0-9-]{2,31}" placeholder="evse-01"></div>
-        <div><label>Nombre</label><input id="eq-nombre" placeholder="Garaje"></div></div>
-      <p class="ayuda">El id va en minúsculas, sin espacios. Al crearlo te muestro el token del equipo una sola vez.</p>
-      <button class="boton" style="margin-top:.6rem">Crear equipo</button></form>
-    <div class="tarjeta"><h2>Equipos</h2>${equipos.length ? `<ul class="lista">${equipos.map((e) => `<li><div style="flex:1"><a href="#/e/${e.id}">${esc(e.nombre)}</a> <small>${esc(e.id)}</small></div><span class="chip ${e.estado?.en_linea ? "ok" : ""}">${e.estado?.en_linea ? "En línea" : "Fuera de línea"}</span></li>`).join("")}</ul>` : `<p class="suave">Ninguno todavía.</p>`}</div>
-    <form class="tarjeta" id="f-usuario"><h2>Crear un usuario</h2>
-      <div class="fila"><div><label>Nombre</label><input id="u-nombre" required></div><div><label>Correo</label><input id="u-email" type="email" required></div></div>
-      <label>Clave inicial</label><input id="u-clave" type="password" minlength="10" required autocomplete="new-password">
-      <div class="fila"><div><label>Equipo</label><select id="u-equipo"><option value="">(ninguno)</option>${equipos.map((e) => `<option value="${e.id}">${esc(e.nombre)}</option>`).join("")}</select></div>
-        <div><label>Rol</label><select id="u-rol"><option value="propietario">Propietario</option><option value="lectura">Solo lectura</option></select></div></div>
-      <label class="opcion"><input type="checkbox" id="u-admin">Administrador (ve y controla todos los equipos)</label>
-      <button class="boton" style="margin-top:.6rem">Crear usuario</button></form>
-    <div class="tarjeta"><h2>Usuarios</h2><ul class="lista">${usuarios
-      .map((u) => `<li><div style="flex:1">${esc(u.nombre)} ${u.admin ? '<span class="chip">admin</span>' : ""}<br><small>${esc(u.email)} · ${esc(u.equipos || "sin equipos")}${u.telegram ? " · Telegram" : ""}</small></div>${u.id !== app.usuario.id ? `<button class="boton chico secundario" data-u="${u.id}">Borrar</button>` : ""}</li>`)
-      .join("")}</ul></div>`;
-  $("#f-equipo").onsubmit = (e) => {
+    <header class="cabecera"><div class="titulo"><h1>Administración</h1><div class="enlace-estado">Equipos, usuarios, firmware y mantenimiento</div></div></header>
+    <section class="riel">
+      <article class="mod" style="--d:7"><div class="mod-cab"><span class="rotulo">${icono("equipo")}Equipos</span></div><ul class="lista" id="a-equipos"><li class="suave">Cargando…</li></ul></article>
+      ${htmlAgregar()}
+    </section>
+    <section class="riel">
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("subir")}Subir firmware</span></div>
+        <p class="ayuda">El archivo queda en <code>firmware/evse_monitor/.pio/build/placa/firmware.bin</code> al compilar. Escribe la versión que dice <code>FW_VERSION</code> en include/config.h.</p>
+        <form class="formulario" id="f-fw"><div class="campos"><label class="campo"><span>Versión</span><input name="ver" required placeholder="1.0.1" pattern="[0-9A-Za-z._\\-]{1,20}"></label><label class="campo"><span>Notas</span><input name="notas" placeholder="qué cambia"></label></div>
+          <label class="campo"><span>Archivo .bin</span><input type="file" name="bin" accept=".bin" required></label>
+          <div class="barra" hidden id="fw-barra"><i></i></div><button class="boton">${icono("subir")}Subir</button></form></article>
+      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>F</b> Versiones subidas</span></div><ul class="lista" id="a-fw"><li class="suave">Cargando…</li></ul></article>
+    </section>
+    <section class="riel">
+      <article class="mod" style="--d:7"><div class="mod-cab"><span class="rotulo">${icono("usuario")}Usuarios</span></div><div class="desliza" id="a-usuarios"><p class="suave">Cargando…</p></div></article>
+      <article class="mod" style="--d:5"><div class="mod-cab"><span class="rotulo"><b>M</b> Mantenimiento</span></div>
+        <p class="ayuda">La base gratis guarda 1 GB. Esto borra mediciones, eventos y sesiones más viejos que lo que elijas, en todos los equipos.</p>
+        <form class="formulario" id="f-limpiar"><label class="campo"><span>Conservar</span><select name="dias"><option value="730">2 años</option><option value="365">1 año</option><option value="180">6 meses</option></select></label><button class="boton sec">Borrar lo más viejo</button></form></article>
+    </section>`;
+  enlazarAgregar();
+  const [equipos, usuarios] = await Promise.all([fb.leer("equipos"), fb.leer("usuarios")]);
+  const eqs = equipos || {}, us = usuarios || {};
+  $("#a-equipos").innerHTML = Object.keys(eqs).length
+    ? Object.entries(eqs).map(([k, e]) => `<li><span class="piloto ${enLinea(app.estados[k]) ? "verde" : ""}"></span><div class="crece"><b>${esc(e.nombre)}</b><small>${esc(k)} · ${esc(e.correo)}</small></div><a class="boton chico sec" href="#/e/${k}/ajustes">Ajustes</a></li>`).join("")
+    : `<li class="suave">Aún no hay equipos.</li>`;
+  $("#a-usuarios").innerHTML = `<table class="tabla"><thead><tr><th>Nombre</th><th>Correo</th><th>Última vez</th></tr></thead><tbody>${Object.values(us)
+    .sort((a, b) => (b.visto || 0) - (a.visto || 0))
+    .map((u) => `<tr><td>${esc(u.nombre)}</td><td>${esc(u.email)}</td><td><small>${u.visto ? hace((Date.now() - u.visto) / 1000) : "—"}</small></td></tr>`)
+    .join("")}</tbody></table>`;
+  const pintarFw = async () => {
+    const lista = await fb.listaFirmware();
+    $("#a-fw").innerHTML = lista.length
+      ? lista.map((f) => `<li><div class="crece"><b>${esc(f.ver)}</b><small>${fmt(f.tam / 1024, 0)} KB · ${fCorta(Math.floor((f.subido || 0) / 1000))} · ${esc(f.notas || "")}<br>SHA-256 ${esc(f.sha.slice(0, 16))}…</small></div><button type="button" class="boton chico sec" data-c="${esc(f.clave)}">Borrar</button></li>`).join("")
+      : `<li class="suave">Ninguna todavía.</li>`;
+    for (const b of $$("button[data-c]", $("#a-fw"))) b.onclick = () => conBoton(b, async () => (await fb.borrarFirmware(b.dataset.c), pintarFw()));
+  };
+  pintarFw().catch(fallo);
+  $("#f-fw").onsubmit = (e) => {
     e.preventDefault();
+    const d = new FormData(e.target);
+    const barra = $("#fw-barra");
     conBoton($("button", e.target), async () => {
-      const x = await api("/api/equipos", { metodo: "POST", datos: { id: $("#eq-id").value.trim(), nombre: $("#eq-nombre").value.trim() } });
-      mostrar("Equipo creado", instruccionesEquipo(x.id, x.token));
-      $("#dialogo").addEventListener("close", () => vAdmin(), { once: true });
+      barra.hidden = false;
+      const info = await fb.subirFirmware(d.get("ver").trim(), d.get("notas").trim(), d.get("bin"), (f) => ($("i", barra).style.transform = `scaleX(${f.toFixed(3)})`));
+      notif(`Subida la ${info.ver} (${fmt(info.tam / 1024, 0)} KB). Instálala desde los ajustes del equipo.`);
+      e.target.reset();
+      barra.hidden = true;
+      pintarFw();
     });
   };
-  $("#f-usuario").onsubmit = (e) => {
+  $("#f-limpiar").onsubmit = async (e) => {
     e.preventDefault();
-    conBoton($("button", e.target), async () => {
-      const email = $("#u-email").value.trim();
-      await api("/api/usuarios", {
-        metodo: "POST",
-        datos: { email, nombre: $("#u-nombre").value, clave: await derivar(email, $("#u-clave").value), admin: $("#u-admin").checked, equipo: $("#u-equipo").value, rol: $("#u-rol").value },
-      });
-      aviso("Usuario creado. Pásale su correo y su clave inicial.");
-      vAdmin();
+    const dias = Number(new FormData(e.target).get("dias"));
+    const b = $("button", e.target);
+    if (!(await dialogo({ titulo: "¿Borrar el historial viejo?", html: `<p>Se borra lo anterior a ${dias} días en todos los equipos. No se puede deshacer.</p>`, si: "Borrar", peligro: true }))) return;
+    conBoton(b, async () => {
+      let n = 0;
+      for (const k of Object.keys(eqs)) n += await fb.limpiar(k, dias);
+      notif(`Listo: ${n} registros borrados.`);
     });
   };
-  for (const b of $$("button[data-u]"))
-    b.onclick = async () => {
-      if (!(await confirmar("¿Borrar el usuario?", "<p>Pierde el acceso de inmediato.</p>", "Borrar", true))) return;
-      conBoton(b, async () => (await api(`/api/usuarios/${b.dataset.u}`, { metodo: "DELETE" }), vAdmin()));
-    };
+  encender(vista);
 }
+
+// ------------------------------------------------------------------ arranque
+fb.alCambiarSesion(async (u) => {
+  limpiar();
+  if (!u) {
+    app.u = null;
+    if (!location.hash.startsWith("#/entrar")) history.replaceState(null, "", "#/entrar");
+    return navegar();
+  }
+  try {
+    app.u = await fb.perfil(u, app.nombreNuevo);
+    app.nombreNuevo = null;
+    app.nombres = {};
+    await Promise.all(Object.keys(app.u.equipos).map(async (k) => (app.nombres[k] = (await fb.leer(`equipos/${k}/nombre`).catch(() => null)) || k)));
+  } catch (e) {
+    fallo(e);
+    app.u = { uid: u.uid, email: u.email, nombre: u.email, admin: false, equipos: {} };
+  }
+  if (location.hash.startsWith("#/entrar") || !location.hash) history.replaceState(null, "", "#/");
+  navegar();
+});

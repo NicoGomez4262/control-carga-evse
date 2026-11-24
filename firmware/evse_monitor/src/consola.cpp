@@ -16,11 +16,10 @@ void ayuda() {
   Serial.println();
   Serial.println("=== EVSE Monitor " FW_VERSION " · consola ===");
   Serial.println("  estado                    medición, K1, motivo, alarmas, sesión y energía");
-  Serial.println("  red                       WiFi, servidor y registros sin subir");
+  Serial.println("  red                       WiFi, Firebase, equipo y registros sin subir");
   Serial.println("  wifi RED CLAVE            guarda el WiFi (si la red tiene espacios: wifi \"Mi red\" clave)");
-  Serial.println("  servidor HOST             p. ej. evse.ejemplo.com  (pruebas sin TLS: ws://192.168.1.10:8787)");
-  Serial.println("  equipo ID TOKEN           credenciales del equipo (salen en la app)");
-  Serial.println("  borrar_red                borra WiFi, servidor y credenciales de la NVS");
+  Serial.println("  enlazar CODIGO            pega el código de enlace de la app (empieza por EVSE1.)");
+  Serial.println("  borrar_red                borra el WiFi y el enlace de la NVS");
   Serial.println("  portal                    reinicia y abre el portal de configuración");
   Serial.println("  permitir | detener        permiso de carga (como desde la app)");
   Serial.println("  reconocer                 reconoce las alarmas");
@@ -104,6 +103,7 @@ static void cambiarConfig(void (*f)(Config &)) {
   Config c;
   almacen::configLeer(c);
   f(c);
+  c.version++;  // la app ve el cambio como una versión nueva
   almacen::configGuardar(c);
   ordenLocal(O_CONFIG);
   red::recargarConfig();
@@ -126,21 +126,18 @@ static void ejecutar(String linea) {
     r.clave = resto;
     almacen::redGuardar(r);
     Serial.printf("WiFi guardado: «%s». Escribe «reiniciar» para usarlo.\n", r.ssid.c_str());
-  } else if (cmd == "servidor") {
+  } else if (cmd == "enlazar") {
     almacen::redLeer(r);
-    r.servidor = primero(resto);
-    almacen::redGuardar(r);
-    Serial.printf("Servidor guardado: %s. Escribe «reiniciar» para usarlo.\n", r.servidor.c_str());
-  } else if (cmd == "equipo") {
-    almacen::redLeer(r);
-    r.id = primero(resto);
-    r.token = primero(resto);
-    almacen::redGuardar(r);
-    Serial.printf("Equipo «%s» guardado (token de %u caracteres). Escribe «reiniciar».\n", r.id.c_str(),
-                  r.token.length());
+    if (almacen::enlaceLeer(primero(resto), r)) {
+      almacen::redGuardar(r);
+      Serial.printf("Enlace guardado: cuenta %s en %s. Escribe «reiniciar» para usarlo.\n", r.correo.c_str(),
+                    r.db.c_str());
+    } else {
+      Serial.println("Código inválido. Cópialo completo desde la app (Ajustes → Enlace del equipo); empieza por EVSE1.");
+    }
   } else if (cmd == "borrar_red") {
     almacen::redBorrar();
-    Serial.println("Red borrada de la NVS (quedan los valores de secrets.h, si hay).");
+    Serial.println("WiFi y enlace borrados de la NVS (quedan los valores de secrets.h, si hay).");
   } else if (cmd == "portal") {
     portal::pedirAlReiniciar();
     Serial.println("Reiniciando en modo portal…");
@@ -200,7 +197,7 @@ void loop() {
         buf.remove(buf.length() - 1);
         Serial.print("\b \b");
       }
-    } else if (buf.length() < 160) {
+    } else if (buf.length() < 480) {
       buf += c;
       Serial.print(c);
     }

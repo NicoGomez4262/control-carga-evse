@@ -1,4 +1,4 @@
-// Portal de configuración (punto de acceso «EVSE-XXXX» con clave): WiFi, servidor, id y token.
+// Portal de configuración (punto de acceso «EVSE-XXXX» con clave): WiFi y código de enlace con la app.
 // Se abre si se mantiene PARAR 5 s al encender o con «portal» en la consola (no solo: sin U1 el WiFi
 // supera el límite de la fuente de banco).
 // La tarea de control sigue funcionando mientras el portal está abierto.
