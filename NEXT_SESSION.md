@@ -6,33 +6,49 @@ El software de la Fase 10 ya está escrito y probado sin la placa (23 nov). Falt
 
 ```text
 Seguimos con el proyecto "Control de carga EVSE" (repo público github.com/NicoGomez4262/control-carga-evse).
-La Fase 10 (software) ya tiene el código: firmware/prueba_placa (S1–S6), firmware/evse_monitor (final),
-app/ (Cloudflare Workers + Durable Objects + D1, app web) y tools/simulador. Falta la tarea 10H: llevarlo
-a la placa real.
+Toca seguir con las pruebas de la placa 1 conectando todo, y después correr el software en la placa real
+(tarea 10H de la Fase 10).
 
 Antes de nada, lee:
 - CLAUDE.md (reglas: español, tú; diagramas como gráfico; commits sin coautor; subir a GitHub al final con
   docs/tools/sincronizar_altium.py --commit).
-- NEXT_SESSION.md (este archivo) y docs/PLAN_FASES.md (Fases 9 y 10).
-- docs/software/GUIA_INSTALACION.md (cómo subir cada firmware, qué comando corre cada etapa y cómo publicar
-  la app), docs/software/ARQUITECTURA.md y docs/software/PROTOCOLO_MENSAJES.md.
-- docs/pruebas/PROTOCOLO_PRUEBAS.md y docs/pruebas/mapa_puntos.png.
-- docs/DECISIONES.md: D20–D30 y la sección «Fase 10».
+- NEXT_SESSION.md y docs/PLAN_FASES.md (Fases 9 y 10).
+- docs/pruebas/PROTOCOLO_PRUEBAS.md (H6, S1–S8 y el registro) y docs/pruebas/mapa_puntos.png.
+- docs/software/GUIA_INSTALACION.md (cómo subir cada firmware y publicar la app) y docs/DECISIONES.md (D20–D30).
 
-Estado de la placa 1: H1–H3 bien. [Di aquí si ya soldaste U1 y qué pruebas S corriste.]
-[Di si ya creaste la cuenta de Cloudflare y publicaste la app (guía, parte B), y la dirección.]
-[Di qué política de arranque de K1 eliges (D28): restaurar, detenida o permitida.]
+Estado de la placa 1 (24 nov):
+- H0 (lupa), H1, H2, H3, H4 (U1 soldado, encendido escalonado 3 → 6 → 12 V) y H5 aprobadas.
+- El CH340C sale en COM8. esptool 5.7.0: ESP32-S3 rev v0.2, PSRAM de 2 MB, flash de 16 MB, MAC 10:bd:a3:65:01:08.
+  La flash está vacía. Puedes correr esptool y PlatformIO tú mismo en COM8
+  (pio está en ~/.platformio/penv/Scripts/pio.exe, no en el PATH).
+- Con U1 soldado, NUNCA 3,3 V en TP3: todo por J6 (12 V, límite 0,15–0,2 A) o por la red en S7.
+- Compré en Sigma: CT SCT-013-000V, sonda SEN DS18B20 2M, 4 pulsadores KFC-A04-02 (para SW2 y SW3) y el botón
+  de panel SW730RD (va por cables a J7, no en la placa). Ya tenía la CR2032.
+- [Di aquí si ya creaste la cuenta de Cloudflare y publicaste la app (guía, parte B), y la dirección.]
+- [Di qué política de arranque de K1 eliges (D28): restaurar, detenida o permitida.]
 
 Qué quiero en esta sesión, en este orden:
 1. Diagrama «ESTÁS AQUÍ» como gráfico y la lista de tareas que falta.
-2. Acompañarme en la placa: S1–S5 con el firmware de pruebas (sin U1: 3,30 V en TP3), después U1 + H4,
-   S6 (WiFi) y el firmware final conectado a la app. En cada prueba, qué conectar (puntos del mapa y pin de
-   Altium), el ajuste de la fuente y del Keysight 34461A, y qué debe salir. Anotar los resultados en el
-   protocolo.
-3. Corregir en el firmware o la app lo que salga mal en la placa (registrar cada cambio).
-4. S7 con el transformador de aislamiento: calibración (cal_auto) y verificación con otra carga.
-5. S8: prueba de punta a punta (orden en la app → K1 → J2 medido) y protecciones sin internet.
-6. Cerrar la Fase 10 (y la 9 si U1 y H0–H5 quedaron) según CLAUDE.md, y subir todo a GitHub.
+2. Soldar SW2 y SW3 (KFC-A04-02) y probarlos: Ω 2W entre EN (37, J8-4) y GND (39, J8-6) al pulsar SW2, y
+   entre IO0 (38, J8-5) y GND al pulsar SW3. Cablear el SW730RD a J7 (sin polaridad) y probarlo.
+3. H6: pila, CT y sonda, cada uno conectado con la placa apagada, con lo que hay que medir.
+4. Firmware de pruebas (firmware/prueba_placa): súbelo tú a COM8 y acompáñame en S1–S6, anotando cada
+   resultado en el registro del protocolo. S5-4: anotar la polaridad de WarnOut e IRQ.
+5. Firmware final (firmware/evse_monitor) con mi WiFi (secrets fuera de git) y, si la app ya está publicada,
+   la conexión a Cloudflare.
+6. S7 con transformador de aislamiento, regleta con interruptor, carga resistiva de 1–1,5 kW y pinza:
+   calibración (cal_auto) y verificación con otra carga. Primero repetir el aislamiento de H1-5 y los
+   fusibles de H1-6 con la placa apagada.
+7. S8: prueba de punta a punta (orden en la app → K1 → J2 medido) y protecciones sin internet.
+8. Corregir en el firmware o la app lo que salga mal (registrar cada cambio), y cerrar las Fases 9 y 10 según
+   CLAUDE.md si quedaron completas. Subir todo a GitHub.
+
+Reglas:
+- En cada prueba, dime qué conectar con los números del mapa y su pin de Altium (por ejemplo, 6 (J6-1)),
+  el ajuste de la fuente y del multímetro (Keysight 34461A: DCV, ACV, Ω 2W, Diode) y qué debe salir.
+- La red solo con transformador de aislamiento y sin tocar nada energizado; el CT se enchufa en J3 antes de
+  abrazar un cable con corriente y nunca se desenchufa con corriente.
+- Nada de claves del WiFi, tokens ni credenciales en git.
 ```
 
 ## Qué se hizo (23 nov, F10)
@@ -90,10 +106,12 @@ SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: integración con la placa (10H)
 
 - [x] Pedido a JLCPCB y recepción de las 2 placas ensambladas (20 nov).
 - [x] H1, H2 y H3 en la placa 1 (20 nov).
-- [ ] H0 con lupa: puentes en U3, J5 y U4; fotos de las dos caras en `docs/pruebas/fotos/`.
-- [ ] H5: USB y `esptool` (se puede hacer ya, con 3,3 V en TP3; el comando `info` del firmware de pruebas da la MAC).
-- [ ] Soldar U1 (R-78CK) y hacer H4.
-- [ ] Opcional: SW2/SW3 con el KFC-A04-02 de Sigma (comprar 3).
+- [x] H0 con lupa (24 nov). Faltan las fotos de las dos caras en `docs/pruebas/fotos/`.
+- [x] H5: USB y `esptool` (24 nov): COM8, ESP32-S3 rev v0.2, 16 MB + PSRAM de 2 MB, MAC 10:bd:a3:65:01:08.
+- [x] Soldar U1 (R-78CK) (24 nov).
+- [x] H4: sin energía y encendido escalonado 3 → 6 → 12 V (24 nov).
+- [ ] H6: pila, CT y sonda antes de conectarlos.
+- [ ] SW2/SW3 con el KFC-A04-02 (comprados, 4) y el SW730RD cableado a J7.
 - [ ] Cerrar la Rev 1.0: etiqueta `rev1.0` en git y notas para la Rev 1.1 (gabinete incluido).
 
 ## Tareas de la Fase 10 (software)

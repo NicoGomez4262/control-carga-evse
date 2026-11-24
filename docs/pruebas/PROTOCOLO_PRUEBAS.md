@@ -270,26 +270,61 @@ Apagar y desconectar.
 
 1. Poner U1 y revisar que el punto quede hacia J6 y sobre el **8** (U1-1).
 2. Soldar primero un pin, revisar que quede derecho y después los otros dos. Limpiar el flux.
-3. Ω entre **8** (U1-1) y **10** (U1-3): OL. Ω entre **10** (U1-3) y **3** (TP3-1): < 1 Ω.
+3. Con lupa: los tres pines con filete completo y sin puentes entre ellos.
 
-### Encendido
+### H4-1 · Sin energía, después de soldar (Ω 2W)
 
-Igual que H2 (rojo al **6**, negro al **7**, negra del multímetro en el **1**), pero con el **límite de corriente en 0,150 A**.
+| # | Roja | Negra | Esperado | Falla si | Medido |
+|---|---|---|---|---|---|
+| a | **2** (TP2-1) | **1** (TP1-1) | sube hasta > 1 kΩ, como en H1-1 a | < 1 kΩ | |
+| b | **3** (TP3-1) | **1** (TP1-1) | sube; ≥ 10 Ω, como en H1-1 b | < 10 Ω | |
+| c | **2** (TP2-1) | **3** (TP3-1) | no menos de 100 Ω (puede ir subiendo) | < 100 Ω: puente entre los pines de U1 | |
+| d | **3** (TP3-1) | **2** (TP2-1) | no menos de 100 Ω (puede ir subiendo) | < 100 Ω | |
+
+Ya no se espera OL entre el **8** y el **10**: con U1 puesto, el módulo une los dos lados por dentro.
+
+### H4-2 · Encendido escalonado (DCV, negra en el **1**)
+
+Rojo de la fuente al **6** (J6-1) y negro al **7** (J6-2). En cada paso: ajustar con la salida apagada, encender, medir y apagar. Un parpadeo del indicador de límite justo al encender es normal (se cargan los condensadores). Si se queda en límite, apagar.
+
+**Paso 1 · 3,0 V con límite de 0,100 A: prueba de orientación de U1.** Con 3 V el R-78CK no arranca (enciende a partir de 4,4 V), así que no debe salir nada en el lado de 3,3 V. Si U1 quedó al revés, los 3 V pasan al riel de 3,3 V por dentro del módulo, y a esa tensión todavía no dañan nada.
 
 | # | Roja en | Esperado | Falla si | Medido |
 |---|---|---|---|---|
-| 1 | — (corriente en la fuente) | 20–45 mA | > 80 mA | |
-| 2 | **2** (TP2-1) | 11,6–11,9 V | — | |
-| 3 | **3** (TP3-1) | 3,20–3,40 V | fuera de rango | |
-| 4 | **4** (TP4-1) | igual que el 3 | — | |
-| 5 | **5**, **24**, **25** y **28** | como en H3 | — | |
-| 6 | — (U1 al tacto después de 5 min) | tibio como mucho | caliente | |
-| 7 | Osciloscopio (opcional): punta en el **3**, resorte de tierra en el **1**, 20 MHz, 10 mV/div en AC | rizado < 20 mVpp | — | |
-| 8 | Opcional: fuente en 9 V y en 15 V, medir el **3** | sigue en 3,3 V | — | |
+| 1 | — (corriente en la fuente) | < 5 mA | > 10 mA | |
+| 2 | **2** (TP2-1) | 2,7–2,9 V | — | |
+| 3 | **3** (TP3-1) | < 0,3 V | **> 1 V = U1 al revés: apagar y no subir la tensión** | |
+
+**Paso 2 · 6,0 V con límite de 0,150 A.** El R-78CK ya arranca (entrada mínima de 5 V).
+
+| # | Roja en | Esperado | Falla si | Medido |
+|---|---|---|---|---|
+| 4 | — (corriente en la fuente) | 40–80 mA; LED1 encendido | en límite | |
+| 5 | **3** (TP3-1) | 3,20–3,40 V | fuera de rango | |
+
+**Paso 3 · 12,0 V con límite de 0,150 A.**
+
+| # | Roja en | Esperado | Falla si | Medido |
+|---|---|---|---|---|
+| 6 | — (corriente en la fuente) | 20–45 mA | > 80 mA | |
+| 7 | **2** (TP2-1) y **34** (R41-2) | 11,6–11,9 V | — | |
+| 8 | **3** (TP3-1) | 3,20–3,40 V | fuera de rango | |
+| 9 | **4** (TP4-1) | igual que el 8 | — | |
+| 10 | **5** (TP5-1, DIAG) | ≈ 3,3 V | ≈ 0 V | |
+| 11 | **24** (C18-1) y **25** (C21-1) | 1,39–1,49 V cada uno | — | |
+| 12 | **28** (C30-1) | ≈ 1,26 V | — | |
+| 13 | **29** (C29-1), **30** (C38-2), **31** (J4-1) | ≈ 3,3 V cada uno | — | |
+| 14 | **36**, **37** y **38** (J8-1, J8-4, J8-5) | ≈ 3,3 V cada uno | — | |
+| 15 | — (LED6 y J2) | LED6 apagado; Ω 2W entre el **17** y el **18**: OL | LED6 encendido | |
+| 16 | — (U1 al tacto después de 5 min) | tibio como mucho | caliente | |
+| 17 | Osciloscopio (opcional): punta en el **3**, resorte de tierra en el **1**, 20 MHz, 10 mV/div en AC | rizado < 20 mVpp | — | |
+| 18 | Opcional: fuente en 9 V y en 15 V (nunca más de 15 V), medir el **3** | sigue en 3,3 V | — | |
 
 ---
 
 ## Sin U1: qué se puede adelantar
+
+**Ya no aplica a la placa 1: U1 se soldó el 24 nov.** Desde ahí todo se alimenta por J6 (o por la red en S7), nunca por TP3.
 
 Mientras U1 no esté, los rieles de 12 V y de 3,3 V están separados. La fuente de 3,3 V en el **3** (TP3-1) y el **1** (TP1-1), como en H3, alimenta todo el lado de 3,3 V: CH340C, ESP32, ATM90E26, AMC3330 y sensores. Con eso se pueden hacer:
 
@@ -342,7 +377,24 @@ Si `esptool` dice «Wrong boot mode detected», falla el auto-reset (Q1, Q2, R19
 2. Unir un instante el **37** (J8-4) con el **39**.
 3. Soltar el **38**.
 
-MAC de la placa 1: ____________________
+MAC de la placa 1: **10:bd:a3:65:01:08** (24 nov; el CH340C salió en COM8 en el computador del usuario).
+
+## H6 · Accesorios antes de conectarlos
+
+Cada accesorio se conecta con la placa **apagada**. Después se enciende con 12 V en J6 (límite de 0,150 A) y se mide con el multímetro.
+
+| # | Qué hacer | Función | Roja | Negra | Esperado | Medido |
+|---|---|---|---|---|---|---|
+| 1 | Pila CR2032 suelta | DCV | cara «+» | la otra cara | 3,0–3,3 V | |
+| 2 | Poner la pila en BT1 con el «+» hacia arriba. Placa apagada | DCV | **35** (BT1-1) | **1** (TP1-1) | igual que la pila | |
+| 3 | Encender | DCV | **35** (BT1-1) | **1** (TP1-1) | igual que la pila (el DS3231 no la carga) | |
+| 4 | CT suelto: entre la punta y la camisa del plug de 3,5 mm | Ω 2W | punta | camisa | un valor finito (el devanado del CT); falla si marca OL | |
+| 5 | Enchufar el CT en J3, placa apagada | Ω 2W | **19** (D4-2) | **20** (D4-1) | un poco menos de 20 Ω (los 20 Ω de la carga en paralelo con el CT); si sigue en ≈ 20 Ω, el jack no hace contacto | |
+| 6 | Sonda DS18B20: rojo → J4-1 (abajo, el **31**), datos → J4-2 (medio), negro → J4-3 (arriba). Placa apagada | — | — | — | revisar los colores con la ficha de la sonda | |
+| 7 | Encender | DCV | **31** (J4-1) | **1** (TP1-1) | 3,2–3,3 V; la corriente de la fuente sube ≤ 2 mA | |
+| 8 | Encendida | DCV | J4-2 (tornillo del medio) | **1** (TP1-1) | ≈ 3,3 V (pull-up de 4,7 kΩ) | |
+
+El CT no abraza ningún cable hasta S7.
 
 ---
 
@@ -485,3 +537,6 @@ El transformador de aislamiento desfasa un poco la tensión: la fase (Nphi) se t
 | 2026-11-20 | H1, H2 y H3 (filas 1–15), placa 1 | todo dentro de lo esperado (dato del usuario) | D3, D5, D6 y U6 bien puestos |
 | 2026-11-20 | H3 16–17 (lado de red del AMC3330), placa 1 | dentro de lo esperado (dato del usuario) | el convertidor aislado del AMC3330 funciona |
 | 2026-11-20 | — | U1 todavía no está | H4 espera; H5 y S1–S5 se adelantan con 3,3 V en TP3 (ver «Sin U1») |
+| 2026-11-24 | — | U1 soldado (dato del usuario) | siguen H4-1, H4-2, H5 y H6; desde ahora nunca 3,3 V en TP3 |
+| 2026-11-24 | H0 (lupa), H4-1 y H4-2 (3 → 6 → 12 V), placa 1 | todo dentro de lo esperado (dato del usuario) | U1 bien orientado |
+| 2026-11-24 | H5, placa 1 | CH340 en COM8; `esptool` 5.7.0: ESP32-S3 (QFN56) rev v0.2, PSRAM de 2 MB (AP_3v3), flash de 16 MB quad a 3,3 V, MAC 10:bd:a3:65:01:08; auto-reset sin tocar nada; la ROM repite «invalid header: 0xffffffff» (flash vacía) | la primera vez Windows no lo veía: la placa estaba apagada o el cable no era de datos |
