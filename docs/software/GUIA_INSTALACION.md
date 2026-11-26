@@ -93,6 +93,8 @@ Las cuentas las creas tú; aquí va qué crear y dónde. Todo es gratis (plan Sp
 2. **Usuarios:** en el menú, **Compilación → Authentication → Comenzar → Método de acceso → Correo electrónico/contraseña → Habilitar** (solo la primera opción) → **Guardar**.
 3. **Base de datos:** **Compilación → Realtime Database → Crear una base de datos** → ubicación **Estados Unidos (us-central1)** → **Comenzar en modo bloqueado** → **Habilitar**. La dirección queda arriba del árbol de datos: `https://evse-monitor-1a2b3-default-rtdb.firebaseio.com`.
 4. **App web:** engranaje ⚙ → **Configuración del proyecto → General → Tus apps →** ícono **`</>`** → apodo `app web` → marca **«Configurar también Firebase Hosting»** → **Registrar app** → Siguiente → Siguiente → **Ir a la consola**. No hace falta copiar el código que muestra: Hosting se lo entrega a la página solo.
+> **Hecho el 25 nov:** el proyecto es `evse-monitor-d37rs` (<https://evse-monitor-d37rs.web.app>). Los pasos 1 a 4 se pueden hacer con la CLI: `npx.cmd firebase projects:create`, `npx.cmd firebase apps:create WEB "app web"`, y la base por defecto como en D35. En PowerShell usa **`npx.cmd`** (la política de scripts bloquea `npx`). Si una carpeta superior tiene otro proyecto activo, la CLI lo usa en vez de `.firebaserc`: corre `npx.cmd firebase use default` dentro de `app\`. **Google:** Authentication → Método de acceso → Agregar proveedor → Google → Habilitar → correo de asistencia → Guardar.
+
 5. **Publicar** (PowerShell, dentro de `app\`):
 
 ```powershell
@@ -177,7 +179,7 @@ Cuando llega a la app, **LED3 queda fijo** y el panel dice «En línea». `red` 
 
 ### C5. Consola del firmware final
 
-`ayuda`, `estado`, `red`, `wifi`, `enlazar`, `borrar_red`, `portal`, `permitir`, `detener`, `reconocer`, `soltar_parar`, `cal`, `cal_auto V I`, `cal_fabrica`, `sonda 0|1`, `tension 120|240`, `buffer`, `reiniciar`, `version`.
+`ayuda`, `estado`, `red`, `wifi`, `enlazar`, `borrar_red`, `portal`, `permitir`, `detener`, `reconocer`, `rearmar` (= `soltar_parar`, desde 1.0.2), `cal`, `cal_auto V I`, `cal_fabrica`, `sonda 0|1`, `tension 120|240`, `buffer`, `reiniciar`, `version`.
 
 ## D. Actualizar por OTA
 
@@ -185,6 +187,14 @@ Cuando llega a la app, **LED3 queda fijo** y el panel dice «En línea». `red` 
 2. En la app: **Administración → Subir firmware**: versión `1.0.1` y el archivo `firmware/evse_monitor/.pio/build/placa/firmware.bin`. La app lo parte en trozos de 32 KB, calcula el SHA-256 y lo guarda en la base.
 3. **Ajustes del equipo → Firmware → Instalar.** El equipo baja los trozos con su cuenta, revisa el SHA-256, se reinicia (K1 abierto unos 15 s) y queda confirmado al volver a la app. No lo hace si hay una carga en curso. Si el nuevo se reinicia 3 veces sin llegar a la app, vuelve solo al anterior y no lo reintenta.
 4. Por USB se puede subir siempre, como en C2.
+
+## D2. Banco con red y demostración del relé (D36)
+
+1. **Transformador de aislamiento** (TJP 110:110 V, 300 VA): desenchufado, en Ω 2W, entre los dos devanados y contra el chasis debe marcar **OL** (si hay continuidad es un autotransformador: no sirve).
+2. Toma → fusible de 3 A → primario; chasis a la tierra de la clavija. Secundario **sin tierra** → regleta con interruptor → J1: un cable al **11** (J1-1) y otro al **12** (J1-2); da igual cuál. Sin la fuente en J6 (la placa se alimenta por PS1) y la primera vez sin USB.
+3. Con la regleta encendida, DCV con la negra en el **1**: **2** (TP2-1) 11,5–11,9 V; **3** (TP3-1) 3,20–3,40 V; **5** (TP5-1) ≈ 3,3 V. La placa se pone en línea sola.
+4. **Testigo del relé en J2** (aislado de todo lo demás): pila de 9 V (+) → 1 kΩ → LED (ánodo) → **17** (J2-1); **18** (J2-2) → (−) de la pila. En la app, **Pausar** apaga el LED y **Reanudar** lo prende; el módulo «Carga» muestra el recorrido App → Nube → Placa → K1 y el tiempo. También: Ω entre el 17 y el 18 (OL ↔ 25–40 Ω) y LED6.
+5. No toques la zona de red con la regleta encendida; mide solo en los puntos amarillos; la pinza de tierra del osciloscopio nunca en la zona de red.
 
 ## E. Probar sin la placa (emulador + simulador)
 

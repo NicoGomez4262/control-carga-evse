@@ -1,57 +1,46 @@
-# Siguiente sesión → Fase 10 (continuación): firmware final + app en la placa real
+# Siguiente sesión → Fase 10 (continuación): calibración (S7), S8 y cierre de la fase
 
-La **Fase 9 se cerró el 24 nov** (`docs/sesiones/F9_cerrada.md`). La placa 1 pasó todo lo que se puede probar sin red: H0–H6 y S1–S6, más el canal de corriente. **10H va por la mitad:** el firmware final 1.0.0 ya está en la placa 1 y arranca bien (D33). Falta publicar la app en Firebase, enlazar la placa, probarla desde el celular, S7 con red y calibración (incluido el CT con corriente real en un solo conductor) y S8 de punta a punta.
+La **Fase 9 se cerró el 24 nov** (`docs/sesiones/F9_cerrada.md`). **10H va avanzada:** la app está publicada en <https://evse-monitor-d37rs.web.app>, la placa 1 está enlazada (equipo `nico-01`) y se controla desde el PC y el celular. Ya se probó con red a través del transformador de aislamiento (D36): mide 60 Hz, tensión y corriente, pero **sin calibrar**. Falta instalar el firmware 1.0.2 por OTA, calibrar (S7), S8 de punta a punta y cerrar la fase.
 
 ## Prompt para iniciar
 
 ```text
 Seguimos con "Control de carga EVSE" (repo público github.com/NicoGomez4262/control-carga-evse).
-Objetivo: unir el firmware final (firmware/evse_monitor) con la app de Firebase y probarlo desde el
-celular con la placa 1 en el banco (tarea 10H, sin red eléctrica todavía).
+Objetivo: terminar la tarea 10H y cerrar la Fase 10: firmware 1.0.2 por OTA, calibración del medidor
+(S7) con la placa en la red a través del transformador de aislamiento, S8 de punta a punta y cierre.
 
-Antes de nada, lee: CLAUDE.md; NEXT_SESSION.md; docs/software/GUIA_INSTALACION.md (partes B y C);
-docs/software/ARQUITECTURA.md y PROTOCOLO_MENSAJES.md; docs/DECISIONES.md (D21–D32 y el cierre de la
-Fase 9); docs/pruebas/PROTOCOLO_PRUEBAS.md (el registro del 24 nov, al final).
+Antes de nada, lee: CLAUDE.md; NEXT_SESSION.md; docs/DECISIONES.md (D33–D36);
+docs/software/GUIA_INSTALACION.md (partes C, D y D2); docs/pruebas/PROTOCOLO_PRUEBAS.md (S7, S8 y el
+registro del 25–26 nov al final).
 
-Lo probado en la placa 1 el 24 nov con firmware/prueba_placa:
-- H0–H6 aprobadas. U1 soldado. CH340C en COM8. Alimentación: SOLO 12 V en J6 (+ al 6 = J6-1,
-  − al 7 = J6-2), límite 0,20 A; nunca 3,3 V en TP3. El USB solo programa y da la consola.
-- S1 (LED3–LED5, SW1, SW2/SW3, botón de panel en J7), S2 (AHT20 0x38, DS3231 0x68 con hora puesta,
-  1 Hz), S3 (DS18B20), S4 (K1/J2), S5 (ATM90E26 por SPI) y S6 (WiFi: 60 s sin reinicio, pico de
-  75 mA en la fuente) aprobadas.
-- ATM90E26: WarnOut (IO21) e IRQ (IO14) son ACTIVOS EN ALTO. Al encender no marca CalErr con 8765H si
-  no se ha escrito CS1; con una CS1 equivocada sí (SysStatus C000H). La CS1 de fábrica es 55CBH.
-- Canal de corriente aprobado sin red (`s5 inyectar`: I2 de 0,008 a 2,985 A); con las ganancias de
-  fábrica lee ≈ 1,8 veces la corriente real. Falta el CT con corriente real en UN SOLO conductor
-  (un cable entero se anula). S7 (red y calibración) no se ha hecho: en el banco U = 0 e I = 0 y el
-  medidor queda «sin calibrar»; es normal (la protección de red baja solo actúa calibrado).
-
-Ya hecho (24 nov, D33): código de enlace, rutas y reglas cotejados entre la app y el firmware; CS1
-antes de 8765H; tabla de particiones corregida; evse_monitor 1.0.0 subido a la placa 1 (flash borrada)
-y arrancando sin errores. En el último arranque PARAR salió enclavado: [di si lo pulsaste].
+Estado (26 nov):
+- App en https://evse-monitor-d37rs.web.app (Firebase evse-monitor-d37rs; CLI en app\ con npx.cmd).
+  Entrada con Google o correo. Yo estoy en admins. Equipo nico-01.
+- Placa 1 con evse_monitor 1.0.1 (USB). El 1.0.2 ya está cargado en la base: Ajustes → Firmware →
+  Instalar. COM8: si dice «Access is denied», otro programa lo tiene abierto.
+- Banco con red (D36): TJP 110:110 V 300 VA → regleta sin tierra → J1 (11 y 12); sin fuente en J6.
+  Con un bombillo: 60,02 Hz, V 187,4 V, I 1,395 A, P 261 W sin calibrar.
+- CT aprobado con corriente real (bombillo). PARAR, Quitar emergencia y Pausar/Reanudar desde la app, bien.
 
 Qué quiero, en este orden:
-1. Estado de la app: [di si ya la publicaste en Firebase (guía B) y su dirección .web.app]; si no,
-   guíame a publicarla (la CLI de Firebase tenía la sesión vencida: `npx firebase login --reauth`).
-   Mi cuenta, `admins` y el equipo evse-01. El código de enlace lo copio yo: no va a git ni al chat.
-2. Con la placa conectada (12 V en J6 y USB en COM8; pio en ~/.platformio/penv/Scripts/pio.exe;
-   COM8 lo usa una sola sesión): yo escribo en la consola `wifi "RED" CLAVE`, `enlazar EVSE1.…` y
-   `reiniciar`; Claude no escribe claves. La sonda está puesta (lee ≈ 25 °C): no hace falta
-   `sonda 0`. Decido D28 (arranque de K1) en Ajustes.
-3. Verificar desde el celular: LED3 fijo y «En línea»; datos en vivo (sonda y AHT20; U e I en 0);
-   Detener/Permitir con Ω entre el 17 (J2-1) y el 18 (J2-2) → OL / 25–40 Ω y LED6; PARAR (SW1 o J7)
-   abre K1 y se ve en la app; sonda sobre tmax (bajar tmax en Ajustes) abre K1; cortar el hotspot y
-   comprobar que las protecciones siguen y que el historial se completa al volver; configuración
-   empujada y confirmada; OTA 1.0.0 → 1.0.1. Mirar también la humedad del AHT20 (salió en 0 %).
-4. Si consigo un cable dúplex: CT en un solo hilo con la estación de aire caliente enchufada; la
-   corriente sale en `estado` y en la app (≈ 1,8 veces la real hasta calibrar).
-5. Anotar cada resultado en el registro de PROTOCOLO_PRUEBAS.md (S8 parcial, sin red), registrar
-   decisiones en DECISIONES.md, actualizar NEXT_SESSION.md y subir con
-   `python docs/tools/sincronizar_altium.py --commit -m "..."` (sin coautor).
+1. Instalar 1.0.2 por OTA y comprobar: PARAR en vivo en la app, reconexión (apagar y prender; hotspot
+   2 min; datos móviles 3 min) con tiempos medidos en la base.
+2. S7: anotar TP2/TP3/TP5 con red; calibrar con cal_auto (V del multímetro en la regleta, I de una
+   pinza o del Keysight en serie) y verificar con otra carga (error < 1–2 %).
+3. S8: protecciones sin internet; historial completo al volver; Telegram (opcional).
+4. Pendientes: humedad del AHT20 en 0 %; ¿pierde la hora el DS3231 al apagar? (pila en BT1).
+5. Cerrar la Fase 10 (CLAUDE.md, «Al cerrar una fase»), con el bloque de software en el artifact.
 
-Reglas: COM8 lo usa una sola sesión a la vez. Nada de claves del WiFi, códigos de enlace ni tokens en
-git ni en el chat. En cada prueba, dime qué conectar con los números del mapa y su pin de Altium.
+Reglas: no toques la zona de red con la regleta encendida. Nada de claves del WiFi, códigos de enlace ni
+tokens en git ni en el chat. En cada prueba, dime qué conectar con los números del mapa y su pin de Altium.
 ```
+
+## Qué se hizo (25–26 nov, 10H segunda parte)
+
+- **App publicada** en Firebase (`evse-monitor-d37rs`): proyecto, app web, base y reglas creados desde la CLI; entrada con correo y **Google**; tu cuenta en `admins`; equipo `nico-01` (D35).
+- **Firmware 1.0.1** (USB): el flujo se cortaba a los 3–4 s por una resta sin signo; ahora se queda en línea y subió el búfer (D34). **1.0.2** compilado y cargado en la base para OTA: PARAR en vivo, telemetría inmediata y reconexión más rápida.
+- **App:** responsive de verdad (4/8/12 columnas, ancho completo), panel en el orden que pediste, módulo **«Carga»** con pulsador rojo/verde y recorrido de la orden App → Nube → Placa → K1 con tiempos, «Pausa de emergencia / Quitar emergencia», Historial **«En vivo»**, anunciador a lo ancho y fondo vivo.
+- **Pruebas:** enlace, lecturas en vivo, PARAR y Quitar emergencia desde la app, **CT con un bombillo** y **la placa alimentada por la red** a través del transformador de aislamiento TJP (D36).
 
 ## Qué se hizo (24 nov, 10H primera parte)
 
@@ -105,9 +94,9 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 <!--/DIAG-->
 
 ```text
-SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: integración con la placa (10H)
+SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: calibración y S8 (10H, final)
 
-[Placa: S1–S6 ✓ · canal I ✓] ─► [ESP32-S3: firmware final 1.0.0 ✓ ▐enlazar▌] ═TLS═► [Firebase ✓] ─► [App web ▐publicar▌] ─► celular
+[Placa: S1–S6 ✓ · CT ✓ · red ✓] ─► [ESP32-S3: 1.0.1 ✓ en línea ▐OTA 1.0.2▌] ═TLS═► [Firebase ✓] ─► [App web ✓ publicada] ─► PC y celular
           ▲ ▐S7 red + cal · S8▌             │ protecciones locales ✓                       ▲                                  │
           └─────────────────────────────────┴─ NVS + búfer 7 MB + DS3231 ✓                 └────────── órdenes ◄─────────────────┘
 ```
@@ -123,13 +112,14 @@ SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: integración con la placa (10H)
 - [x] 10G · Aplicación web.
 - [ ] 10H · Integración con la placa:
   - [x] S1–S6 con `firmware/prueba_placa`, U1 + H4 y el canal de corriente sin red (24 nov).
-  - [ ] Publicar la app en Firebase (guía, parte B); tu cuenta, `admins` y el equipo `evse-01`.
+  - [x] Publicar la app en Firebase; tu cuenta en `admins`; equipo `nico-01` (25 nov, D35).
   - [ ] Opcional: dominio `evse.nicolasgomez.dev` y bot de Telegram.
   - [x] Cotejar el enlace, las rutas y las reglas; borrar la flash y subir `firmware/evse_monitor` 1.0.0 (24 nov, D33).
-  - [ ] `wifi` + `enlazar CÓDIGO`; LED3 fijo y «En línea» en la app.
-  - [ ] Desde el celular, sin red: Detener/Permitir con J2 medido, PARAR, sonda caliente, sin internet, configuración, OTA 1.0.0 → 1.0.1.
-  - [ ] CT con corriente real en un solo conductor (cable dúplex separado o separador de línea).
-  - [ ] S7: con transformador de aislamiento, repetir H1-5 y H1-6 apagada; calibración con `cal_auto` y verificación con otra carga (error < 1–2 %).
+  - [x] `wifi` + `enlazar CÓDIGO`; LED3 fijo y «En línea» en la app (25 nov, con el 1.0.1 de D34).
+  - [x] Desde la app: lecturas en vivo, PARAR y Quitar emergencia, Pausar/Reanudar (25 nov).
+  - [ ] OTA 1.0.1 → 1.0.2 (ya cargado en la base) y pruebas de reconexión; sonda caliente; sin internet.
+  - [x] CT con corriente real (bombillo, 25 nov).
+  - [ ] S7: placa en la red por el transformador TJP ✓ (25 nov); falta anotar TP2/TP3/TP5, calibrar con `cal_auto` y verificar con otra carga (error < 1–2 %).
   - [ ] S8: de punta a punta con red; protecciones sin internet; historial completo al volver la red.
   - [ ] Al cerrar la fase: agregar el bloque de software al artifact de referencia (CLAUDE.md, paso 5).
 - [x] 10I · Documentación.
@@ -139,7 +129,8 @@ SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: integración con la placa (10H)
 - La placa 1, la fuente de banco (12 V, 0,2 A en J6), el Keysight 34461A, el cable USB-C de datos y cables dupont.
 - La sonda DS18B20 y el CT. Un cable dúplex (paralelo) o un separador de línea para el CT.
 - El celular con el hotspot y tu cuenta de Google para Firebase. El nombre y la clave del WiFi no van en el repo.
-- Para S7: transformador de aislamiento, regleta con interruptor, carga resistiva de 1–1,5 kW y pinza amperimétrica.
+- Para S7: el transformador TJP 110:110 V (D36), la regleta con interruptor, el bombillo u otra carga resistiva, y una referencia de corriente (pinza o el Keysight en serie).
+- Para mostrar el relé: pila de 9 V, resistencia de 1 kΩ y un LED en J2 (guía, D2).
 
 ## Pendientes fuera de esta fase
 

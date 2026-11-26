@@ -55,6 +55,14 @@ export const ahoraServidor = () => Date.now() + desfase;
 export const alCambiarSesion = (cb) => A.onAuthStateChanged(auth, cb);
 export const entrar = (correo, clave) => A.signInWithEmailAndPassword(auth, correo, clave);
 export const crearCuenta = (correo, clave) => A.createUserWithEmailAndPassword(auth, correo, clave);
+// Google: ventana emergente; «select_account» deja elegir cuenta si el navegador tiene varias.
+export function entrarConGoogle() {
+  const p = new A.GoogleAuthProvider();
+  p.setCustomParameters({ prompt: "select_account" });
+  return A.signInWithPopup(auth, p);
+}
+// ¿La cuenta tiene clave propia? (las que entran solo con Google no la tienen)
+export const tieneClave = () => !!auth.currentUser?.providerData.some((p) => p.providerId === "password");
 export const salir = () => A.signOut(auth);
 export const recuperar = (correo) => A.sendPasswordResetEmail(auth, correo);
 export async function cambiarClave(actual, nueva) {
@@ -69,7 +77,7 @@ export async function perfil(u, nombreNuevo) {
     leer(`mis_equipos/${u.uid}`).catch(() => null),
     leer(`usuarios/${u.uid}`).catch(() => null),
   ]);
-  const nombre = yo?.nombre || nombreNuevo || u.email.split("@")[0];
+  const nombre = yo?.nombre || nombreNuevo || u.displayName || u.email.split("@")[0];
   await set(r(`usuarios/${u.uid}`), { email: u.email, nombre, visto: serverTimestamp() }).catch(() => {});
   let equipos = mios || {};
   if (admin === true) {
@@ -81,7 +89,8 @@ export async function perfil(u, nombreNuevo) {
 export const guardarNombre = (uid, email, nombre) => set(r(`usuarios/${uid}`), { email, nombre, visto: serverTimestamp() });
 
 // ------------------------------------------------------------------ órdenes con confirmación del equipo
-export function orden(eq, o, a, espera = 15000) {
+// al.escrito(): la orden ya quedó en la base (la app lo usa para mostrar el recorrido App → Nube → Placa → K1)
+export function orden(eq, o, a, espera = 15000, al = {}) {
   const uid = auth.currentUser.uid;
   const nueva = push(r(`entrada/${eq}/ordenes`));
   const id = nueva.key;
@@ -101,7 +110,7 @@ export function orden(eq, o, a, espera = 15000) {
     });
     const cuerpo = { o, por: uid, ts: serverTimestamp() };
     if (a && Object.keys(a).length) cuerpo.a = a;
-    Promise.all([set(nueva, cuerpo), set(r(`bitacora/${eq}/${id}`), { o, por: uid, ts: serverTimestamp() }).catch(() => {})]).catch((e) => {
+    Promise.all([set(nueva, cuerpo), set(r(`bitacora/${eq}/${id}`), { o, por: uid, ts: serverTimestamp() }).catch(() => {})]).then(() => al.escrito?.()).catch((e) => {
       clearTimeout(t);
       quitar();
       rechazar(e);

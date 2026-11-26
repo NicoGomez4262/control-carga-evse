@@ -23,7 +23,7 @@ void ayuda() {
   Serial.println("  portal                    reinicia y abre el portal de configuración");
   Serial.println("  permitir | detener        permiso de carga (como desde la app)");
   Serial.println("  reconocer                 reconoce las alarmas");
-  Serial.println("  soltar_parar              libera PARAR (también: mantener PARAR 3 s)");
+  Serial.println("  rearmar                   quita el paro de emergencia de PARAR (= soltar_parar; o PARAR 3 s)");
   Serial.println("  cal                       calibración guardada y registros del ATM90E26");
   Serial.println("  cal_auto V I              calibra Ugain con V voltios e IgainN con I amperios de referencia (0 = no)");
   Serial.println("  cal_fabrica               vuelve a los valores de fábrica del ATM90E26");
@@ -147,7 +147,7 @@ static void ejecutar(String linea) {
   } else if (cmd == "permitir") ordenLocal(O_PERMITIR);
   else if (cmd == "detener") ordenLocal(O_DETENER);
   else if (cmd == "reconocer") ordenLocal(O_RECONOCER);
-  else if (cmd == "soltar_parar") ordenLocal(O_PARAR_SOLTAR);
+  else if (cmd == "rearmar" || cmd == "soltar_parar") ordenLocal(O_PARAR_SOLTAR);
   else if (cmd == "cal") cal();
   else if (cmd == "cal_auto") {
     float v = primero(resto).toFloat();

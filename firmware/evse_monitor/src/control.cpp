@@ -602,6 +602,9 @@ static void publicar(uint32_t ms) {
   s.alarmas = st.alarmas;
   s.sin_reconocer = st.sinReconocer;
   s.uptime_s = ms / 1000;
+  s.btn = st.btnEstable;
+  s.btn_rearma = st.btnEstable && st.btnEraEnclavado && !st.btnLargoHecho;
+  s.btn_ms = st.btnEstable ? ms - st.btnDesde : 0;
   xSemaphoreTake(mtxEstado, portMAX_DELAY);
   snap = s;
   xSemaphoreGive(mtxEstado);

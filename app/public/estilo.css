@@ -84,6 +84,8 @@ code, pre { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; fon
 /* ------------------------------------------------------------------ estructura */
 .tablero { min-height: 100dvh; }
 .vista {
+  /* width: 100% hace falta: en la cuadrícula del tablero, margin auto sin ancho encoge la vista a su contenido */
+  width: 100%;
   max-width: 1240px;
   margin: 0 auto;
   padding: calc(14px + env(safe-area-inset-top)) 14px calc(96px + env(safe-area-inset-bottom));
@@ -134,6 +136,8 @@ code, pre { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; fon
   .mando a[aria-current="page"] { background: var(--modulo); box-shadow: var(--sombra); }
   .mando a .alerta { position: static; margin-left: auto; }
   .vista { padding: 28px 32px 48px; }
+  /* sin el mando (entrada y arranque) la vista ocupa todo el ancho, no la columna de 248 px del mando */
+  .mando[hidden] + .vista { grid-column: 1 / -1; }
 }
 
 /* placa de marca */
@@ -177,9 +181,21 @@ code, pre { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; fon
   content: ""; position: absolute; top: -7px; left: 50%; width: 34px; height: 6px; margin-left: -17px;
   border-radius: 3px 3px 0 0; background: var(--modulo); border: 1px solid var(--costura); border-bottom: 0;
 }
+/* reparto: 4 columnas en el celular (--m), 8 en tablet y PC chico (--t, por defecto la fila entera) y 12 desde 1280 px (--d).
+   Entre 980 y 1279 px el menú lateral se come 248 px y quedan ~730–1000 px: ahí 12 columnas aprietan, así que se usan 8. */
 @media (min-width: 980px) {
   .riel { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; margin-bottom: 24px; }
   .mod { grid-column: span var(--d, var(--m, 4)); padding: 16px 20px 20px; }
+}
+@media (min-width: 640px) and (max-width: 1279.98px) {
+  .riel { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 12px; }
+  .mod { grid-column: span var(--t, 8); }
+}
+@media (min-width: 640px) and (max-width: 979.98px) { .vista { padding-left: 22px; padding-right: 22px; } }
+/* pantallas grandes: la vista crece en vez de dejar franjas vacías a los lados */
+@media (min-width: 1440px) {
+  .vista { max-width: 1640px; padding-left: 40px; padding-right: 40px; }
+  .riel { gap: 18px; }
 }
 .mod-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; min-height: 24px; }
 .mod-cab .rotulo + h2, .mod-cab h2 { flex: 1; font-size: 1rem; }
@@ -254,45 +270,8 @@ code, pre { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; fon
 .potencia { text-align: center; margin-top: -26px; position: relative; }
 .potencia .estado-txt { margin-top: 8px; font-weight: 600; }
 
-/* ------------------------------------------------------------------ selector giratorio K1 */
-.selector { display: grid; justify-items: center; gap: 12px; padding: 4px 0 2px; }
-.perilla-marco { position: relative; width: 156px; height: 156px; }
-.anillo { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.anillo .pista { fill: none; stroke: var(--placa); stroke-width: 6; }
-.anillo .luz { fill: none; stroke: var(--apagado); stroke-width: 6; stroke-linecap: round; transition: stroke 0.35s, filter 0.35s; }
-.selector:not(.en-per) .luz.det { stroke: var(--tinta-3); }
-.selector.en-per .luz.per { stroke: var(--ambar); filter: drop-shadow(0 0 5px color-mix(in oklab, var(--ambar) 60%, transparent)); }
-.selector.en-per.k1-on .luz.per { stroke: var(--verde); filter: drop-shadow(0 0 6px color-mix(in oklab, var(--verde) 65%, transparent)); }
-.anillo .espera { fill: none; stroke: var(--azul); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 40 300; opacity: 0; transform-origin: 60px 60px; }
-.selector.esperando .espera { opacity: 1; animation: gira 0.9s linear infinite; }
 @keyframes gira { to { transform: rotate(360deg); } }
-.perilla {
-  position: absolute; inset: 22px; border-radius: 50%; border: 0; cursor: pointer; padding: 0;
-  background: radial-gradient(circle at 50% 35%, color-mix(in oklab, var(--modulo) 92%, #fff), var(--modulo-2) 70%);
-  box-shadow: 0 0 0 1px var(--costura), 0 10px 18px -8px rgba(0, 0, 0, 0.45), inset 0 1px 0 var(--brillo), inset 0 -3px 6px rgba(0, 0, 0, 0.08);
-  transform: rotate(-42deg); transition: transform 0.6s var(--resorte);
-}
-.selector.en-per .perilla { transform: rotate(42deg); }
-.perilla .agarre {
-  position: absolute; left: 50%; top: 8px; bottom: 8px; width: 22px; margin-left: -11px; border-radius: 11px;
-  background: linear-gradient(180deg, var(--tinta), color-mix(in oklab, var(--tinta) 70%, var(--modulo)));
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-.perilla .agarre::before { content: ""; position: absolute; top: 7px; left: 50%; width: 4px; height: 18px; margin-left: -2px; border-radius: 2px; background: var(--modulo); opacity: 0.9; }
-.perilla:active { filter: brightness(0.97); }
-.selector.bloqueado .perilla { cursor: not-allowed; opacity: 0.65; }
-.posiciones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; max-width: 300px; }
-.pos {
-  height: 44px; border-radius: 10px; border: 1px solid var(--costura); background: var(--vidrio); color: var(--tinta-2); cursor: pointer;
-  font: 700 12.5px/1 var(--f-rotulo); letter-spacing: 0.1em; text-transform: uppercase; transition: background 0.25s, color 0.25s, transform 0.12s;
-}
-.pos:active { transform: translateY(1px); }
-.selector:not(.en-per) .pos.det { background: var(--tinta); color: var(--modulo); border-color: var(--tinta); }
-.selector.en-per .pos.per { background: var(--verde-boton); color: var(--sobre-verde); border-color: transparent; }
-.selector.en-per:not(.k1-on) .pos.per { background: var(--ambar); color: #1d1300; }
-.pos:disabled { cursor: default; }
-.selector.no-cuadra .perilla { animation: no-cuadra 0.45s var(--sale); }
-@keyframes no-cuadra { 20% { translate: -6px 0; } 40% { translate: 5px 0; } 60% { translate: -3px 0; } 80% { translate: 2px 0; } }
+
 .k1-estado { text-align: center; color: var(--tinta-2); margin-top: 10px; min-height: 2.9em; text-wrap: balance; }
 .k1-estado b { color: var(--tinta); }
 .acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -306,6 +285,11 @@ code, pre { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; fon
 .termo[data-nivel="nada"]::before { transform: scaleX(0); }
 .termo::after { content: ""; position: absolute; top: -4px; bottom: -4px; left: calc(var(--corte) * 100%); width: 2px; margin-left: -1px; background: var(--rojo); border-radius: 1px; }
 .rodillos { display: inline-flex; gap: 3px; font: 600 1.7rem/1 var(--f-ui); }
+/* el registro encoge con su módulo (8 ruedas ≈ 7,2 em) para no salirse en anchos intermedios */
+.mod:has(.rodillos) { container-type: inline-size; }
+.total-energia { display: grid; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--costura); }
+.total-energia > small { font: 600 10.5px/1.2 var(--f-rotulo); letter-spacing: 0.08em; text-transform: uppercase; }
+@container (max-width: 260px) { .rodillos { font-size: max(0.95rem, 10.5cqi); gap: 2px; } }
 .rodillos .rueda { display: inline-block; height: 1.25em; width: 0.86em; overflow: hidden; border-radius: 6px; background: var(--vidrio); box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.14), inset 0 -3px 5px rgba(0, 0, 0, 0.1); text-align: center; }
 .rodillos .rueda.dec { background: color-mix(in oklab, var(--rojo) 16%, var(--vidrio)); }
 .rodillos .tira { display: flex; flex-direction: column; padding-top: 0.125em; transition: transform 0.9s var(--resorte); }
@@ -313,7 +297,12 @@ code, pre { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; fon
 .rodillos .coma { align-self: flex-end; padding-bottom: 0.1em; color: var(--tinta-3); }
 
 /* ------------------------------------------------------------------ anunciador de alarmas */
-.anunciador { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.anunciador { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
+/* panel: las ventanas del anunciador ocupan el ancho y «Reconocer» queda en la misma fila (abajo en el celular) */
+.anun-fila { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
+.anun-fila .anunciador { flex: 1 1 260px; }
+.anun-fila .acciones { flex: 0 0 auto; margin: 0; display: flex; align-items: center; }
+.anun-fila .acciones:empty { display: none; }
 .ventana {
   display: grid; place-items: center; min-height: 58px; padding: 8px 6px; border-radius: 9px; text-align: center;
   background: var(--vidrio); color: var(--tinta-3); box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -431,6 +420,19 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--verde); width:
 /* ------------------------------------------------------------------ entrada (placa de características) */
 .puerta { min-height: calc(100dvh - 60px); display: grid; place-items: center; padding: 16px 0; }
 .placa-datos { width: 100%; max-width: 420px; }
+.placa-datos .mod { grid-column: 1 / -1; }
+.pasos { list-style: none; counter-reset: paso; display: grid; gap: 12px; margin: 4px 0 0; padding: 0; }
+.pasos li { counter-increment: paso; display: grid; grid-template-columns: 34px 1fr; column-gap: 12px; align-items: start; align-content: start; }
+.pasos li::before {
+  content: counter(paso); grid-row: span 2; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px;
+  background: var(--placa); box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.08); font: 700 15px/1 var(--f-rotulo); color: var(--verde-t);
+}
+.pasos li b { padding-top: 2px; }
+.pasos li span { color: var(--tinta-2); font-size: 0.92rem; }
+@media (min-width: 1200px) { .pasos { grid-template-columns: 1fr 1fr; gap: 16px 24px; } }
+.separador { display: flex; align-items: center; gap: 10px; margin: 14px 0; color: var(--tinta-3); font: 600 10.5px/1 var(--f-rotulo); letter-spacing: 0.08em; text-transform: uppercase; }
+.separador::before, .separador::after { content: ""; flex: 1; height: 1px; background: var(--costura); }
+.g-logo { width: 22px; height: 22px; padding: 3px; border-radius: 50%; background: #fff; stroke: none; }
 .placa-datos .marca-nombre { font-size: 2rem; }
 .placa-datos .marca-nombre .ico { width: 28px; height: 28px; }
 .datos-nominales { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 16px 0 18px; padding: 12px 14px; border-radius: 12px; background: var(--vidrio); box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08); font-size: 0.86rem; }
@@ -474,3 +476,125 @@ dialog .acciones { justify-content: flex-end; margin-top: 18px; }
   .ventana.sin-rec { outline: 3px solid var(--rojo); outline-offset: -3px; }
   ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }
+
+/* ------------------------------------------------------------------ módulo de carga (K1): estado en palabras + un botón */
+.mod-carga { display: flex; flex-direction: column; }
+.carga-estado {
+  display: grid; grid-template-columns: 46px 1fr; gap: 12px; align-items: start; padding: 14px; border-radius: 14px;
+  background: var(--vidrio); border: 1px solid var(--costura); box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: background 0.3s, border-color 0.3s;
+}
+.ce-icono { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: var(--placa); color: var(--tinta-2); transition: background 0.3s, color 0.3s; }
+.ce-icono .ico { width: 26px; height: 26px; stroke-width: 2; }
+.ce-texto h3 { font-size: 1.18rem; line-height: 1.2; }
+.ce-texto p { margin: 5px 0 0; color: var(--tinta-2); font-size: 0.9rem; line-height: 1.4; }
+.carga-estado[data-tono="verde"] { background: color-mix(in oklab, var(--verde) 12%, var(--vidrio)); border-color: color-mix(in oklab, var(--verde) 45%, var(--costura)); }
+.carga-estado[data-tono="verde"] .ce-icono { background: var(--verde); color: var(--sobre-verde); }
+.carga-estado[data-tono="ambar"] { background: color-mix(in oklab, var(--ambar) 12%, var(--vidrio)); border-color: color-mix(in oklab, var(--ambar) 45%, var(--costura)); }
+.carga-estado[data-tono="ambar"] .ce-icono { background: var(--ambar); color: #241600; }
+.carga-estado[data-tono="rojo"] { background: color-mix(in oklab, var(--rojo) 14%, var(--vidrio)); border-color: color-mix(in oklab, var(--rojo) 55%, var(--costura)); }
+.carga-estado[data-tono="rojo"] .ce-icono { background: var(--rojo); color: var(--sobre-rojo); }
+.carga-estado[data-tono="rojo"] h3 { color: var(--rojo-t); }
+.parar-vivo { display: grid; gap: 6px; margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--rojo); background: color-mix(in oklab, var(--rojo) 16%, var(--vidrio)); }
+.pv-cab { display: flex; align-items: center; gap: 8px; }
+.pv-barra { height: 8px; border-radius: 4px; background: var(--placa); overflow: hidden; }
+.pv-barra i { display: block; height: 100%; width: 0; border-radius: 4px; background: var(--rojo); }
+.boton.grande { min-height: 58px; margin-top: 14px; font-size: 16px; border-radius: 14px; }
+.boton.grande .ico { width: 22px; height: 22px; }
+.boton.grande.sec { background: var(--placa); }
+.c-nota { margin: auto 0 0; padding-top: 12px; font-size: 0.82rem; color: var(--tinta-3); }
+@media (prefers-reduced-motion: no-preference) {
+  .carga-estado[data-tono="rojo"] .ce-icono { animation: alerta-ico 1.6s ease-in-out infinite; }
+}
+@keyframes alerta-ico { 50% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--rojo) 25%, transparent); } }
+
+/* ------------------------------------------------------------------ fondo vivo: resplandor que respira desde el centro (las partículas y pulsos van en fondo.js) */
+.fondo-vivo { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+body::before {
+  content: ""; position: fixed; inset: -12%; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(40% 36% at 50% 46%, color-mix(in oklab, var(--verde) 11%, transparent), transparent 72%),
+    radial-gradient(30% 28% at 64% 60%, color-mix(in oklab, var(--azul) 9%, transparent), transparent 72%),
+    radial-gradient(26% 24% at 36% 34%, color-mix(in oklab, var(--verde) 6%, transparent), transparent 72%);
+}
+@media (prefers-reduced-motion: no-preference) { body::before { animation: fondo-respira 18s ease-in-out infinite alternate; } }
+@keyframes fondo-respira {
+  0% { opacity: 0.55; transform: scale(1) translate(0, 0); }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; transform: scale(1.08) translate(1.5%, -1%); }
+}
+
+/* ------------------------------------------------------------------ latido del enlace: destella con cada dato de la placa */
+.piloto.late { animation: late 0.7s ease-out; }
+@keyframes late { 30% { filter: brightness(2.1); box-shadow: 0 0 0 2px var(--placa), 0 0 0 3px var(--costura), 0 0 16px 5px color-mix(in oklab, var(--c) 65%, transparent); } }
+
+/* ------------------------------------------------------------------ módulos: se iluminan apenas al pasar el mouse (solo con mouse) */
+@media (hover: hover) and (pointer: fine) {
+  .mod { transition: border-color 0.3s, box-shadow 0.3s; }
+  .mod:hover { border-color: color-mix(in oklab, var(--verde) 28%, var(--costura)); box-shadow: inset 0 1px 0 var(--brillo), var(--sombra), 0 0 22px -10px color-mix(in oklab, var(--verde) 45%, transparent); }
+}
+
+/* ------------------------------------------------------------------ pulsador de carga (como un botón de tablero): rojo pausa, verde reanuda */
+.pulsador-zona { display: grid; justify-items: center; gap: 10px; margin: 20px 0 2px; }
+.pulsador {
+  --cara-a: #ff8a7f; --cara-b: #d8372c; --cara-c: #8a1a13;
+  position: relative; width: 136px; height: 136px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+  background: radial-gradient(circle at 50% 40%, var(--placa), color-mix(in oklab, var(--placa) 70%, #000));
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--costura), 0 16px 30px -16px rgba(0, 0, 0, 0.7);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.pulsador[data-tono="verde"] { --cara-a: #6ff0a8; --cara-b: #14a95a; --cara-c: #0a5f2f; }
+.pulsador[data-tono="alerta"] { --cara-a: #ffd98a; --cara-b: #e39418; --cara-c: #7d4805; }
+.pz-cara {
+  position: absolute; inset: 13px; border-radius: 50%; display: grid; place-content: center; justify-items: center; gap: 5px;
+  background: radial-gradient(circle at 36% 28%, var(--cara-a) 0%, var(--cara-b) 52%, var(--cara-c) 100%);
+  color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 -7px 12px rgba(0, 0, 0, 0.3), inset 0 5px 9px rgba(255, 255, 255, 0.35), 0 6px 0 var(--cara-c), 0 12px 20px -6px rgba(0, 0, 0, 0.55);
+  transform: translateY(-5px); transition: transform 0.12s var(--sale), box-shadow 0.12s, filter 0.25s;
+}
+.pz-ico .ico { width: 32px; height: 32px; stroke-width: 2.5; }
+.pz-txt { font: 700 12px/1.1 var(--f-rotulo); letter-spacing: 0.1em; text-transform: uppercase; max-width: 86px; text-align: center; }
+.pulsador:hover .pz-cara { filter: brightness(1.08); }
+.pulsador:active .pz-cara { transform: translateY(0); box-shadow: inset 0 -3px 8px rgba(0, 0, 0, 0.32), inset 0 4px 8px rgba(255, 255, 255, 0.25), 0 1px 0 var(--cara-c), 0 4px 10px -4px rgba(0, 0, 0, 0.5); }
+.pulsador:focus-visible { outline: 3px solid var(--azul); outline-offset: 5px; }
+.pz-halo { position: absolute; inset: 8px; border-radius: 50%; border: 2px solid var(--cara-b); opacity: 0; pointer-events: none; }
+.pz-espera { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+.pz-espera circle { fill: none; stroke: var(--azul); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 90 330; }
+@media (prefers-reduced-motion: no-preference) {
+  .pz-halo { animation: pz-halo 2.6s cubic-bezier(0.2, 0.7, 0.3, 1) infinite; }
+  .pz-halo.h2 { animation-delay: 1.3s; }
+  .pulsador.enviando .pz-espera { animation: gira 0.9s linear infinite; }
+  .pulsador.confirmado .pz-halo { animation: pz-ok 0.9s ease-out 1; }
+  .pulsador.error { animation: sacude 0.45s var(--sale); }
+}
+.pulsador.enviando .pz-espera { opacity: 1; }
+.pulsador.enviando .pz-cara { filter: saturate(0.55) brightness(0.9); transform: translateY(-1px); }
+.pulsador.enviando .pz-halo { animation: none; opacity: 0; }
+@keyframes pz-halo { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(1.45); opacity: 0; } }
+@keyframes pz-ok { 0% { transform: scale(1); opacity: 0.95; border-width: 7px; } 100% { transform: scale(1.75); opacity: 0; border-width: 1px; } }
+@keyframes sacude { 20% { translate: -6px 0; } 40% { translate: 5px 0; } 60% { translate: -3px 0; } 80% { translate: 2px 0; } }
+.pz-ayuda { max-width: 300px; color: var(--tinta-3); font-size: 0.8rem; text-align: center; }
+
+/* ------------------------------------------------------------------ recorrido de la orden: App → Nube → Placa → K1 */
+.camino { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); margin: 16px 0 0; padding: 0; list-style: none; }
+.camino::before { content: ""; position: absolute; top: 9px; left: 12.5%; right: 12.5%; height: 2px; border-radius: 1px; background: var(--costura); }
+.camino li { position: relative; display: grid; justify-items: center; gap: 6px; color: var(--tinta-3); font: 600 10.5px/1.2 var(--f-rotulo); letter-spacing: 0.06em; text-align: center; text-transform: uppercase; transition: color 0.25s; }
+.camino li:not(:first-child)::before {
+  content: ""; position: absolute; top: 9px; right: 50%; width: 100%; height: 2px; border-radius: 1px;
+  background: var(--verde); transform: scaleX(0); transform-origin: left; transition: transform 0.35s var(--sale), background 0.2s;
+}
+.camino li.va:not(:first-child)::before { background: var(--azul); transform: scaleX(0.55); }
+.camino li.ok:not(:first-child)::before { transform: scaleX(1); }
+.camino li.mal:not(:first-child)::before { background: var(--rojo); transform: scaleX(1); }
+.camino li i { position: relative; z-index: 1; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--costura); background: var(--placa); transition: background 0.25s, border-color 0.25s, box-shadow 0.25s; }
+.camino li.va i { border-color: var(--azul); background: color-mix(in oklab, var(--azul) 30%, var(--placa)); }
+.camino li.ok i { border-color: var(--verde); background: var(--verde); box-shadow: 0 0 12px 2px color-mix(in oklab, var(--verde) 50%, transparent); }
+.camino li.mal i { border-color: var(--rojo); background: var(--rojo); }
+.camino li.ok, .camino li.va { color: var(--tinta); }
+.camino.k1-on li[data-p="k1"]:not(.va):not(.mal):not(.ok) i { border-color: var(--verde); background: color-mix(in oklab, var(--verde) 35%, var(--placa)); }
+@media (prefers-reduced-motion: no-preference) { .camino li.va i { animation: respira-azul 0.9s ease-in-out infinite; } }
+@keyframes respira-azul { 50% { box-shadow: 0 0 0 5px color-mix(in oklab, var(--azul) 25%, transparent); } }
+.c-resultado { min-height: 2.6em; margin: 10px 0 0; color: var(--tinta-2); font-size: 0.86rem; text-align: center; }
+.c-resultado.ok { color: var(--verde-t); }
+.c-resultado.va { color: var(--azul); }
+.c-resultado.mal { color: var(--rojo-t); }

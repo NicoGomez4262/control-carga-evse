@@ -2,7 +2,7 @@
 #pragma once
 #include <Arduino.h>
 
-#define FW_VERSION "1.0.0"
+#define FW_VERSION "1.0.2"
 #define FW_NOMBRE "evse_monitor"
 
 // ---------------------------------------------------------------- pines (mapa de F4, docs/DECISIONES.md)

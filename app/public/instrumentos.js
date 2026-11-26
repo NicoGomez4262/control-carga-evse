@@ -27,6 +27,9 @@ const P = {
   x: "M6 6l12 12M18 6L6 18",
   reloj: "M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z",
   termo: "M10 14V5a2 2 0 0 1 4 0v9a4 4 0 1 1-4 0z",
+  pausa: "M9 6v12M15 6v12",
+  play: "M8 5l11 7-11 7z",
+  alto: "M8.5 3h7L21 8.5v7L15.5 21h-7L3 15.5v-7zM12 8v5M12 16.5v.01",
   telegram: "M21 4L3 11l6 2 2 6 3-4 5 4 2-15zM9 13l9-6",
 };
 export function icono(n, clase = "") {

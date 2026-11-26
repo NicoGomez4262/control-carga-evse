@@ -3,7 +3,8 @@
 
 import * as fb from "./fb.js";
 import { Grafica } from "./grafica.js";
-import { encender, icono, Medidor, mimico, numero, pintarMimico, pintarSelector, rodillos, selector, termometro } from "./instrumentos.js";
+import { encender, icono, Medidor, mimico, numero, pintarMimico, rodillos, termometro } from "./instrumentos.js";
+import "./fondo.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -46,7 +47,7 @@ const ALARMAS = {
   sonda_falla: ["Sonda sin respuesta", "La sonda DS18B20 no responde"],
   medidor_falla: ["Falla medidor", "Falla del medidor ATM90E26"],
   red_baja: ["Red baja", "Tensión de red baja"],
-  parar: ["PARAR", "Se pulsó PARAR"],
+  parar: ["Emergencia", "Pausa de emergencia: se oprimió PARAR y la carga sigue pausada hasta reactivarla"],
   amb_falla: ["Sensor placa", "El sensor de ambiente no responde"],
   sin_hora: ["Sin hora", "Sin hora (sin NTP ni RTC)"],
   reinicio: ["Reinicio", "Reinicio inesperado (brownout o watchdog)"],
@@ -55,18 +56,18 @@ const ALARMAS = {
 };
 const GRAVES = new Set(["temp_sonda", "temp_amb", "sonda_falla", "medidor_falla", "red_baja", "parar", "reinicio"]);
 const MOTIVOS = {
-  falla: ["rojo", "Detenida por falla", "El medidor o la sonda fallan. Mira el anunciador."],
-  temperatura: ["rojo", "Detenida por temperatura", "Vuelve sola 5 min después de enfriarse por debajo de la histéresis."],
-  parar: ["rojo", "PARAR pulsado", "Se libera manteniendo PARAR 3 s en la placa o con «Soltar PARAR»."],
-  red: ["rojo", "Tensión de red baja", "Vuelve sola cuando la red se normaliza durante 1 min."],
-  limite: ["ambar", "Límite de la sesión", "Se alcanzó el límite. «Nueva sesión» empieza otra."],
-  horario: ["ambar", "Fuera del horario", "Vuelve sola al entrar en una franja de carga."],
-  app: ["ambar", "Detenida desde la app", "Gira el selector a Permitir para cargar."],
-  arranque: ["ambar", "Arrancando", "El equipo acaba de encender: verifica 10 s o espera tu permiso."],
+  falla: ["rojo", "Pausada por una falla", "El medidor o la sonda no responden. Mira las alarmas."],
+  temperatura: ["rojo", "Pausada por temperatura alta", "La sonda o la placa pasaron el límite. Vuelve sola 5 min después de enfriarse."],
+  parar: ["rojo", "Carga pausada por emergencia", "Alguien oprimió el botón PARAR del equipo. Por seguridad sigue pausada, aunque se vaya la luz, hasta que la reactives aquí o sosteniendo PARAR 3 s."],
+  red: ["rojo", "Pausada por tensión baja", "La red está por debajo del mínimo. Vuelve sola cuando se normaliza durante 1 min."],
+  limite: ["ambar", "Límite de la sesión alcanzado", "Se llegó al tope de energía, tiempo o costo que configuraste."],
+  horario: ["ambar", "Fuera del horario de carga", "Se reanuda sola en la siguiente franja permitida."],
+  app: ["gris", "Carga pausada", "La pausaste desde la app. Toca «Reanudar» cuando quieras cargar."],
+  arranque: ["ambar", "Arrancando", "El equipo acaba de encender y revisa todo antes de cargar (unos 10 s)."],
 };
 const RESETS = { encendido: "encendido", pin_en: "botón EN", software: "software", panic: "excepción", wdt_int: "watchdog", wdt_tarea: "watchdog de tareas", wdt: "watchdog", brownout: "brownout" };
 const FIN = { sin_corriente: "terminó la carga", limite: "límite", otro: "otro" };
-const ORDENES = { permitir: "Permitió la carga", detener: "Detuvo la carga", reconocer: "Reconoció las alarmas", soltar_parar: "Soltó PARAR", reiniciar: "Reinició el equipo", estado: "Pidió el estado", cal_leer: "Leyó la calibración", cal_auto: "Calibró el medidor", cal_escribir: "Escribió la calibración", cal_fabrica: "Volvió a la calibración de fábrica", telegram_probar: "Probó Telegram" };
+const ORDENES = { permitir: "Permitió la carga", detener: "Detuvo la carga", reconocer: "Reconoció las alarmas", soltar_parar: "Quitó la pausa de emergencia", reiniciar: "Reinició el equipo", estado: "Pidió el estado", cal_leer: "Leyó la calibración", cal_auto: "Calibró el medidor", cal_escribir: "Escribió la calibración", cal_fabrica: "Volvió a la calibración de fábrica", telegram_probar: "Probó Telegram" };
 const DIAS = ["D", "L", "M", "M", "J", "V", "S"];
 const NOMBRE_DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
@@ -85,7 +86,7 @@ function textoEvento(e) {
     case "limite": return ["ambar", `Límite de la sesión: ${["", "energía", "tiempo", "costo"][Number(e.val)] || ""}`];
     case "config": return ["", `Configuración v${fmt(e.val, 0)} aplicada en el equipo`];
     case "calibracion": return ["ambar", "Calibración del medidor cambiada"];
-    case "orden_local": return ["", ["", "PARAR pulsado en la placa", "PARAR liberado en la placa", "PARAR liberado desde la app"][Number(e.val)] || "Orden local"];
+    case "orden_local": return ["", ["", "Pausa de emergencia: se oprimió PARAR en el equipo", "Emergencia quitada en el equipo (PARAR 3 s)", "Emergencia quitada desde la app"][Number(e.val)] || "Orden local"];
     case "hora": return ["", "Hora puesta por NTP y copiada al DS3231"];
     case "ota": return [Number(e.val) ? "verde" : "rojo", Number(e.val) ? "Firmware actualizado" : "Volvió al firmware anterior"];
     default: return ["", e.c];
@@ -104,7 +105,8 @@ function notif(msg, tipo = "verde") {
   clearTimeout(tNotif);
   tNotif = setTimeout(() => (n.hidden = true), tipo === "rojo" ? 6500 : 3800);
 }
-const fallo = (e) => notif(traducir(e), "rojo");
+// Cerrar la ventana de Google no es un error que valga la pena mostrar.
+const fallo = (e) => (["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(e?.code) ? null : notif(traducir(e), "rojo"));
 
 function traducir(e) {
   const c = e?.code || "";
@@ -117,7 +119,10 @@ function traducir(e) {
     "auth/too-many-requests": "Demasiados intentos. Espera unos minutos.",
     "auth/network-request-failed": "Sin conexión a internet.",
     "auth/requires-recent-login": "Vuelve a entrar para hacer esto.",
-    "auth/operation-not-allowed": "Activa «Correo y contraseña» en Firebase Authentication.",
+    "auth/operation-not-allowed": "Ese método de entrada no está activado en Firebase Authentication.",
+    "auth/popup-blocked": "El navegador bloqueó la ventana de Google: permítela y vuelve a intentar.",
+    "auth/unauthorized-domain": "Este dominio no está autorizado en Firebase Authentication.",
+    "auth/account-exists-with-different-credential": "Ya hay una cuenta con ese correo: entra con correo y clave.",
     PERMISSION_DENIED: "No tienes permiso para esto.",
   };
   return m[c] || (String(e?.message || e).includes("permission_denied") ? m.PERMISSION_DENIED : e?.message || String(e));
@@ -263,6 +268,9 @@ async function navegar() {
 window.addEventListener("hashchange", navegar);
 
 // ------------------------------------------------------------------ entrada
+// Logo de Google (los cuatro colores de su guía de marca para el botón «Sign in with Google»).
+const G_LOGO = `<svg class="ico g-logo" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>`;
+
 async function vEntrar() {
   let modo = "entrar";
   const dibujar = () => {
@@ -276,6 +284,8 @@ async function vEntrar() {
         <dt>Mando</dt><dd>K1 AQY214EHAX (NA) en J2 del EVSE</dd>
         <dt>Control</dt><dd>ESP32-S3 · protecciones sin internet</dd>
       </dl>
+      <button class="boton ancho verde" id="google" type="button">${G_LOGO}Entrar con Google</button>
+      <div class="separador"><span>o con correo y clave</span></div>
       <div class="pestanas rango" role="tablist">
         <button type="button" data-m="entrar" aria-pressed="${modo === "entrar"}">Entrar</button>
         <button type="button" data-m="crear" aria-pressed="${modo === "crear"}">Crear cuenta</button>
@@ -284,7 +294,7 @@ async function vEntrar() {
         ${modo === "crear" ? `<label class="campo"><span>Tu nombre</span><input name="nombre" autocomplete="name" required maxlength="60"></label>` : ""}
         <label class="campo"><span>Correo</span><input name="correo" type="email" autocomplete="email" required></label>
         <label class="campo"><span>Clave</span><input name="clave" type="password" autocomplete="${modo === "crear" ? "new-password" : "current-password"}" minlength="${modo === "crear" ? 8 : 1}" required></label>
-        <button class="boton ancho verde">${modo === "crear" ? "Crear la cuenta" : "Entrar"}</button>
+        <button class="boton ancho sec">${modo === "crear" ? "Crear la cuenta" : "Entrar"}</button>
       </form>
       <div class="pie-enlaces">
         ${modo === "entrar" ? `<button class="enlace-boton" id="olvide" type="button">Olvidé mi clave</button>` : `<span class="suave">Después, quien administra te da acceso a un equipo.</span>`}
@@ -292,6 +302,7 @@ async function vEntrar() {
       </div>
       <div class="pilotos-fila" aria-hidden="true"><span class="piloto verde"></span><span class="piloto ambar"></span><span class="piloto rojo"></span><small>Rev 1.0 · firmware evse_monitor</small></div>
     </article></div></div>`;
+    $("#google").onclick = (e) => conBoton(e.currentTarget, () => fb.entrarConGoogle());
     for (const b of $$(".pestanas button")) b.onclick = () => ((modo = b.dataset.m), dibujar());
     $("#f-entrar").onsubmit = (e) => {
       e.preventDefault();
@@ -329,8 +340,8 @@ async function vInicio() {
     vista.innerHTML = `
     <header class="cabecera"><div class="titulo"><h1>Hola, ${esc(app.u.nombre)}</h1><div class="enlace-estado">Todavía no tienes equipos en tu tablero.</div></div></header>
     <div class="riel">
-      ${app.u.admin ? htmlAgregar() : `
-      <article class="mod" style="--d:7"><div class="mod-cab"><span class="rotulo"><b>?</b> Acceso</span></div>
+      ${app.u.admin ? htmlPasos() + htmlAgregar(5) : `
+      <article class="mod" style="--d:12"><div class="mod-cab"><span class="rotulo"><b>?</b> Acceso</span></div>
         <h2>Pídele acceso a quien administra el equipo</h2>
         <p>Dile tu correo, <b>${esc(app.u.email)}</b>. Cuando te dé permiso, el equipo aparece aquí solo.</p>
         <details><summary>¿Eres tú quien administra?</summary>
@@ -346,12 +357,12 @@ async function vInicio() {
   vista.innerHTML = `
     <header class="cabecera"><div class="titulo"><h1>Tus equipos</h1><div class="enlace-estado">${ids.length} en el tablero</div></div></header>
     <div class="riel">${ids.map((k) => `
-      <a class="mod tarjeta-equipo" href="#/e/${k}" style="--m:4;--d:4;text-decoration:none;color:inherit" data-id="${k}">
+      <a class="mod tarjeta-equipo" href="#/e/${k}" style="--m:4;--t:4;--d:4;text-decoration:none;color:inherit" data-id="${k}">
         <div class="mod-cab"><span class="rotulo"><b>${esc(k)}</b></span><span class="piloto"></span></div>
         <h2 class="nombre">${esc(app.nombres?.[k] || k)}</h2>
         <p class="lectura l-l pot">—</p><p class="dato-pie txt">Sin datos todavía</p>
       </a>`).join("")}
-      ${app.u.admin ? htmlAgregar() : ""}
+      ${app.u.admin ? htmlAgregar(4) : ""}
     </div>`;
   enlazarAgregar();
   for (const k of ids) {
@@ -370,8 +381,17 @@ async function vInicio() {
   encender(vista);
 }
 
-function htmlAgregar() {
-  return `<article class="mod" style="--m:4;--d:5"><div class="mod-cab"><span class="rotulo">${icono("mas")}Nuevo equipo</span></div>
+function htmlPasos() {
+  return `<article class="mod" style="--d:7"><div class="mod-cab"><span class="rotulo"><b>1·2·3</b> Primeros pasos</span></div>
+    <ol class="pasos">
+      <li><b>Agrega el equipo</b><span>Un id corto (por ejemplo <code>evse-01</code>), un nombre y la red donde va a quedar.</span></li>
+      <li><b>Copia el código de enlace</b><span>Sale en <b>Ajustes → Enlace del equipo</b> (empieza por <code>EVSE1.</code>) y es lo único que necesita la placa.</span></li>
+      <li><b>Enlaza la placa</b><span>Por USB, en la consola: <code>wifi "RED" CLAVE</code>, <code>enlazar CÓDIGO</code> y <code>reiniciar</code>. Sin computador: PARAR 5 s al encender abre el portal <b>EVSE-XXXX</b>.</span></li>
+      <li><b>Listo</b><span>LED3 queda fijo y el panel dice «En línea»: ya puedes permitir o detener la carga desde aquí.</span></li>
+    </ol></article>`;
+}
+function htmlAgregar(d = 5) {
+  return `<article class="mod" style="--t:${d === 4 ? 4 : 8};--d:${d}"><div class="mod-cab"><span class="rotulo">${icono("mas")}Nuevo equipo</span></div>
     <form class="formulario" id="f-agregar">
       <div class="campos">
         <label class="campo"><span>Id</span><input name="id" required pattern="[a-z0-9][a-z0-9_\\-]{1,23}" placeholder="evse-01" autocapitalize="off"></label>
@@ -397,6 +417,26 @@ function enlazarAgregar() {
 }
 
 // ------------------------------------------------------------------ panel
+// Botón principal del módulo de carga según la acción que toca.
+const ACCION_CARGA = {
+  detener: { txt: "Pausar", ico: "pausa", tono: "rojo", ayuda: "Toca para pausar la carga: la placa abre K1 y el EVSE deja de cargar." },
+  permitir: { txt: "Reanudar", ico: "play", tono: "verde", ayuda: "Toca para reanudar la carga: la placa cierra K1 y el EVSE vuelve a cargar." },
+  soltar_parar: { txt: "Quitar emergencia", ico: "alto", tono: "alerta", ayuda: "Toca para quitar la pausa de emergencia del botón PARAR." },
+};
+// Qué le pasa a la carga, dicho para cualquier usuario: tono, ícono, título, detalle y la acción del botón.
+function estadoCarga(est, on) {
+  const e = est || {};
+  if (!est) return { tono: "gris", ico: "reloj", titulo: "Esperando al equipo", detalle: "Cuando el equipo se conecte, aquí verás si está cargando." };
+  if (!on) return { tono: "gris", ico: "x", titulo: "Sin conexión con el equipo", detalle: "No llegan datos. Sus protecciones (PARAR y temperatura) siguen funcionando solas." };
+  if (e.k1 && corriendo(e)) return { tono: "verde", ico: "rayo", titulo: "Cargando", detalle: "El vehículo está recibiendo energía.", accion: "detener" };
+  if (e.k1) return { tono: "verde", ico: "check", titulo: "Lista para cargar", detalle: "El cargador tiene permiso. El vehículo no está tomando energía: puede estar lleno o desconectado.", accion: "detener" };
+  const mot = e.mot || "app";
+  const m = MOTIVOS[mot] || MOTIVOS.app;
+  const ico = { parar: "alto", temperatura: "termo", falla: "alto", red: "rayo", limite: "check", horario: "reloj", arranque: "reloj", app: "pausa" }[mot] || "pausa";
+  const accion = mot === "parar" ? "soltar_parar" : mot === "limite" ? "permitir" : mot === "arranque" ? (e.perm ? "detener" : "permitir") : e.perm ? "detener" : "permitir";
+  return { tono: m[0], ico, titulo: m[1], detalle: m[2], accion };
+}
+
 async function vPanel(id) {
   const manda = puedeMandar(id);
   vista.innerHTML = `
@@ -406,9 +446,20 @@ async function vPanel(id) {
       ${Object.keys(app.u.equipos).length > 1 ? `<a class="boton-icono" href="#/" aria-label="Todos los equipos">${icono("equipo")}</a>` : ""}
       <a class="boton-icono solo-movil" href="#/perfil" aria-label="Tu perfil">${icono("usuario")}</a>
     </header>
-    <section class="riel"><article class="mod" style="--d:12"><div class="mod-cab"><span class="rotulo"><b>X0</b> Circuito de carga</span><small id="t-red"></small></div><div id="mimico"></div></article></section>
-    <section class="riel">
-      <article class="mod" style="--d:5"><div class="mod-cab"><span class="rotulo"><b>P1</b> Potencia</span><span class="piloto" id="p-p1"></span></div>
+    <section class="riel" aria-label="Temperaturas y red">
+      <article class="mod" style="--m:2;--t:4;--d:4"><div class="mod-cab"><span class="rotulo"><b>T1</b> Sonda</span></div>
+        <div class="lectura l-m"><span id="l-tsn">—</span><span class="u">°C</span></div><div class="termo" id="b-tsn"></div><div class="dato-pie" id="c-tsn"></div></article>
+      <article class="mod" style="--m:2;--t:4;--d:4"><div class="mod-cab"><span class="rotulo"><b>T2</b> Placa</span></div>
+        <div class="lectura l-m"><span id="l-tam">—</span><span class="u">°C</span></div><div class="termo" id="b-tam"></div><div class="dato-pie" id="c-tam"></div></article>
+      <article class="mod" style="--d:4"><div class="mod-cab"><span class="rotulo"><b>V1</b> Red</span></div>
+        <div class="fila-lecturas" style="margin-top:0">
+          <div><small>Frecuencia</small><span class="lectura l-m"><span id="l-f">—</span><span class="u">Hz</span></span></div>
+          <div><small>WiFi</small><span class="lectura l-m"><span id="l-rssi">—</span><span class="u">dBm</span></span></div>
+          <div><small>Nominal</small><span class="lectura l-m"><span id="l-vnom">—</span><span class="u">V</span></span></div>
+        </div></article>
+    </section>
+    <section class="riel" aria-label="Consumo y permiso de carga">
+      <article class="mod" style="--t:4;--d:4"><div class="mod-cab"><span class="rotulo"><b>P1</b> Potencia</span><span class="piloto" id="p-p1"></span></div>
         <div id="medidor"></div>
         <div class="potencia"><div class="lectura l-xl"><span id="l-p">—</span><span class="u">kW</span></div><div class="dato-pie" id="l-pmax"></div></div>
         <div class="fila-lecturas">
@@ -417,12 +468,7 @@ async function vPanel(id) {
           <div><small>FP</small><span class="lectura l-m" id="l-pf">—</span></div>
         </div>
       </article>
-      <article class="mod" style="--d:4"><div class="mod-cab"><span class="rotulo"><b>K1</b> Permiso de carga</span><span class="piloto" id="p-k1"></span></div>
-        <div id="selector"></div>
-        <p class="k1-estado" id="t-k1"></p>
-        <div class="acciones centro" id="k1-acciones"></div>
-      </article>
-      <article class="mod" style="--d:3"><div class="mod-cab"><span class="rotulo"><b>E1</b> Sesión</span><small id="t-ses"></small></div>
+      <article class="mod" style="--t:4;--d:4"><div class="mod-cab"><span class="rotulo"><b>E1</b> Sesión</span><small id="t-ses"></small></div>
         <div class="lectura l-l"><span id="l-es">—</span><span class="u">kWh</span></div>
         <div class="resumen" style="grid-template-columns:1fr 1fr;margin-top:12px">
           <div><small>Costo</small><b id="l-cop">—</b></div>
@@ -430,34 +476,48 @@ async function vPanel(id) {
           <div><small>Pico</small><b id="l-pico">—</b></div>
           <div><small>Tarifa / kWh</small><b id="l-tar">—</b></div>
         </div>
+        <div class="total-energia"><small><b>E0</b> Energía total</small><div class="rodillos" id="l-et"></div><div class="dato-pie">kWh medidos desde que se instaló</div></div>
+      </article>
+      <article class="mod mod-carga" style="--d:4"><div class="mod-cab"><span class="rotulo"><b>K1</b> Carga</span><span class="piloto" id="p-k1"></span></div>
+        <div class="carga-estado" id="c-estado" data-tono="gris" role="status" aria-live="polite">
+          <span class="ce-icono" id="c-icono"></span>
+          <div class="ce-texto"><h3 id="c-titulo">—</h3><p id="c-detalle"></p></div>
+        </div>
+        <div class="parar-vivo" id="c-parar" hidden>
+          <div class="pv-cab"><span class="piloto rojo respira"></span><b>Botón PARAR oprimido ahora</b></div>
+          <small id="c-parar-txt"></small>
+          <div class="pv-barra" id="c-parar-barra" hidden><i></i></div>
+        </div>
+        <div class="pulsador-zona">
+          <button type="button" class="pulsador" id="c-boton" data-tono="rojo" hidden>
+            <span class="pz-halo" aria-hidden="true"></span><span class="pz-halo h2" aria-hidden="true"></span>
+            <svg class="pz-espera" viewBox="0 0 140 140" aria-hidden="true"><circle cx="70" cy="70" r="66"/></svg>
+            <span class="pz-cara"><span class="pz-ico" id="c-boton-ico"></span><span class="pz-txt" id="c-boton-txt"></span></span>
+          </button>
+          <small class="pz-ayuda" id="c-boton-ayuda"></small>
+        </div>
+        <ol class="camino" id="c-camino" aria-label="Recorrido de la orden hasta el relé">
+          <li data-p="app"><i></i><span>App</span></li>
+          <li data-p="nube"><i></i><span>Nube</span></li>
+          <li data-p="placa"><i></i><span>Placa</span></li>
+          <li data-p="k1"><i></i><span id="c-k1-txt">K1</span></li>
+        </ol>
+        <p class="c-resultado" id="c-resultado" aria-live="polite"></p>
+        <p class="c-nota" id="c-nota">El botón rojo <b>PARAR</b> del equipo pausa la carga al instante, aunque no haya internet.</p>
       </article>
     </section>
+    <section class="riel" aria-label="Circuito"><article class="mod" style="--d:12"><div class="mod-cab"><span class="rotulo"><b>X0</b> Circuito de carga</span><small id="t-red"></small></div><div id="mimico"></div></article></section>
     <section class="riel" id="r-anun" hidden><article class="mod" style="--d:12">
       <div class="mod-cab"><span class="rotulo"><b>H1</b> Anunciador</span><a href="#/e/${id}/alarmas" class="suave" style="margin-left:auto">Ver todo</a></div>
-      <div class="anunciador" id="anun"></div>
-      <div class="acciones" id="anun-acc"></div>
-    </article></section>
-    <section class="riel">
-      <article class="mod" style="--m:2;--d:3"><div class="mod-cab"><span class="rotulo"><b>T1</b> Sonda</span></div>
-        <div class="lectura l-m"><span id="l-tsn">—</span><span class="u">°C</span></div><div class="termo" id="b-tsn"></div><div class="dato-pie" id="c-tsn"></div></article>
-      <article class="mod" style="--m:2;--d:3"><div class="mod-cab"><span class="rotulo"><b>T2</b> Placa</span></div>
-        <div class="lectura l-m"><span id="l-tam">—</span><span class="u">°C</span></div><div class="termo" id="b-tam"></div><div class="dato-pie" id="c-tam"></div></article>
-      <article class="mod" style="--d:3"><div class="mod-cab"><span class="rotulo"><b>V1</b> Red</span></div>
-        <div class="fila-lecturas" style="margin-top:0">
-          <div><small>Frecuencia</small><span class="lectura l-m"><span id="l-f">—</span><span class="u">Hz</span></span></div>
-          <div><small>WiFi</small><span class="lectura l-m"><span id="l-rssi">—</span><span class="u">dBm</span></span></div>
-          <div><small>Nominal</small><span class="lectura l-m"><span id="l-vnom">—</span><span class="u">V</span></span></div>
-        </div></article>
-      <article class="mod" style="--d:3"><div class="mod-cab"><span class="rotulo"><b>E0</b> Energía total</span></div>
-        <div class="rodillos" id="l-et"></div><div class="dato-pie">kWh medidos desde que se instaló</div></article>
-    </section>`;
+      <div class="anun-fila"><div class="anunciador" id="anun"></div><div class="acciones" id="anun-acc"></div></div>
+    </article></section>`;
   const mim = mimico();
   $("#mimico").append(mim);
   const med = new Medidor(8);
   $("#medidor").append(med.el);
-  const sel = selector();
-  $("#selector").append(sel);
-  let est = app.estados[id] || null, cfg = null, esperando = false, ultimaOrden = 0;
+  let est = app.estados[id] || null, cfg = null, ultimaOrden = 0, animParar = 0;
+  // orden en curso desde el pulsador: para mostrar el recorrido y cuánto tardó el relé
+  let enviando = false, esperaK1 = null, tResultado = 0;
 
   const pintar = () => {
     const e = est || {};
@@ -477,24 +537,27 @@ async function vPanel(id) {
     $("#l-pf").textContent = on ? fmt(e.pf, 2) : "—";
     const carga = on && corriendo(e);
     $("#p-p1").className = `piloto ${carga ? "verde respira" : ""}`;
-    // K1
-    const mot = e.mot || "";
-    const espera = !e.k1 && ["limite", "arranque"].includes(mot);
-    $("#p-k1").className = `piloto ${!on ? "" : e.k1 ? "verde" : MOTIVOS[mot]?.[0] || "ambar"}`;
-    if (!esperando) pintarSelector(sel, { permiso: on ? !!e.perm && !espera : !!e.perm, k1: on && e.k1, esperando: false, bloqueado: !manda || !on });
-    let txt;
-    if (!est) txt = "Cuando el equipo se conecte, aquí verás el permiso de carga.";
-    else if (!on) txt = "<b>Sin conexión con el equipo.</b> Sus protecciones siguen funcionando solas.";
-    else if (carga) txt = "<b>Cargando.</b> K1 cerrado: el EVSE tiene permiso y el vehículo toma corriente.";
-    else if (e.k1) txt = "<b>Permitida.</b> K1 cerrado; el vehículo no está tomando corriente.";
-    else if (MOTIVOS[mot]) txt = `<b>${MOTIVOS[mot][1]}.</b> ${MOTIVOS[mot][2]}`;
-    else txt = "<b>Detenida.</b>";
-    if (!manda && est) txt += "<br><small>Tu usuario es de solo lectura.</small>";
-    $("#t-k1").innerHTML = txt;
-    const acc = [];
-    if (on && manda && mot === "limite") acc.push(`<button class="boton chico verde" data-o="permitir">Nueva sesión</button>`);
-    if (on && manda && (mot === "parar" || (e.al || []).includes("parar"))) acc.push(`<button class="boton chico sec" data-o="soltar_parar">Soltar PARAR</button>`);
-    if (cambia($("#k1-acciones"), acc.join(""))) for (const b of $$("#k1-acciones button")) b.onclick = () => conBoton(b, () => mandar(b.dataset.o));
+    // K1: el estado en palabras simples y un solo botón con la acción que corresponde
+    const c = estadoCarga(est, on);
+    $("#p-k1").className = `piloto ${!on ? "" : e.k1 ? "verde" : c.tono === "gris" ? "" : c.tono}${c.tono === "rojo" && on ? " respira" : ""}`;
+    $("#c-estado").dataset.tono = c.tono;
+    cambia($("#c-icono"), icono(c.ico));
+    $("#c-titulo").textContent = c.titulo;
+    $("#c-detalle").textContent = c.detalle + (!manda && est ? " Tu usuario es de solo lectura." : "");
+    const b = $("#c-boton");
+    const acc = on && manda ? ACCION_CARGA[c.accion] : null;
+    b.hidden = !acc;
+    $("#c-boton-ayuda").textContent = acc ? (c.accion === "permitir" && e.mot === "limite" ? "Toca para empezar otra sesión de carga." : acc.ayuda) : "";
+    if (acc && !enviando) {
+      const txt = c.accion === "permitir" && e.mot === "limite" ? "Otra sesión" : acc.txt;
+      cambia($("#c-boton-ico"), icono(acc.ico));
+      $("#c-boton-txt").textContent = txt;
+      b.dataset.tono = acc.tono;
+      b.dataset.o = c.accion;
+      b.setAttribute("aria-label", acc.ayuda);
+    }
+    pintarCamino(e, on);
+    pintarParar(e, on);
     // sesión
     numero($("#l-es"), on || est ? Number(e.es) : NaN, 2);
     const tarifa = Number(cfg?.tarifa) || 0;
@@ -531,46 +594,140 @@ async function vPanel(id) {
     notif(r.msg || "Hecho.");
     return r;
   }
-  const girar = async (o) => {
-    if (esperando) return;
-    if (!manda) return notif("Tu usuario es de solo lectura.", "ambar");
-    const e = est || {};
-    if (!enLinea(est, cfg)) {
-      sel.classList.remove("no-cuadra");
-      void sel.offsetWidth;
-      sel.classList.add("no-cuadra");
-      return notif("El equipo no está en línea: la orden no le llegaría.", "ambar");
+  // botón PARAR del equipo en vivo: mientras está oprimido se ve aquí; si ya había emergencia, cuenta los 3 s
+  function pintarParar(e, on) {
+    const vivo = on && !!e.btn;
+    $("#c-parar").hidden = !vivo;
+    cancelAnimationFrame(animParar);
+    if (!vivo) return;
+    const rearma = !!e.btn_rea;
+    $("#c-parar-txt").textContent = rearma ? "Sigue sosteniéndolo para quitar la emergencia (3 s)." : "La carga quedó pausada por emergencia.";
+    $("#c-parar-barra").hidden = !rearma;
+    if (!rearma) return;
+    const t0 = Date.now() - (Number(e.btn_ms) || 0) - Math.max(0, Math.min(3, edad(e))) * 1000;
+    const paso = () => {
+      const p = Math.min(1, (Date.now() - t0) / 3000);
+      $("#c-parar-barra i").style.width = `${Math.round(p * 100)}%`;
+      if (p < 1) animParar = requestAnimationFrame(paso);
+    };
+    paso();
+  }
+  alSalir(() => cancelAnimationFrame(animParar));
+
+  $("#c-boton").onclick = async (ev) => {
+    const b = ev.currentTarget, o = b.dataset.o;
+    if (!o) return;
+    if (o === "soltar_parar") {
+      const ok = await dialogo({
+        titulo: "¿Quitar la pausa de emergencia?",
+        html: `<p>Hazlo solo si ya revisaste por qué se oprimió PARAR y todo está seguro.</p><p>${est?.perm ? "La carga se <b>reanuda</b> enseguida." : "La carga sigue pausada hasta que oprimas «Reanudar carga»."}</p>`,
+        si: "Quitar la emergencia",
+      });
+      if (!ok) return;
     }
-    const quiere = o === "permitir";
-    const espera = !e.k1 && ["limite", "arranque"].includes(e.mot);
-    if (quiere === (!!e.perm && !espera) && !(quiere && espera)) return;
-    esperando = true;
-    pintarSelector(sel, { permiso: quiere, k1: false, esperando: true });
+    await pulsar(b, o);
+  };
+
+  // ---- recorrido de la orden: App → Nube → Placa → K1 (con el tiempo que tardó cada paso)
+  const pasoCamino = (p, estado = "ok") => {
+    const li = $(`#c-camino [data-p="${p}"]`);
+    if (li) li.className = estado;
+  };
+  function limpiarCamino() {
+    for (const li of $$("#c-camino li")) li.className = "";
+  }
+  function pintarCamino(e, on) {
+    // en reposo, el último paso muestra el estado real del relé y de J2
+    const k1 = on && !!e.k1;
+    $("#c-camino").classList.toggle("k1-on", k1);
+    $("#c-k1-txt").textContent = !on ? "K1" : k1 ? "K1 cerrado" : "K1 abierto";
+    if (esperaK1 && on && !!e.k1 === esperaK1.quiere) {
+      const s = (performance.now() - esperaK1.t0) / 1000;
+      pasoCamino("k1");
+      resultado(`${esperaK1.quiere ? "K1 cerrado → J2 habilitado: el EVSE puede cargar" : "K1 abierto → J2 deshabilitado: el EVSE deja de cargar"} · confirmado por la placa en ${fmt(s, 2)} s`, "ok");
+      esperaK1 = null;
+    } else if (!esperaK1 && !enviando && performance.now() > tResultado) {
+      $("#c-resultado").className = "c-resultado";
+      $("#c-resultado").textContent = !on ? "" : k1 ? "J2 → EVSE: habilitado (puede cargar)" : "J2 → EVSE: deshabilitado (no carga)";
+    }
+  }
+  function resultado(txt, clase) {
+    const r = $("#c-resultado");
+    r.className = `c-resultado ${clase}`;
+    r.textContent = txt;
+    tResultado = performance.now() + 9000;
+  }
+  async function pulsar(b, o) {
+    if (enviando) return;
+    const quiere = o === "permitir" ? true : o === "detener" ? false : o === "soltar_parar" ? !!est?.perm : null;
+    const t0 = performance.now();
+    enviando = true;
+    esperaK1 = null;
+    limpiarCamino();
+    pasoCamino("app");
+    pasoCamino("nube", "va");
+    b.classList.remove("confirmado", "error");
+    b.classList.add("enviando");
+    $("#c-boton-txt").textContent = "Enviando…";
+    resultado("Orden enviada: esperando a la placa…", "va");
     try {
-      await mandar(o);
+      if (!enLinea(est, cfg)) throw new Error("El equipo no está en línea: la orden no le llegaría.");
+      ultimaOrden = Date.now();
+      await fb.orden(id, o, null, 15000, { escrito: () => (pasoCamino("nube"), pasoCamino("placa", "va")) });
+      pasoCamino("nube");
+      pasoCamino("placa");
+      const s = (performance.now() - t0) / 1000;
+      b.classList.add("confirmado");
+      setTimeout(() => b.classList.remove("confirmado"), 900);
+      if (quiere === null || !!est?.k1 === quiere) {
+        pasoCamino("k1");
+        resultado(`La placa confirmó la orden en ${fmt(s, 2)} s`, "ok");
+      } else {
+        pasoCamino("k1", "va");
+        esperaK1 = { quiere, t0 };
+        resultado(`La placa recibió la orden en ${fmt(s, 2)} s · moviendo el relé…`, "va");
+        setTimeout(() => {
+          if (esperaK1 && esperaK1.t0 === t0) {
+            esperaK1 = null;
+            pasoCamino("k1", "mal");
+            const m = MOTIVOS[est?.mot]?.[1];
+            resultado(`La placa aceptó la orden, pero K1 no cambió${m ? `: ${m.toLowerCase()}` : ""}.`, "mal");
+          }
+        }, 6000);
+      }
     } catch (err) {
       fallo(err);
-      sel.classList.remove("no-cuadra");
-      void sel.offsetWidth;
-      sel.classList.add("no-cuadra");
+      b.classList.add("error");
+      setTimeout(() => b.classList.remove("error"), 600);
+      for (const p of ["nube", "placa", "k1"]) if (!$(`#c-camino [data-p="${p}"]`).classList.contains("ok")) pasoCamino(p, "mal");
+      resultado(err.message || "La orden no llegó.", "mal");
     } finally {
-      esperando = false;
+      enviando = false;
+      b.classList.remove("enviando");
       pintar();
     }
-  };
-  $(".perilla", sel).onclick = () => girar(sel.classList.contains("en-per") ? "detener" : "permitir");
-  for (const b of $$(".pos", sel)) b.onclick = () => girar(b.dataset.o);
+  }
 
   alSalir(fb.mirar(id));
   alSalir(fb.escuchar(`equipos/${id}/nombre`, (n) => n && ($("#t-nombre").textContent = (app.nombres ??= {})[id] = n)));
   alSalir(fb.escuchar(`entrada/${id}/config`, (c) => ((cfg = c), pintar())));
   alSalir(
     fb.escuchar(`estado/${id}`, (e) => {
+      // avisos para cualquier usuario cuando la carga se pausa o se reanuda por emergencia
+      if (est && e && est.mot !== "parar" && e.mot === "parar") notif("Carga pausada por emergencia: alguien oprimió el botón PARAR del equipo.", "rojo");
+      else if (est && e && est.mot === "parar" && e.mot !== "parar") notif("Emergencia quitada.");
       est = e;
       const antes = (app.estados[id]?.nr || []).length;
       app.estados[id] = e;
       if ((e?.nr || []).length !== antes) pintarMando(id, "panel");
       pintar();
+      // latido: el piloto de enlace destella con cada dato que llega de la placa
+      const pe = $("#p-enlace");
+      if (pe && e) {
+        pe.classList.remove("late");
+        void pe.offsetWidth;
+        pe.classList.add("late");
+      }
     }),
   );
   const reloj = setInterval(pintar, 5000);
@@ -581,34 +738,85 @@ async function vPanel(id) {
 
 // ------------------------------------------------------------------ historial
 async function vHistorial(id) {
-  let dias = 1;
+  // 0 = «En vivo»: los últimos 15 min, que se llenan con cada estado que manda el equipo (cada 2 s mientras miras)
+  let dias = 0;
+  const VIVO = 15 * 60;
+  const ahoraS = () => Math.floor(fb.ahoraServidor() / 1000);
   vista.innerHTML = `
-    <header class="cabecera"><div class="titulo"><h1>Historial</h1><div class="enlace-estado" id="t-rango">—</div></div>
-      <div class="rango" role="group" aria-label="Rango">${[[1, "24 h"], [7, "7 días"], [30, "30 días"]].map(([d, t]) => `<button type="button" data-d="${d}" aria-pressed="${d === dias}">${t}</button>`).join("")}</div></header>
+    <header class="cabecera"><div class="titulo"><h1>Historial</h1><div class="enlace-estado"><span class="piloto" id="p-vivo" hidden></span><span id="t-rango">—</span></div></div>
+      <div class="rango" role="group" aria-label="Rango">${[[0, "En vivo"], [1, "24 h"], [7, "7 días"], [30, "30 días"]].map(([d, t]) => `<button type="button" data-d="${d}" aria-pressed="${d === dias}">${t}</button>`).join("")}</div></header>
     <section class="riel"><article class="mod" style="--d:12"><div class="resumen" id="resumen"></div></article></section>
     <section class="riel">
       <article class="mod" style="--d:12"><div class="mod-cab"><span class="rotulo"><b>P1</b> Potencia</span><small>kW</small></div><div id="g-p"></div></article>
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>V1</b> Tensión</span><small>V</small></div><div id="g-v"></div></article>
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>T1</b> Temperaturas</span><small><i class="muestra" style="background:var(--rojo)"></i>sonda <i class="muestra" style="background:var(--azul);margin-left:8px"></i>placa</small></div><div id="g-t"></div></article>
+      <article class="mod" style="--t:4;--d:4"><div class="mod-cab"><span class="rotulo"><b>V1</b> Tensión</span><small>V</small></div><div id="g-v"></div></article>
+      <article class="mod" style="--t:4;--d:4"><div class="mod-cab"><span class="rotulo"><b>I1</b> Corriente</span><small>A</small></div><div id="g-i"></div></article>
+      <article class="mod" style="--d:4"><div class="mod-cab"><span class="rotulo"><b>T1</b> Temperaturas</span><small><i class="muestra" style="background:var(--rojo)"></i>sonda <i class="muestra" style="background:var(--azul);margin-left:8px"></i>placa</small></div><div id="g-t"></div></article>
       <article class="mod" style="--d:12" id="m-dias"><div class="mod-cab"><span class="rotulo"><b>E1</b> Energía por día</span><small>kWh</small></div><div id="g-e"></div></article>
     </section>
     <section class="riel"><article class="mod" style="--d:12">
-      <div class="mod-cab"><span class="rotulo"><b>S</b> Sesiones</span></div>
+      <div class="mod-cab"><span class="rotulo"><b>S</b> Sesiones</span><small id="t-ses-rango"></small></div>
       <ul class="lista sesiones" id="sesiones"><li class="suave">Cargando…</li></ul>
       <div class="acciones"><button class="boton chico sec" id="csv-s">${icono("bajar")}CSV de sesiones</button><button class="boton chico sec" id="csv-m">${icono("bajar")}CSV de mediciones</button></div>
     </article></section>`;
-  const gp = new Grafica($("#g-p"), { series: [{ nombre: "Potencia", color: "--verde", unidad: "kW", dec: 2 }], alto: 220, cero: true });
-  const gv = new Grafica($("#g-v"), { series: [{ nombre: "Tensión", color: "--ambar", unidad: "V", dec: 1, relleno: false }], alto: 170 });
-  const gt = new Grafica($("#g-t"), { series: [{ nombre: "Sonda", color: "--rojo", unidad: "°C", dec: 1, relleno: false }, { nombre: "Placa", color: "--azul", unidad: "°C", dec: 1, relleno: false }], alto: 170 });
+  const gp = new Grafica($("#g-p"), { series: [{ nombre: "Potencia", color: "--verde", unidad: "kW", dec: 2 }], alto: 220, cero: true, vacio: "Esperando datos del equipo…" });
+  const gv = new Grafica($("#g-v"), { series: [{ nombre: "Tensión", color: "--ambar", unidad: "V", dec: 1, relleno: false }], alto: 170, vacio: "Esperando datos del equipo…" });
+  const gi = new Grafica($("#g-i"), { series: [{ nombre: "Corriente", color: "--azul", unidad: "A", dec: 2 }], alto: 170, cero: true, vacio: "Esperando datos del equipo…" });
+  const gt = new Grafica($("#g-t"), { series: [{ nombre: "Sonda", color: "--rojo", unidad: "°C", dec: 1, relleno: false }, { nombre: "Placa", color: "--azul", unidad: "°C", dec: 1, relleno: false }], alto: 170, vacio: "Esperando datos del equipo…" });
   const ge = new Grafica($("#g-e"), { series: [{ nombre: "Energía", color: "--verde", unidad: "kWh", dec: 2 }], alto: 170, barras: true, vacio: "Sin sesiones en este rango." });
-  alSalir(() => [gp, gv, gt, ge].forEach((g) => g.destruir()));
+  alSalir(() => [gp, gv, gi, gt, ge].forEach((g) => g.destruir()));
   const cfg = (await fb.leer(`entrada/${id}/config`).catch(() => null)) || {};
-  let med = [], ses = [];
+  let med = [], ses = [], vivo = [];
+
+  function pintarSesiones() {
+    $("#sesiones").innerHTML = ses.length
+      ? ses
+          .map((s) => `<li><span class="piloto ${s.mf === "limite" ? "ambar" : "verde"}"></span><div class="crece"><b>${fCorta(s.ini)}</b><small>${duracion((s.fin || 0) - (s.ini || 0))} · pico ${fmt((s.pmax || 0) / 1000, 2)} kW · ${esc(FIN[s.mf] || s.mf || "")}</small></div>
+            <div class="cifra"><span class="lectura l-m">${fmt(s.kwh, 2)}<span class="u">kWh</span></span><small>${cop(s.cop ?? (s.kwh || 0) * (cfg.tarifa || 0))}</small></div></li>`)
+          .join("")
+      : `<li class="suave">No hubo sesiones de carga en este rango.</li>`;
+  }
+
+  // En vivo: las gráficas corren con el reloj aunque no llegue nada (así se nota si el equipo dejó de mandar)
+  function pintarVivo(animar) {
+    const hasta = ahoraS(), desde = hasta - VIVO;
+    vivo = vivo.filter((m) => m.ts >= desde - 30);
+    med = vivo;
+    const serie = (k, f = (x) => x) => vivo.filter((m) => Number.isFinite(m[k])).map((m) => [m.ts, f(m[k])]);
+    const rango = [desde, hasta];
+    gp.datos([serie("p", (w) => Math.max(0, w / 1000))], rango, animar);
+    gv.datos([serie("v")], rango, animar);
+    gi.datos([serie("i")], rango, animar);
+    gt.datos([serie("tsn"), serie("tam")], rango, animar);
+    const u = vivo[vivo.length - 1];
+    const fresco = u && hasta - u.ts < 30;
+    $("#p-vivo").className = `piloto ${fresco ? "verde respira" : "ambar"}`;
+    $("#t-rango").textContent = fresco ? "En vivo · últimos 15 min · llega un dato cada 2 s" : u ? `Sin datos nuevos desde hace ${duracion(hasta - u.ts)}` : "Esperando al equipo…";
+    $("#resumen").innerHTML = `
+      <div><small>Potencia</small><span class="lectura l-m">${u ? fmt(Math.max(0, Number(u.p) || 0) / 1000, 2) : "—"}<span class="u">kW</span></span></div>
+      <div><small>Corriente</small><span class="lectura l-m">${fmt(u?.i, 2)}<span class="u">A</span></span></div>
+      <div><small>Tensión</small><span class="lectura l-m">${fmt(u?.v, 1)}<span class="u">V</span></span></div>
+      <div><small>Sonda · placa</small><span class="lectura l-m">${fmt(u?.tsn, 1)} · ${fmt(u?.tam, 1)}<span class="u">°C</span></span></div>`;
+  }
 
   async function cargar() {
+    for (const b of $$(".rango button")) b.setAttribute("aria-pressed", String(Number(b.dataset.d) === dias));
+    $("#p-vivo").hidden = dias !== 0;
+    if (dias === 0) {
+      const hasta = ahoraS(), desde = hasta - VIVO;
+      $("#m-dias").hidden = true;
+      $("#t-ses-rango").textContent = "últimas 24 h";
+      const [guardadas, todas] = await Promise.all([fb.mediciones(id, desde, hasta), fb.sesiones(id, 400)]);
+      // une lo que ya estaba en el historial con lo que llegó en vivo
+      const porTs = new Map([...guardadas, ...vivo].map((m) => [m.ts, m]));
+      vivo = [...porTs.values()].sort((a, b) => a.ts - b.ts);
+      ses = todas.filter((s) => (s.ini || s.fin) >= hasta - 86400);
+      pintarVivo(true);
+      pintarSesiones();
+      return;
+    }
     const hasta = ahora(), desde = hasta - dias * 86400;
     $("#t-rango").textContent = `${fDia(desde)} – ${fDia(hasta)}`;
-    for (const b of $$(".rango button")) b.setAttribute("aria-pressed", String(Number(b.dataset.d) === dias));
+    $("#t-ses-rango").textContent = "";
     [med, ses] = await Promise.all([fb.mediciones(id, desde, hasta), fb.sesiones(id, 400)]);
     ses = ses.filter((s) => (s.ini || s.fin) >= desde);
     // ≤ 600 puntos por gráfica: promedio por tramo
@@ -624,6 +832,7 @@ async function vHistorial(id) {
     const rango = [desde, hasta];
     gp.datos([prom("p", (w) => Math.max(0, w / 1000))], rango);
     gv.datos([prom("v")], rango);
+    gi.datos([prom("i")], rango);
     gt.datos([prom("tsn"), prom("tam")], rango);
     $("#m-dias").hidden = dias === 1;
     const porDia = new Map();
@@ -641,13 +850,23 @@ async function vHistorial(id) {
       <div><small>Costo</small><span class="lectura l-m">${cop(costo)}</span></div>
       <div><small>Sesiones</small><span class="lectura l-m">${ses.length}</span></div>
       <div><small>Pico</small><span class="lectura l-m">${fmt(pico / 1000, 2)}<span class="u">kW</span></span></div>`;
-    $("#sesiones").innerHTML = ses.length
-      ? ses
-          .map((s) => `<li><span class="piloto ${s.mf === "limite" ? "ambar" : "verde"}"></span><div class="crece"><b>${fCorta(s.ini)}</b><small>${duracion((s.fin || 0) - (s.ini || 0))} · pico ${fmt((s.pmax || 0) / 1000, 2)} kW · ${esc(FIN[s.mf] || s.mf || "")}</small></div>
-            <div class="cifra"><span class="lectura l-m">${fmt(s.kwh, 2)}<span class="u">kWh</span></span><small>${cop(s.cop ?? (s.kwh || 0) * (cfg.tarifa || 0))}</small></div></li>`)
-          .join("")
-      : `<li class="suave">No hubo sesiones de carga en este rango.</li>`;
+    pintarSesiones();
   }
+
+  // telemetría en vivo: el equipo la manda cada 2 s mientras la app avisa que está mirando
+  alSalir(fb.mirar(id));
+  alSalir(
+    fb.escuchar(`estado/${id}`, (e) => {
+      if (!e?.ts) return;
+      const ts = Math.floor(e.ts / 1000);
+      if (vivo.length && vivo[vivo.length - 1].ts >= ts) return;
+      vivo.push({ ts, v: e.v, i: e.i, p: e.p, tsn: e.tsn, tam: e.tam, pf: e.pf, f: e.f, es: e.es, et: e.et, hum: e.hum, k1: e.k1 });
+      if (dias === 0) pintarVivo(false);
+    }),
+  );
+  const reloj = setInterval(() => dias === 0 && pintarVivo(false), 2000);
+  alSalir(() => clearInterval(reloj));
+
   for (const b of $$(".rango button")) b.onclick = () => ((dias = Number(b.dataset.d)), cargar().catch(fallo));
   $("#csv-s").onclick = () =>
     descargar(`sesiones_${id}.csv`, [["inicio", "fin", "kwh", "costo_cop", "pico_w", "fin_por"], ...ses.map((s) => [fFecha(s.ini), fFecha(s.fin), String(s.kwh ?? "").replace(".", ","), s.cop ?? "", s.pmax ?? "", FIN[s.mf] || s.mf || ""])]);
@@ -729,20 +948,20 @@ async function vAjustes(id) {
       <div class="enlace-estado"><span class="piloto ${c0 ? (aplicada ? "verde" : "ambar respira") : ""}"></span><span>${esc(eq?.nombre || id)} · configuración v${c0?.v ?? 0}${c0 ? (aplicada ? " · aplicada en el equipo" : " · esperando al equipo") : ""}</span></div></div></header>
     <form id="f-cfg">
     <section class="riel">
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>G</b> General</span></div>
+      <article class="mod" style="--t:4;--d:6"><div class="mod-cab"><span class="rotulo"><b>G</b> General</span></div>
         <div class="campos">
           <label class="campo"><span>Red</span><select id="vnom" ${dis}><option value="240">240 V (L1–L2)</option><option value="120">120 V (L–N)</option></select></label>
           ${campoNum("tarifa", "Tarifa", c.tarifa, "$/kWh", `min="0" step="1" ${dis}`)}
         </div><p class="ayuda">Hora de Colombia (UTC−5). La tarifa calcula el costo de cada sesión.</p></article>
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>L</b> Límites por sesión</span></div>
+      <article class="mod" style="--t:4;--d:6"><div class="mod-cab"><span class="rotulo"><b>L</b> Límites por sesión</span></div>
         <div class="campos">${campoNum("lim_kwh", "Energía", c.lim_kwh, "kWh", `min="0" step="0.1" ${dis}`)}${campoNum("lim_min", "Tiempo", c.lim_min, "min", `min="0" step="1" ${dis}`)}${campoNum("lim_cop", "Costo", c.lim_cop, "$", `min="0" step="100" ${dis}`)}</div>
         <p class="ayuda">0 = sin límite. Al llegar, el equipo detiene la carga y cierra la sesión.</p></article>
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>H</b> Horario de carga</span></div>
+      <article class="mod" style="--t:4;--d:6"><div class="mod-cab"><span class="rotulo"><b>H</b> Horario de carga</span></div>
         <label class="interruptor"><span>Cargar solo dentro de estas franjas</span><input type="checkbox" id="h_on" ${c.horario.on ? "checked" : ""} ${dis}></label>
         <div id="franjas">${c.horario.v.map(htmlFranja).join("")}</div>
         ${manda ? `<button type="button" class="boton chico sec" id="mas">${icono("mas")}Agregar franja</button>` : ""}
         <p class="ayuda">Hasta 4 franjas. Si «hasta» es menor que «desde», la franja cruza la medianoche (22:00–05:00). Sin hora válida el equipo no aplica el horario.</p></article>
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>T</b> Temperatura</span></div>
+      <article class="mod" style="--t:4;--d:6"><div class="mod-cab"><span class="rotulo"><b>T</b> Temperatura</span></div>
         <div class="campos">${campoNum("tmax_sonda", "Corte sonda", c.tmax_sonda, "°C", `min="30" max="90" ${dis}`)}${campoNum("tmax_amb", "Corte placa", c.tmax_amb, "°C", `min="30" max="85" ${dis}`)}${campoNum("t_hist", "Histéresis", c.t_hist, "°C", `min="2" max="30" ${dis}`)}</div>
         <label class="interruptor"><span>Sonda obligatoria: sin sonda, la carga se detiene por falla</span><input type="checkbox" id="sonda_req" ${c.sonda_req ? "checked" : ""} ${dis}></label>
         <p class="ayuda">Las aplica el equipo aunque no haya internet.</p></article>
@@ -760,7 +979,7 @@ async function vAjustes(id) {
     </section>
     ${manda ? `<div class="riel" style="padding-top:0"><div style="grid-column:1/-1"><button class="boton verde ancho" id="b-guardar">Guardar y enviar al equipo</button></div></div>` : `<p class="suave">Tu usuario es de solo lectura.</p>`}
     </form>
-    ${manda ? `<section class="riel"><article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("telegram")}Avisos por Telegram</span></div>
+    ${manda ? `<section class="riel"><article class="mod" style="--d:12"><div class="mod-cab"><span class="rotulo">${icono("telegram")}Avisos por Telegram</span></div>
       <p class="ayuda">El equipo mismo escribe a Telegram cuando hay una alarma grave o termina una carga. Crea un bot con @BotFather, pega su token y tu chat id (te lo da @userinfobot).</p>
       <form class="formulario" id="f-tg"><div class="campos"><label class="campo"><span>Token del bot</span><input name="token" value="${esc(tg?.token || "")}" autocomplete="off" placeholder="123456:ABC…"></label>
         <label class="campo"><span>Chat id</span><input name="chat" value="${esc(tg?.chat || "")}" inputmode="numeric" placeholder="123456789"></label></div>
@@ -828,18 +1047,18 @@ enlazar CÓDIGO_DE_ARRIBA
 reiniciar</pre>
         <p class="ayuda">O por el portal: mantén PARAR 5 s al encender, conéctate a la red EVSE-XXXX (clave configurar-evse), abre 192.168.4.1 y pega el código.${fb.local ? " Estás en el emulador: este código sirve para el simulador (tools/simulador), no para la placa." : ""}</p>
       </article>
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>C</b> Calibración del medidor</span></div>
+      <article class="mod" style="--t:4;--d:6"><div class="mod-cab"><span class="rotulo"><b>C</b> Calibración del medidor</span></div>
         <p class="ayuda">Solo en S7, con el transformador de aislamiento, una carga resistiva y una referencia (docs/pruebas/PROTOCOLO_PRUEBAS.md). Ajusta Ugain e IgainN en proporción a tu referencia.</p>
         <div class="campos">${campoNum("cal-v", "Tensión de referencia", "", "V", 'step="0.01" placeholder="120,4"')}${campoNum("cal-i", "Corriente de referencia", "", "A", 'step="0.001" placeholder="9,87"')}</div>
         <pre class="consola" id="cal-datos" hidden></pre>
         <div class="acciones"><button type="button" class="boton chico sec" id="cal-leer">Leer del equipo</button><button type="button" class="boton chico" id="cal-auto">Calibrar</button><button type="button" class="boton chico sec" id="cal-fab">Valores de fábrica</button></div>
       </article>
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>F</b> Firmware</span><small>instalado ${esc(est?.fw || "—")}</small></div>
+      <article class="mod" style="--t:4;--d:6"><div class="mod-cab"><span class="rotulo"><b>F</b> Firmware</span><small>instalado ${esc(est?.fw || "—")}</small></div>
         ${ota ? `<p><span class="piloto ${ota.fase === "error" ? "rojo" : ota.fase === "ok" ? "verde" : "ambar respira"}"></span> Actualización a ${esc(ota.ver)}: ${esc(ota.fase)} ${ota.pct ? `${ota.pct} %` : ""} <small>${esc(ota.msg || "")}</small></p>` : ""}
         <div id="fw-lista"><p class="suave">Cargando…</p></div>
         <p class="ayuda">Los .bin se suben en Administración → Firmware.</p>
       </article>
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("usuario")}Acceso</span></div>
+      <article class="mod" style="--t:4;--d:6"><div class="mod-cab"><span class="rotulo">${icono("usuario")}Acceso</span></div>
         <ul class="lista" id="permisos"><li class="suave">Cargando…</li></ul>
         <form class="formulario" id="f-perm" style="margin-top:10px"><div class="campos">
           <label class="campo"><span>Usuario</span><select name="uid" id="perm-uid"></select></label>
@@ -847,7 +1066,7 @@ reiniciar</pre>
           <button class="boton chico">Dar acceso</button>
           <p class="ayuda">La persona crea su cuenta en esta app y aparece en la lista.</p></form>
       </article>
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("equipo")}Equipo ${esc(id)}</span></div>
+      <article class="mod" style="--t:4;--d:6"><div class="mod-cab"><span class="rotulo">${icono("equipo")}Equipo ${esc(id)}</span></div>
         <form class="formulario" id="f-nombre"><label class="campo"><span>Nombre</span><input name="nombre" value="${esc(eq?.nombre || "")}" maxlength="40" required></label><button class="boton chico sec">Renombrar</button></form>
         <div class="acciones" style="margin-top:14px"><button type="button" class="boton chico sec" id="eq-reiniciar">Reiniciar</button><button type="button" class="boton chico sec" id="eq-clave">Clave nueva</button><button type="button" class="boton chico peligro" id="eq-borrar">Borrar equipo</button></div>
       </article>
@@ -965,17 +1184,17 @@ async function vPerfil() {
   vista.innerHTML = `
     <header class="cabecera"><div class="titulo"><h1>${esc(app.u.nombre)}</h1><div class="enlace-estado">${esc(app.u.email)}${app.u.admin ? " · administración" : ""}</div></div></header>
     <section class="riel">
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("usuario")}Tu cuenta</span></div>
+      <article class="mod" style="--t:4;--d:6"><div class="mod-cab"><span class="rotulo">${icono("usuario")}Tu cuenta</span></div>
         <form class="formulario" id="f-nombre"><label class="campo"><span>Nombre</span><input name="nombre" value="${esc(app.u.nombre)}" maxlength="60" required></label><button class="boton chico sec">Guardar nombre</button></form>
         <p class="ayuda" style="margin-top:14px">Tu identificador (para darte permisos de administración en Firebase):</p>
         <div class="secreto"><code>${esc(app.u.uid)}</code><button class="boton-icono" id="c-uid" aria-label="Copiar identificador">${icono("copiar")}</button></div></article>
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("tema")}Tema</span></div>
+      <article class="mod" style="--t:4;--d:6"><div class="mod-cab"><span class="rotulo">${icono("tema")}Tema</span></div>
         <div class="rango" role="group" aria-label="Tema">${[["auto", "Automático"], ["dia", "Día"], ["noche", "Noche"]].map(([k, t]) => `<button type="button" data-t="${k}" aria-pressed="${k === tema}">${t}</button>`).join("")}</div>
         <p class="ayuda">Automático sigue el modo de tu celular o computador.</p></article>
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>*</b> Cambiar clave</span></div>
+      <article class="mod" style="--t:4;--d:6" ${fb.tieneClave() ? "" : "hidden"}><div class="mod-cab"><span class="rotulo"><b>*</b> Cambiar clave</span></div>
         <form class="formulario" id="f-clave"><label class="campo"><span>Clave actual</span><input name="actual" type="password" autocomplete="current-password" required></label>
           <label class="campo"><span>Clave nueva</span><input name="nueva" type="password" autocomplete="new-password" minlength="8" required></label><button class="boton chico">Cambiar clave</button></form></article>
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("salir")}Sesión</span></div>
+      <article class="mod" style="${fb.tieneClave() ? "--t:4;--d:6" : "--d:12"}"><div class="mod-cab"><span class="rotulo">${icono("salir")}Sesión</span></div>
         <p class="ayuda">Cierra la sesión en este navegador.</p><button class="boton sec" id="salir">${icono("salir")}Cerrar sesión</button></article>
     </section>`;
   $("#c-uid").onclick = () => copiar(app.u.uid);
@@ -1017,12 +1236,12 @@ async function vAdmin() {
       ${htmlAgregar()}
     </section>
     <section class="riel">
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo">${icono("subir")}Subir firmware</span></div>
+      <article class="mod" style="--t:4;--d:6"><div class="mod-cab"><span class="rotulo">${icono("subir")}Subir firmware</span></div>
         <p class="ayuda">El archivo queda en <code>firmware/evse_monitor/.pio/build/placa/firmware.bin</code> al compilar. Escribe la versión que dice <code>FW_VERSION</code> en include/config.h.</p>
         <form class="formulario" id="f-fw"><div class="campos"><label class="campo"><span>Versión</span><input name="ver" required placeholder="1.0.1" pattern="[0-9A-Za-z._\\-]{1,20}"></label><label class="campo"><span>Notas</span><input name="notas" placeholder="qué cambia"></label></div>
           <label class="campo"><span>Archivo .bin</span><input type="file" name="bin" accept=".bin" required></label>
           <div class="barra" hidden id="fw-barra"><i></i></div><button class="boton">${icono("subir")}Subir</button></form></article>
-      <article class="mod" style="--d:6"><div class="mod-cab"><span class="rotulo"><b>F</b> Versiones subidas</span></div><ul class="lista" id="a-fw"><li class="suave">Cargando…</li></ul></article>
+      <article class="mod" style="--t:4;--d:6"><div class="mod-cab"><span class="rotulo"><b>F</b> Versiones subidas</span></div><ul class="lista" id="a-fw"><li class="suave">Cargando…</li></ul></article>
     </section>
     <section class="riel">
       <article class="mod" style="--d:7"><div class="mod-cab"><span class="rotulo">${icono("usuario")}Usuarios</span></div><div class="desliza" id="a-usuarios"><p class="suave">Cargando…</p></div></article>

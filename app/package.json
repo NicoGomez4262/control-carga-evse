@@ -5,7 +5,7 @@
   "scripts": {
     "emular": "firebase emulators:start --project demo-evse --only auth,database,hosting",
     "probar": "node pruebas/probar_reglas.mjs",
-    "desplegar": "firebase deploy --only hosting,database",
+    "desplegar": "firebase deploy --only auth,database,hosting",
     "reglas": "firebase deploy --only database"
   },
   "devDependencies": {

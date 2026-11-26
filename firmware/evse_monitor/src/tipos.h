@@ -123,6 +123,9 @@ struct Instantanea {
   uint32_t alarmas;
   uint32_t sin_reconocer;
   uint32_t uptime_s;
+  bool btn;           // PARAR (SW1 o J7) oprimido en este momento
+  bool btn_rearma;    // si se sostiene 3 s, quita el paro (ya estaba enclavado al oprimirlo)
+  uint32_t btn_ms;    // cuánto lleva oprimido
 };
 
 // ---------------------------------------------------------------- registro de 64 bytes del búfer en la flash

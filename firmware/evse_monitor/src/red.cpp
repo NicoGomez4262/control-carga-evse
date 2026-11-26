@@ -259,9 +259,25 @@ static void remotaConfig(JsonVariant v) {
 }
 
 // ------------------------------------------------------------------ telemetría en vivo
+// Lo que el usuario tiene que ver enseguida en la app: K1, permiso, motivo, botón PARAR y alarmas.
+static uint32_t firmaTel = 0, ultUrgente = 0;
+static uint32_t firma(const Instantanea &s) {
+  uint32_t f = (s.k1 ? 1u : 0u) | (s.permiso ? 2u : 0u) | (s.btn ? 4u : 0u) | (s.btn_rearma ? 8u : 0u) | ((uint32_t)s.motivo << 4);
+  return f ^ (s.alarmas * 2654435761u) ^ (s.sin_reconocer * 40503u);
+}
+static bool cambioUrgente() {
+  if ((int32_t)(millis() - ultUrgente) < 250) return false;
+  Instantanea s;
+  control::instantanea(s);
+  if (firma(s) == firmaTel) return false;
+  ultUrgente = millis();
+  return true;
+}
+
 static void subirTel() {
   Instantanea s;
   control::instantanea(s);
+  firmaTel = firma(s);
   Calibracion cal;
   control::calActual(cal);
   JsonDocument d;
@@ -289,6 +305,11 @@ static void subirTel() {
   o["k1"] = s.k1 ? 1 : 0;
   o["perm"] = s.permiso ? 1 : 0;
   o["mot"] = motivoTexto(s.motivo);
+  o["btn"] = s.btn ? 1 : 0;  // PARAR oprimido ahora (la app lo muestra y cuenta los 3 s para quitar el paro)
+  if (s.btn) {
+    o["btn_ms"] = s.btn_ms;
+    o["btn_rea"] = s.btn_rearma ? 1 : 0;
+  }
   JsonArray al = o["al"].to<JsonArray>();
   JsonArray nr = o["nr"].to<JsonArray>();
   for (int b = 0; b < N_ALARMAS; b++) {
@@ -911,7 +932,7 @@ static void conectar(uint32_t ms) {
   proxIntento = millis() + espera;
   Serial.printf("[red] %s · reintento en %lu s\n", (miError.length() ? miError : fb::error()).c_str(),
                 (unsigned long)(espera / 1000));
-  espera = espera >= 300000 ? 300000 : espera * 2;
+  espera = espera >= 60000 ? 60000 : espera * 2;  // tope de 1 min: al volver internet, en línea en ≤ 1 min
 }
 
 // ------------------------------------------------------------------ WiFi y NTP
@@ -935,8 +956,13 @@ void begin() {
   WiFi.mode(WIFI_STA);
   WiFi.setHostname(nombre);
   WiFi.setAutoReconnect(true);
-  WiFi.onEvent([](WiFiEvent_t, WiFiEventInfo_t) { WiFi.setTxPower(WIFI_POWER_17dBm); },
-               ARDUINO_EVENT_WIFI_STA_GOT_IP);
+  WiFi.onEvent(
+      [](WiFiEvent_t, WiFiEventInfo_t) {
+        WiFi.setTxPower(WIFI_POWER_17dBm);
+        espera = 5000;  // volvió el WiFi: se intenta entrar a Firebase enseguida, sin la espera acumulada
+        proxIntento = millis();
+      },
+      ARDUINO_EVENT_WIFI_STA_GOT_IP);
   sntp_set_time_sync_notification_cb(alSincronizarNtp);
   configTime(0, 0, NTP_1, NTP_2);
   WiFi.begin(cred.ssid.c_str(), cred.clave.c_str());
@@ -955,8 +981,8 @@ void loop() {
     if (enlinea) desconectar("se perdió el WiFi");
     if (cred.ssid.length()) {
       fase = "conectando al WiFi";
-      if (ms - ultIntentoWifi > 60000) {
-        ultIntentoWifi = ms;  // la reconexión automática no siempre vuelve: se insiste cada minuto
+      if (ms - ultIntentoWifi > 30000) {
+        ultIntentoWifi = ms;  // la reconexión automática no siempre vuelve: se insiste cada 30 s
         WiFi.disconnect();
         WiFi.begin(cred.ssid.c_str(), cred.clave.c_str());
         WiFi.setTxPower(WIFI_POWER_17dBm);
@@ -976,7 +1002,10 @@ void loop() {
       desconectar(fb::error());
     } else if (!fb::flujoActivo()) {
       desconectar(fb::error());
-    } else if (ms - fb::flujoUltimo() > FLUJO_SIN_DATOS_MS) {
+    } else if ((int32_t)(millis() - fb::flujoUltimo()) > (int32_t)FLUJO_SIN_DATOS_MS) {
+      // millis() y con signo: «ms» se tomó al empezar la vuelta, antes de abrir el flujo o de leer un dato
+      // (que dejan flujoUltimo() más nuevo que ms); sin signo, ms − flujoUltimo() daba un número enorme y
+      // desconectaba a los pocos segundos de entrar (D34, 25 nov).
       desconectar("el flujo no recibe nada");
     }
   }
@@ -1009,7 +1038,7 @@ void loop() {
   if (enlinea) {
     enviarRespuestas();
     uint32_t periodo = vivo() ? TEL_VIVO_MS : (uint32_t)cfg.tel_s * 1000UL;
-    if (enlinea && (ultTel == 0 || millis() - ultTel >= periodo)) subirTel();
+    if (enlinea && (ultTel == 0 || millis() - ultTel >= periodo || cambioUrgente())) subirTel();
     if (enlinea) subirRegistros(millis());
     if (enlinea && !tgCola.empty()) {
       telegram(tgCola.front());

@@ -51,13 +51,14 @@ export class Grafica {
     this.obs.disconnect();
     this.tema.removeEventListener("change", this.alTema);
   }
-  datos(listas, rango) {
+  // animar = false para las actualizaciones en vivo: redibuja sin repetir la entrada de la curva
+  datos(listas, rango, animar = true) {
     listas.forEach((l, k) => (this.series[k].puntos = l.filter((p) => Number.isFinite(p[1]))));
     this.rango = rango;
     const hay = this.series.some((s) => s.puntos.length);
     this.vacio.hidden = hay;
     // la curva se dibuja de izquierda a derecha la primera vez (cada vez que cambian los datos)
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (!animar || matchMedia("(prefers-reduced-motion: reduce)").matches) {
       this.revelado = 1;
       return this.dibujar();
     }
@@ -113,7 +114,8 @@ export class Grafica {
       c.fillText(fmtN(v, paso < 1 ? Math.min(dec, 2) : 0), izq - 6, y);
     }
     const largo = t2 - t1;
-    const pasoT = largo <= 86400 * 1.1 ? 3 * 3600 : largo <= 8 * 86400 ? 86400 : 5 * 86400;
+    // marcas de tiempo: cada 3 min en «En vivo» (15 min), cada hora en unas horas, cada 3 h en un día…
+    const pasoT = largo <= 1200 ? 180 : largo <= 3600 ? 600 : largo <= 6 * 3600 ? 3600 : largo <= 86400 * 1.1 ? 3 * 3600 : largo <= 8 * 86400 ? 86400 : 5 * 86400;
     c.textAlign = "center";
     c.textBaseline = "top";
     const inicio = Math.ceil((t1 + 5 * 3600) / pasoT) * pasoT - 5 * 3600;
@@ -153,6 +155,15 @@ export class Grafica {
       let tramo = [];
       const cerrar = () => {
         if (!tramo.length) return;
+        if (tramo.length === 1) {
+          // un punto suelto (p. ej. el primero en «En vivo») se ve como un punto, no desaparece
+          c.beginPath();
+          c.arc(tramo[0][0], tramo[0][1], 3, 0, Math.PI * 2);
+          c.fillStyle = col;
+          c.fill();
+          tramo = [];
+          return;
+        }
         c.beginPath();
         tramo.forEach(([x, y], k) => (k ? c.lineTo(x, y) : c.moveTo(x, y)));
         c.stroke();
