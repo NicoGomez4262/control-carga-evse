@@ -446,6 +446,7 @@ async function vPanel(id) {
       ${Object.keys(app.u.equipos).length > 1 ? `<a class="boton-icono" href="#/" aria-label="Todos los equipos">${icono("equipo")}</a>` : ""}
       <a class="boton-icono solo-movil" href="#/perfil" aria-label="Tu perfil">${icono("usuario")}</a>
     </header>
+    <section class="riel" aria-label="Circuito"><article class="mod" style="--d:12"><div class="mod-cab"><span class="rotulo"><b>X0</b> Circuito de carga</span><small id="t-red"></small></div><div id="mimico"></div></article></section>
     <section class="riel" aria-label="Temperaturas y red">
       <article class="mod" style="--m:2;--t:4;--d:4"><div class="mod-cab"><span class="rotulo"><b>T1</b> Sonda</span></div>
         <div class="lectura l-m"><span id="l-tsn">—</span><span class="u">°C</span></div><div class="termo" id="b-tsn"></div><div class="dato-pie" id="c-tsn"></div></article>
@@ -506,7 +507,6 @@ async function vPanel(id) {
         <p class="c-nota" id="c-nota">El botón rojo <b>PARAR</b> del equipo pausa la carga al instante, aunque no haya internet.</p>
       </article>
     </section>
-    <section class="riel" aria-label="Circuito"><article class="mod" style="--d:12"><div class="mod-cab"><span class="rotulo"><b>X0</b> Circuito de carga</span><small id="t-red"></small></div><div id="mimico"></div></article></section>
     <section class="riel" id="r-anun" hidden><article class="mod" style="--d:12">
       <div class="mod-cab"><span class="rotulo"><b>H1</b> Anunciador</span><a href="#/e/${id}/alarmas" class="suave" style="margin-left:auto">Ver todo</a></div>
       <div class="anun-fila"><div class="anunciador" id="anun"></div><div class="acciones" id="anun-acc"></div></div>

@@ -16,15 +16,15 @@ registro del 25–26 nov al final).
 Estado (26 nov):
 - App en https://evse-monitor-d37rs.web.app (Firebase evse-monitor-d37rs; CLI en app\ con npx.cmd).
   Entrada con Google o correo. Yo estoy en admins. Equipo nico-01.
-- Placa 1 con evse_monitor 1.0.1 (USB). El 1.0.2 ya está cargado en la base: Ajustes → Firmware →
-  Instalar. COM8: si dice «Access is denied», otro programa lo tiene abierto.
+- Placa 1 con evse_monitor 1.0.2 (instalado por OTA el 27 nov). COM8: si dice «Access is denied»,
+  otro programa lo tiene abierto.
 - Banco con red (D36): TJP 110:110 V 300 VA → regleta sin tierra → J1 (11 y 12); sin fuente en J6.
   Con un bombillo: 60,02 Hz, V 187,4 V, I 1,395 A, P 261 W sin calibrar.
 - CT aprobado con corriente real (bombillo). PARAR, Quitar emergencia y Pausar/Reanudar desde la app, bien.
 
 Qué quiero, en este orden:
-1. Instalar 1.0.2 por OTA y comprobar: PARAR en vivo en la app, reconexión (apagar y prender; hotspot
-   2 min; datos móviles 3 min) con tiempos medidos en la base.
+1. Comprobar con 1.0.2: PARAR en vivo en la app y la reconexión (apagar y prender; hotspot 2 min;
+   datos móviles 3 min) con tiempos medidos en la base.
 2. S7: anotar TP2/TP3/TP5 con red; calibrar con cal_auto (V del multímetro en la regleta, I de una
    pinza o del Keysight en serie) y verificar con otra carga (error < 1–2 %).
 3. S8: protecciones sin internet; historial completo al volver; Telegram (opcional).
@@ -96,7 +96,7 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 ```text
 SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: calibración y S8 (10H, final)
 
-[Placa: S1–S6 ✓ · CT ✓ · red ✓] ─► [ESP32-S3: 1.0.1 ✓ en línea ▐OTA 1.0.2▌] ═TLS═► [Firebase ✓] ─► [App web ✓ publicada] ─► PC y celular
+[Placa: S1–S6 ✓ · CT ✓ · red ✓] ─► [ESP32-S3: 1.0.2 ✓ en línea · OTA ✓] ═TLS═► [Firebase ✓] ─► [App web ✓ publicada] ─► PC y celular
           ▲ ▐S7 red + cal · S8▌             │ protecciones locales ✓                       ▲                                  │
           └─────────────────────────────────┴─ NVS + búfer 7 MB + DS3231 ✓                 └────────── órdenes ◄─────────────────┘
 ```
@@ -117,7 +117,8 @@ SOFTWARE (Fase 10) · ► ESTÁS AQUÍ: calibración y S8 (10H, final)
   - [x] Cotejar el enlace, las rutas y las reglas; borrar la flash y subir `firmware/evse_monitor` 1.0.0 (24 nov, D33).
   - [x] `wifi` + `enlazar CÓDIGO`; LED3 fijo y «En línea» en la app (25 nov, con el 1.0.1 de D34).
   - [x] Desde la app: lecturas en vivo, PARAR y Quitar emergencia, Pausar/Reanudar (25 nov).
-  - [ ] OTA 1.0.1 → 1.0.2 (ya cargado en la base) y pruebas de reconexión; sonda caliente; sin internet.
+  - [x] OTA 1.0.1 → 1.0.2 (27 nov, ≈ 70 s en total).
+  - [ ] Pruebas de reconexión; sonda caliente; sin internet.
   - [x] CT con corriente real (bombillo, 25 nov).
   - [ ] S7: placa en la red por el transformador TJP ✓ (25 nov); falta anotar TP2/TP3/TP5, calibrar con `cal_auto` y verificar con otra carga (error < 1–2 %).
   - [ ] S8: de punta a punta con red; protecciones sin internet; historial completo al volver la red.
