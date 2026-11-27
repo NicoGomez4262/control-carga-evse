@@ -16,7 +16,9 @@ registro del 25–26 nov al final).
 Estado (26 nov):
 - App en https://evse-monitor-d37rs.web.app (Firebase evse-monitor-d37rs; CLI en app\ con npx.cmd).
   Entrada con Google o correo. Yo estoy en admins. Equipo nico-01.
-- Placa 1 con evse_monitor 1.0.3 (OTA el 27 nov; D37 corrige los reinicios del 1.0.2). COM8: si dice «Access is denied»,
+- Placa 1 con evse_monitor 1.0.3 (OTA el 27 nov; D37 corrige los reinicios del 1.0.2). El 1.0.4 (FP con
+  el signo corregido si el CT está al revés) está cargado en la base: instalarlo sin carga en curso.
+  «El CT quedó al revés» ya está activado (configuración v2). COM8: si dice «Access is denied»,
   otro programa lo tiene abierto.
 - Banco con red (D36): TJP 110:110 V 300 VA → regleta sin tierra → J1 (11 y 12); sin fuente en J6.
   Con un bombillo: 60,02 Hz, V 187,4 V, I 1,395 A, P 261 W sin calibrar.

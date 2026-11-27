@@ -199,7 +199,10 @@ static void medir(uint32_t ms) {
   // nivel del pin (el datasheet no dice su polaridad; en la placa 1, S5-4 del 24 nov, WarnOut e IRQ son activos en alto).
   bool calErr = ok && (m.sys & (atm::SYS_CALERR | atm::SYS_ADJERR));
   if (ok && !calErr) {
-    if (cfg.inv_ct) m.p = -m.p;
+    if (cfg.inv_ct) {  // CT al revés: se invierten la potencia y el signo del factor de potencia
+      m.p = -m.p;
+      m.pf = -m.pf;
+    }
     st.med = m;
     st.medOk = true;
     st.medBuenaUltima = ms;

@@ -561,7 +561,7 @@ async function vPanel(id) {
     $("#l-pmax").textContent = on && e.ses ? `Pico de la sesión ${fmt((e.pmax || 0) / 1000, 2)} kW` : on ? "Sin sesión abierta" : "";
     numero($("#l-i"), on ? e.i : NaN, 1);
     numero($("#l-v"), on ? e.v : NaN, 1);
-    $("#l-pf").textContent = on ? fmt(invertida ? Math.abs(Number(e.pf)) : e.pf, 2) : "—";
+    $("#l-pf").textContent = on && Number.isFinite(Number(e.pf)) ? fmt(Math.abs(Number(e.pf)), 2) : "—"; // FP en magnitud, como en un medidor de cargas
     const carga = on && corriendo(e);
     $("#p-p1").className = `piloto ${carga ? "verde respira" : ""}`;
     // K1: el estado en palabras simples y un solo botón con la acción que corresponde
