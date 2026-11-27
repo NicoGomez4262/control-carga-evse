@@ -598,3 +598,35 @@ body::before {
 .c-resultado.ok { color: var(--verde-t); }
 .c-resultado.va { color: var(--azul); }
 .c-resultado.mal { color: var(--rojo-t); }
+
+/* aviso del medidor cuando la potencia llega negativa (CT al revés) */
+.aviso-ct { margin-top: 4px; color: var(--ambar-t); font-size: 0.78rem; line-height: 1.35; }
+.medidor .unidad { font-size: 12px; letter-spacing: 0.12em; opacity: 0.85; }
+
+/* ------------------------------------------------------------------ alarmas: resumen y tarjetas con «qué pasa / qué hacer» */
+.al-resumen { display: grid; grid-template-columns: 46px 1fr auto; gap: 14px; align-items: center; padding: 14px; border-radius: 14px; background: var(--vidrio); border: 1px solid var(--costura); }
+.al-resumen h3 { font-size: 1.2rem; }
+.al-resumen p { margin: 4px 0 0; color: var(--tinta-2); font-size: 0.92rem; }
+.al-resumen[data-tono="verde"] { background: color-mix(in oklab, var(--verde) 12%, var(--vidrio)); border-color: color-mix(in oklab, var(--verde) 45%, var(--costura)); }
+.al-resumen[data-tono="verde"] .ce-icono { background: var(--verde); color: var(--sobre-verde); }
+.al-resumen[data-tono="ambar"] { background: color-mix(in oklab, var(--ambar) 12%, var(--vidrio)); border-color: color-mix(in oklab, var(--ambar) 45%, var(--costura)); }
+.al-resumen[data-tono="ambar"] .ce-icono { background: var(--ambar); color: #241600; }
+.al-resumen[data-tono="rojo"] { background: color-mix(in oklab, var(--rojo) 14%, var(--vidrio)); border-color: color-mix(in oklab, var(--rojo) 55%, var(--costura)); }
+.al-resumen[data-tono="rojo"] .ce-icono { background: var(--rojo); color: var(--sobre-rojo); }
+.al-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-top: 12px; }
+.al-lista:empty { display: none; }
+.al-item { display: grid; grid-template-columns: 38px 1fr; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--costura); border-left: 4px solid var(--apagado); background: var(--modulo-2); }
+.al-item[data-tono="rojo"] { border-left-color: var(--rojo); }
+.al-item[data-tono="ambar"] { border-left-color: var(--ambar); }
+.al-ico { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: var(--placa); color: var(--tinta-2); }
+.al-item[data-tono="rojo"] .al-ico { background: color-mix(in oklab, var(--rojo) 22%, var(--placa)); color: var(--rojo-t); }
+.al-item[data-tono="ambar"] .al-ico { background: color-mix(in oklab, var(--ambar) 22%, var(--placa)); color: var(--ambar-t); }
+.al-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.al-cab b { font-size: 1rem; margin-right: 2px; }
+.al-tag { padding: 2px 7px; border-radius: 6px; background: var(--placa); color: var(--tinta-2); font: 600 10px/1.4 var(--f-rotulo); letter-spacing: 0.08em; text-transform: uppercase; }
+.al-tag.nr { background: color-mix(in oklab, var(--rojo) 20%, var(--placa)); color: var(--rojo-t); }
+.al-item p { margin: 4px 0 0; color: var(--tinta-2); font-size: 0.9rem; }
+.al-item .al-hacer { color: var(--tinta); font-weight: 500; }
+.al-item .al-hacer::before { content: "→ "; color: var(--tinta-3); }
+@media (max-width: 639.98px) { .al-resumen { grid-template-columns: 46px 1fr; } .al-resumen .boton { grid-column: 1 / -1; } }
+

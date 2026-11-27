@@ -11,6 +11,8 @@ enum EstadoRed : uint8_t { RED_NADA = 0, RED_WIFI = 1, RED_SERVIDOR = 2, RED_POR
 
 void begin(esp_reset_reason_t motivoReset);
 void instantanea(Instantanea &s);
+uint32_t firma(const Instantanea &s);  // resumen de lo que el usuario debe ver enseguida (K1, permiso, motivo, PARAR, alarmas)
+uint32_t firmaActual();               // la firma de la última foto, sin tomar el mutex
 void configActual(Config &c);
 void calActual(Calibracion &c);
 bool enviarOrden(const Orden &o);

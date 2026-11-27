@@ -29,6 +29,8 @@ int pedir(const char *metodo, const String &ruta, const String &cuerpo = "", Str
           uint32_t espera_ms = 10000);
 
 bool flujoAbrir(const String &ruta);
+// true si la placa se reinició mientras esperaba a la red (marca en la RAM del RTC; se lee al arrancar)
+bool redOcupadaAlReiniciar();
 void flujoCerrar();
 bool flujoActivo();
 bool flujoLeer(Evento &e);   // no bloquea: true cuando hay un evento completo

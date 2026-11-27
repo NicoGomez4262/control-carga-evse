@@ -5,6 +5,7 @@
 #include "almacen.h"
 #include "atm90e26.h"
 #include "config.h"
+#include "fb.h"
 #include "sensores.h"
 
 namespace control {
@@ -574,6 +575,13 @@ static void procesarOrdenes() {
 }
 
 // ------------------------------------------------------------------ foto para la red
+uint32_t firma(const Instantanea &s) {
+  uint32_t f = (s.k1 ? 1u : 0u) | (s.permiso ? 2u : 0u) | (s.btn ? 4u : 0u) | (s.btn_rearma ? 8u : 0u) | ((uint32_t)s.motivo << 4);
+  return f ^ (s.alarmas * 2654435761u) ^ (s.sin_reconocer * 40503u);
+}
+static volatile uint32_t firmaSnap = 0;
+uint32_t firmaActual() { return firmaSnap; }
+
 static void publicar(uint32_t ms) {
   Instantanea s;
   s.ts = ahora();
@@ -608,6 +616,7 @@ static void publicar(uint32_t ms) {
   xSemaphoreTake(mtxEstado, portMAX_DELAY);
   snap = s;
   xSemaphoreGive(mtxEstado);
+  firmaSnap = firma(s);
 }
 
 // ------------------------------------------------------------------ tarea
@@ -667,8 +676,12 @@ void begin(esp_reset_reason_t motivoReset) {
   if (!aplicarCalibracion(cal)) Serial.println("[control] el ATM90E26 no quedó configurado (se reintenta)");
 
   // Reinicios anormales: alarma hasta reconocer; tres en menos de 10 min dejan la carga detenida.
-  bool anormal = motivoReset == ESP_RST_PANIC || motivoReset == ESP_RST_INT_WDT || motivoReset == ESP_RST_TASK_WDT ||
-                 motivoReset == ESP_RST_WDT || motivoReset == ESP_RST_BROWNOUT;
+  // Un watchdog de tareas mientras la red esperaba (servidor o WiFi lentos) no es una falla del control:
+  // las protecciones corren en su propia tarea. Ese caso no cuenta para el bloqueo por reinicios (D37).
+  bool porRed = motivoReset == ESP_RST_TASK_WDT && fb::redOcupadaAlReiniciar();
+  bool anormal = (motivoReset == ESP_RST_PANIC || motivoReset == ESP_RST_INT_WDT || motivoReset == ESP_RST_TASK_WDT ||
+                  motivoReset == ESP_RST_WDT || motivoReset == ESP_RST_BROWNOUT) &&
+                 !porRed;
   if (rtcMagia != RTC_MAGIA || motivoReset == ESP_RST_POWERON) {
     rtcMagia = RTC_MAGIA;
     rtcReinicios = 0;

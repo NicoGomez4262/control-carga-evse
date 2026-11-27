@@ -89,11 +89,28 @@ function arco(cx, cy, r, a1, a2) {
   return `M${x1.toFixed(2)} ${y1.toFixed(2)}A${r} ${r} 0 ${a2 - a1 > 180 ? 1 : 0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
 }
 
+// Escalas del medidor de potencia (kW): de 100 W a 100 kW. «paso» = marcas mayores; debajo de 1 kW se rotula en W.
+export const ESCALAS_P = [
+  { max: 0.1, paso: 0.02, u: "W" },
+  { max: 0.25, paso: 0.05, u: "W" },
+  { max: 0.5, paso: 0.1, u: "W" },
+  { max: 1, paso: 0.2, u: "W" },
+  { max: 2, paso: 0.5, u: "kW" },
+  { max: 4, paso: 1, u: "kW" },
+  { max: 8, paso: 1, u: "kW" },
+  { max: 20, paso: 5, u: "kW" },
+  { max: 50, paso: 10, u: "kW" },
+  { max: 100, paso: 20, u: "kW" },
+];
+
 export class Medidor {
-  constructor(max) {
+  constructor(escala) {
     this.el = document.createElement("div");
     this.el.className = "medidor";
-    this.max = max;
+    const e = typeof escala === "number" ? ESCALAS_P.find((x) => x.max >= escala) || ESCALAS_P.at(-1) : escala;
+    this.max = e.max;
+    this.pasoM = e.paso;
+    this.u = e.u;
     this.val = 0;
     this.obj = 0;
     this.vel = 0;
@@ -103,17 +120,20 @@ export class Medidor {
   }
   dibujarEscala() {
     const cx = 120, cy = 120, R = 96, max = this.max;
+    const n = Math.round(max / this.pasoM); // marcas mayores; entre cada par, una menor
+    const rotulo = (v) => (this.u === "W" ? String(Math.round(v * 1000)) : fmtN(v, v % 1 ? 1 : 0));
     let marcas = "";
-    for (let k = 0; k <= max * 2; k++) {
-      const a = A0 + (BARRIDO * k) / (max * 2);
+    for (let k = 0; k <= n * 2; k++) {
+      const a = A0 + (BARRIDO * k) / (n * 2);
       const mayor = k % 2 === 0;
       const [x1, y1] = polar(cx, cy, R - (mayor ? 14 : 8), a), [x2, y2] = polar(cx, cy, R - 2, a);
       marcas += `<line class="${mayor ? "mayor" : "menor"}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
       if (mayor) {
         const [tx, ty] = polar(cx, cy, R - 28, a);
-        marcas += `<text x="${tx.toFixed(1)}" y="${(ty + 4).toFixed(1)}" text-anchor="middle">${k / 2}</text>`;
+        marcas += `<text x="${tx.toFixed(1)}" y="${(ty + 4).toFixed(1)}" text-anchor="middle">${rotulo((k / 2) * this.pasoM)}</text>`;
       }
     }
+    marcas += `<text class="unidad" x="${cx}" y="${cy + 30}" text-anchor="middle">${this.u}</text>`; // debajo del eje: la aguja no lo tapa
     this.el.innerHTML = `<svg viewBox="0 0 240 176" aria-hidden="true">
       <path class="pista" d="${arco(cx, cy, R + 8, A0, A0 + BARRIDO)}"/>
       <path class="valor" d=""/>
@@ -129,10 +149,17 @@ export class Medidor {
     this.marcaPico = this.el.querySelector(".pico");
     this.aplicar(0);
   }
-  escala(max) {
-    if (max === this.max) return;
-    this.max = max;
+  // Cambia de escala sin que la aguja salte: conserva el ángulo y la deja ir con su resorte al valor nuevo.
+  escala(e) {
+    if (e.max === this.max) return;
+    const f = this.val / this.max;
+    this.max = e.max;
+    this.pasoM = e.paso;
+    this.u = e.u;
+    this.val = f * this.max;
     this.dibujarEscala();
+    if (!quieto() && this.el.animate) this.el.querySelector(".escala").animate([{ opacity: 0 }, { opacity: 1 }], { duration: 450, easing: "ease-out" });
+    this.ir(this.obj, this.pico);
   }
   ir(kw, pico) {
     this.obj = Math.max(0, Math.min(this.max * 1.04, kw || 0));
@@ -181,7 +208,7 @@ export class Medidor {
     const fp = Math.max(0, Math.min(1, this.pico / this.max));
     const [px, py] = polar(this.cx, this.cy, this.R + 20, A0 + BARRIDO * fp);
     this.marcaPico.setAttribute("transform", `translate(${px.toFixed(1)} ${py.toFixed(1)}) rotate(${(A0 + BARRIDO * fp + 90).toFixed(1)})`);
-    this.marcaPico.style.opacity = this.pico > 0.05 ? 1 : 0;
+    this.marcaPico.style.opacity = this.pico > this.max * 0.02 ? 1 : 0;
   }
 }
 

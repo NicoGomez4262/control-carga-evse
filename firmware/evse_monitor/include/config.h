@@ -2,7 +2,7 @@
 #pragma once
 #include <Arduino.h>
 
-#define FW_VERSION "1.0.2"
+#define FW_VERSION "1.0.3"
 #define FW_NOMBRE "evse_monitor"
 
 // ---------------------------------------------------------------- pines (mapa de F4, docs/DECISIONES.md)
@@ -32,7 +32,7 @@ constexpr uint32_t CONTROL_PERIODO_MS = 250;      // lazo de control (botón, K1
 constexpr uint32_t MEDICION_PERIODO_MS = 1000;    // ATM90E26 y energía
 constexpr uint32_t SENSORES_PERIODO_MS = 5000;    // DS18B20 y AHT20
 constexpr uint32_t NVS_ENERGIA_PERIODO_MS = 60000;  // D14: energía en NVS cada minuto
-constexpr uint32_t WDT_SEGUNDOS = 30;             // watchdog de tareas (la descarga OTA lo alimenta)
+constexpr uint32_t WDT_SEGUNDOS = 60;             // watchdog de tareas (la descarga OTA lo alimenta)
 
 // ---------------------------------------------------------------- protecciones
 constexpr uint32_t PARAR_ANTIRREBOTE_MS = 50;

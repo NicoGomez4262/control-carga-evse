@@ -3,7 +3,7 @@
 
 import * as fb from "./fb.js";
 import { Grafica } from "./grafica.js";
-import { encender, icono, Medidor, mimico, numero, pintarMimico, rodillos, termometro } from "./instrumentos.js";
+import { encender, ESCALAS_P, icono, Medidor, mimico, numero, pintarMimico, rodillos, termometro } from "./instrumentos.js";
 import "./fondo.js";
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -42,17 +42,17 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 
 // ------------------------------------------------------------------ textos del equipo
 const ALARMAS = {
-  temp_sonda: ["Sobretemp. sonda", "Sobretemperatura en la sonda"],
-  temp_amb: ["Sobretemp. placa", "Sobretemperatura en la placa"],
-  sonda_falla: ["Sonda sin respuesta", "La sonda DS18B20 no responde"],
-  medidor_falla: ["Falla medidor", "Falla del medidor ATM90E26"],
-  red_baja: ["Red baja", "Tensión de red baja"],
-  parar: ["Emergencia", "Pausa de emergencia: se oprimió PARAR y la carga sigue pausada hasta reactivarla"],
-  amb_falla: ["Sensor placa", "El sensor de ambiente no responde"],
-  sin_hora: ["Sin hora", "Sin hora (sin NTP ni RTC)"],
-  reinicio: ["Reinicio", "Reinicio inesperado (brownout o watchdog)"],
-  sin_calibrar: ["Sin calibrar", "El medidor aún no está calibrado"],
-  temp_aviso: ["Sonda caliente", "La sonda está cerca del límite de temperatura"],
+  temp_sonda: ["Sonda muy caliente", "La sonda pasó el límite de temperatura.", "La carga se pausa y vuelve sola al enfriarse.", "termo"],
+  temp_amb: ["Equipo caliente", "La placa pasó su límite de temperatura.", "La carga se pausa; revisa que el equipo ventile.", "termo"],
+  sonda_falla: ["Sonda desconectada", "La sonda de temperatura no responde.", "Revisa el cable de la sonda en J4.", "termo"],
+  medidor_falla: ["Medidor con falla", "El chip que mide la energía no responde bien.", "Reinicia el equipo; si sigue, recalibra.", "rayo"],
+  red_baja: ["Tensión baja", "La red está por debajo del mínimo.", "La carga vuelve sola cuando la red se normaliza.", "rayo"],
+  parar: ["Emergencia", "Alguien oprimió el botón PARAR.", "Quítala en Carga o sosteniendo PARAR 3 s.", "alto"],
+  amb_falla: ["Sensor de la placa", "El sensor de temperatura de la placa no responde.", "Reinicia el equipo; si sigue, revísalo.", "termo"],
+  sin_hora: ["Sin hora", "El equipo no sabe la hora.", "Se arregla sola al conectarse a internet.", "reloj"],
+  reinicio: ["Reinicio inesperado", "El equipo se reinició solo.", "Toca «Reconocer»; si se repite, revisa la alimentación.", "reloj"],
+  sin_calibrar: ["Sin calibrar", "Las medidas todavía no son exactas.", "Calibra en Ajustes → Calibración del medidor.", "ajustes"],
+  temp_aviso: ["Sonda tibia", "La sonda se acerca al límite.", "Solo es un aviso: la carga sigue.", "termo"],
 };
 const GRAVES = new Set(["temp_sonda", "temp_amb", "sonda_falla", "medidor_falla", "red_baja", "parar", "reinicio"]);
 const MOTIVOS = {
@@ -67,27 +67,27 @@ const MOTIVOS = {
 };
 const RESETS = { encendido: "encendido", pin_en: "botón EN", software: "software", panic: "excepción", wdt_int: "watchdog", wdt_tarea: "watchdog de tareas", wdt: "watchdog", brownout: "brownout" };
 const FIN = { sin_corriente: "terminó la carga", limite: "límite", otro: "otro" };
-const ORDENES = { permitir: "Permitió la carga", detener: "Detuvo la carga", reconocer: "Reconoció las alarmas", soltar_parar: "Quitó la pausa de emergencia", reiniciar: "Reinició el equipo", estado: "Pidió el estado", cal_leer: "Leyó la calibración", cal_auto: "Calibró el medidor", cal_escribir: "Escribió la calibración", cal_fabrica: "Volvió a la calibración de fábrica", telegram_probar: "Probó Telegram" };
+const ORDENES = { permitir: "Reanudó la carga", detener: "Pausó la carga", reconocer: "Reconoció las alarmas", soltar_parar: "Quitó la pausa de emergencia", reiniciar: "Reinició el equipo", estado: "Pidió el estado", cal_leer: "Leyó la calibración", cal_auto: "Calibró el medidor", cal_escribir: "Escribió la calibración", cal_fabrica: "Volvió a la calibración de fábrica", telegram_probar: "Probó Telegram" };
 const DIAS = ["D", "L", "M", "M", "J", "V", "S"];
 const NOMBRE_DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
 function textoEvento(e) {
-  const al = ALARMAS[e.a]?.[1] || e.txt || e.a;
+  const al = ALARMAS[e.a]?.[0] || e.txt || e.a;
   switch (e.c) {
     case "alarma": {
       const v = Number(e.x) / 10;
       const extra = e.a?.startsWith("temp") && v > 0 ? ` (${fmt(v, 1)} °C)` : "";
-      return [GRAVES.has(e.a) ? "rojo" : "ambar", `${al}${extra}`];
+      return [GRAVES.has(e.a) ? "rojo" : "ambar", `Alarma: ${al}${extra}`];
     }
-    case "alarma_fin": return ["verde", `Se despejó: ${al}`];
-    case "arranque": return ["", `Arranque del equipo${e.x ? ` · ${e.x} reinicios seguidos` : ""}`];
-    case "k1": return Number(e.val) ? ["verde", "K1 cerrado: carga permitida"] : ["", `K1 abierto${e.mot ? ` (${MOTIVOS[e.mot]?.[1] || e.mot})` : ""}`];
-    case "sesion_inicio": return ["verde", `Empezó la sesión nº ${fmt(e.val, 0)}`];
-    case "limite": return ["ambar", `Límite de la sesión: ${["", "energía", "tiempo", "costo"][Number(e.val)] || ""}`];
-    case "config": return ["", `Configuración v${fmt(e.val, 0)} aplicada en el equipo`];
+    case "alarma_fin": return ["verde", `Se resolvió: ${al}`];
+    case "arranque": return Number(e.n) >= 2 ? ["ambar", `El equipo se reinició solo${e.x ? ` (${e.x}.ª vez seguida)` : ""}`] : ["", "El equipo encendió"];
+    case "k1": return Number(e.val) ? ["verde", "Carga habilitada (K1 cerrado)"] : ["", `Carga pausada${e.mot && MOTIVOS[e.mot] ? `: ${MOTIVOS[e.mot][1].toLowerCase()}` : ""}`];
+    case "sesion_inicio": return ["verde", `Empezó una carga (nº ${fmt(e.val, 0)})`];
+    case "limite": return ["ambar", `Se alcanzó el límite de ${["", "energía", "tiempo", "costo"][Number(e.val)] || "la sesión"}`];
+    case "config": return ["", `Ajustes aplicados (v${fmt(e.val, 0)})`];
     case "calibracion": return ["ambar", "Calibración del medidor cambiada"];
-    case "orden_local": return ["", ["", "Pausa de emergencia: se oprimió PARAR en el equipo", "Emergencia quitada en el equipo (PARAR 3 s)", "Emergencia quitada desde la app"][Number(e.val)] || "Orden local"];
-    case "hora": return ["", "Hora puesta por NTP y copiada al DS3231"];
+    case "orden_local": return [Number(e.val) === 1 ? "rojo" : "verde", ["", "Se oprimió PARAR en el equipo", "Emergencia quitada en el equipo", "Emergencia quitada desde la app"][Number(e.val)] || "Orden en el equipo"];
+    case "hora": return ["", "Hora sincronizada"];
     case "ota": return [Number(e.val) ? "verde" : "rojo", Number(e.val) ? "Firmware actualizado" : "Volvió al firmware anterior"];
     default: return ["", e.c];
   }
@@ -373,7 +373,7 @@ async function vInicio() {
         app.estados[k] = e;
         const on = enLinea(e);
         $(".piloto", t).className = `piloto ${on ? (corriendo(e) ? "verde respira" : "verde") : ""}`;
-        $(".pot", t).innerHTML = on && Number.isFinite(e?.p) ? `${fmt(e.p / 1000, 2)}<span class="u">kW</span>` : "—";
+        $(".pot", t).innerHTML = on && Number.isFinite(e?.p) ? (Math.abs(e.p) < 1000 ? `${fmt(Math.abs(e.p), 0)}<span class="u">W</span>` : `${fmt(Math.abs(e.p) / 1000, 2)}<span class="u">kW</span>`) : "—";
         $(".txt", t).textContent = !e ? "El equipo aún no se ha conectado" : !on ? `Sin conexión · ${hace(edad(e))}` : corriendo(e) ? `Cargando · ${fmt(e.es, 2)} kWh` : MOTIVOS[e.mot]?.[1] || "En reposo";
       }),
     );
@@ -462,7 +462,7 @@ async function vPanel(id) {
     <section class="riel" aria-label="Consumo y permiso de carga">
       <article class="mod" style="--t:4;--d:4"><div class="mod-cab"><span class="rotulo"><b>P1</b> Potencia</span><span class="piloto" id="p-p1"></span></div>
         <div id="medidor"></div>
-        <div class="potencia"><div class="lectura l-xl"><span id="l-p">—</span><span class="u">kW</span></div><div class="dato-pie" id="l-pmax"></div></div>
+        <div class="potencia"><div class="lectura l-xl"><span id="l-p">—</span><span class="u" id="u-p">kW</span></div><div class="dato-pie" id="l-pmax"></div><div class="dato-pie aviso-ct" id="l-inv" hidden>El CT quedó al revés (la potencia llega negativa): gíralo o activa «El CT quedó al revés» en Ajustes → Avanzado.</div></div>
         <div class="fila-lecturas">
           <div><small>Corriente</small><span class="lectura l-m"><span id="l-i">—</span><span class="u">A</span></span></div>
           <div><small>Tensión</small><span class="lectura l-m"><span id="l-v">—</span><span class="u">V</span></span></div>
@@ -516,6 +516,23 @@ async function vPanel(id) {
   const med = new Medidor(8);
   $("#medidor").append(med.el);
   let est = app.estados[id] || null, cfg = null, ultimaOrden = 0, animParar = 0;
+  // escala del medidor: sube enseguida si la potencia no cabe; baja solo si cabe holgada en la menor durante 6 s
+  let escalaP = null, bajarDesde = 0;
+  function elegirEscala(kw) {
+    const necesaria = ESCALAS_P.findIndex((x) => x.max >= kw);
+    const idx = necesaria < 0 ? ESCALAS_P.length - 1 : necesaria;
+    if (escalaP === null || idx > escalaP) {
+      escalaP = idx;
+      bajarDesde = 0;
+    } else if (idx < escalaP && kw <= ESCALAS_P[escalaP - 1].max * 0.8) {
+      bajarDesde ||= performance.now();
+      if (performance.now() - bajarDesde > 6000) {
+        escalaP = idx;
+        bajarDesde = 0;
+      }
+    } else bajarDesde = 0;
+    return ESCALAS_P[escalaP];
+  }
   // orden en curso desde el pulsador: para mostrar el recorrido y cuánto tardó el relé
   let enviando = false, esperaK1 = null, tResultado = 0;
 
@@ -523,18 +540,28 @@ async function vPanel(id) {
     const e = est || {};
     const on = enLinea(est, cfg);
     const vnom = Number(cfg?.vnom) || 240;
-    med.escala(vnom >= 200 ? 8 : 4);
+
     $("#p-enlace").className = `piloto ${on ? "verde" : est ? "" : "ambar respira"}`;
     $("#t-enlace").textContent = !est ? "El equipo todavía no se ha conectado" : on ? `En línea · ${hace(edad(est))}${e.fw ? ` · firmware ${e.fw}` : ""}` : `Sin conexión · último dato ${hace(edad(est))}`;
     $("#t-red").textContent = vnom >= 200 ? "240 V L1–L2" : "120 V L–N";
-    pintarMimico(mim, on ? e : null, vnom);
-    const kw = on && Number.isFinite(e.p) ? Math.max(0, e.p / 1000) : NaN;
-    med.ir(Number.isFinite(kw) ? kw : 0, on ? (Number(e.pmax) || 0) / 1000 : 0);
-    numero($("#l-p"), kw, 2);
+    // potencia en magnitud: si el CT quedó al revés llega negativa, pero la carga es la misma
+    const invertida = on && Number(e.p) < -20 && Number(e.i) > 0.2;
+    pintarMimico(mim, on ? { ...e, p: Math.abs(Number(e.p) || 0) } : null, vnom);
+    const kw = on && Number.isFinite(e.p) ? Math.abs(e.p) / 1000 : NaN;
+    const escP = on && Number.isFinite(kw) ? elegirEscala(Math.max(kw, 0.0001)) : ESCALAS_P.find((x) => x.max >= (vnom >= 200 ? 8 : 4));
+    med.escala(escP);
+    med.ir(Number.isFinite(kw) ? kw : 0, on ? Math.abs(Number(e.pmax) || 0) / 1000 : 0);
+    const uP = escP.u;
+    if ($("#u-p").textContent !== uP) {
+      $("#u-p").textContent = uP;
+      $("#l-p").dataset.v = ""; // sin animar el salto entre kW y W
+    }
+    numero($("#l-p"), uP === "W" && Number.isFinite(kw) ? kw * 1000 : kw, uP === "W" ? 0 : 2);
+    $("#l-inv").hidden = !invertida;
     $("#l-pmax").textContent = on && e.ses ? `Pico de la sesión ${fmt((e.pmax || 0) / 1000, 2)} kW` : on ? "Sin sesión abierta" : "";
     numero($("#l-i"), on ? e.i : NaN, 1);
     numero($("#l-v"), on ? e.v : NaN, 1);
-    $("#l-pf").textContent = on ? fmt(e.pf, 2) : "—";
+    $("#l-pf").textContent = on ? fmt(invertida ? Math.abs(Number(e.pf)) : e.pf, 2) : "—";
     const carga = on && corriendo(e);
     $("#p-p1").className = `piloto ${carga ? "verde respira" : ""}`;
     // K1: el estado en palabras simples y un solo botón con la acción que corresponde
@@ -783,7 +810,7 @@ async function vHistorial(id) {
     med = vivo;
     const serie = (k, f = (x) => x) => vivo.filter((m) => Number.isFinite(m[k])).map((m) => [m.ts, f(m[k])]);
     const rango = [desde, hasta];
-    gp.datos([serie("p", (w) => Math.max(0, w / 1000))], rango, animar);
+    gp.datos([serie("p", (w) => Math.abs(w) / 1000)], rango, animar);
     gv.datos([serie("v")], rango, animar);
     gi.datos([serie("i")], rango, animar);
     gt.datos([serie("tsn"), serie("tam")], rango, animar);
@@ -830,7 +857,7 @@ async function vHistorial(id) {
       return out;
     };
     const rango = [desde, hasta];
-    gp.datos([prom("p", (w) => Math.max(0, w / 1000))], rango);
+    gp.datos([prom("p", (w) => Math.abs(w) / 1000)], rango);
     gv.datos([prom("v")], rango);
     gi.datos([prom("i")], rango);
     gt.datos([prom("tsn"), prom("tam")], rango);
@@ -844,7 +871,7 @@ async function vHistorial(id) {
     ge.datos([[...porDia.entries()].sort((a, b) => a[0] - b[0])], rango);
     const kwh = ses.reduce((a, s) => a + (Number(s.kwh) || 0), 0);
     const costo = ses.reduce((a, s) => a + (Number(s.cop) || (Number(s.kwh) || 0) * (cfg.tarifa || 0)), 0);
-    const pico = Math.max(0, ...med.map((m) => Number(m.p) || 0), ...ses.map((s) => Number(s.pmax) || 0));
+    const pico = Math.max(0, ...med.map((m) => Math.abs(Number(m.p) || 0)), ...ses.map((s) => Math.abs(Number(s.pmax) || 0)));
     $("#resumen").innerHTML = `
       <div><small>Energía</small><span class="lectura l-m">${fmt(kwh, 2)}<span class="u">kWh</span></span></div>
       <div><small>Costo</small><span class="lectura l-m">${cop(costo)}</span></div>
@@ -882,32 +909,60 @@ async function vAlarmas(id) {
   vista.innerHTML = `
     <header class="cabecera"><div class="titulo"><h1>Alarmas</h1><div class="enlace-estado" id="t-anun">—</div></div></header>
     <section class="riel"><article class="mod" style="--d:12">
-      <div class="mod-cab"><span class="rotulo"><b>H1</b> Anunciador</span><small>titila = sin reconocer</small></div>
-      <div class="anunciador" id="anun"></div><div class="acciones" id="anun-acc"></div>
+      <div class="al-resumen" id="al-resumen" data-tono="gris"></div>
+      <div class="al-lista" id="al-lista"></div>
     </article></section>
     <section class="riel">
-      <article class="mod" style="--d:7"><div class="mod-cab"><span class="rotulo"><b>R</b> Registro del equipo</span></div><div id="eventos"><p class="suave">Cargando…</p></div></article>
+      <article class="mod" style="--d:7"><div class="mod-cab"><span class="rotulo"><b>R</b> Qué pasó</span><small>lo más reciente arriba</small></div><div id="eventos"><p class="suave">Cargando…</p></div></article>
       <article class="mod" style="--d:5"><div class="mod-cab"><span class="rotulo"><b>O</b> Órdenes desde la app</span></div><div id="bitacora"><p class="suave">Cargando…</p></div></article>
+      <article class="mod" style="--d:12"><div class="mod-cab"><span class="rotulo"><b>H1</b> Lo que vigila el equipo</span><small>encendida = activa · titila = sin reconocer</small></div><div class="anunciador" id="anun"></div></article>
     </section>`;
   let est = null;
   const pintar = () => {
     const al = new Set(est?.al || []), nr = new Set(est?.nr || []);
-    cambia($("#anun"), Object.keys(ALARMAS).map((k) => `<div class="ventana ${al.has(k) ? "activa" : ""} ${GRAVES.has(k) ? "grave" : "leve"} ${nr.has(k) ? "sin-rec" : ""}" title="${esc(ALARMAS[k][1])}">${esc(ALARMAS[k][0])}</div>`).join(""));
-    $("#t-anun").textContent = !est ? "El equipo aún no se ha conectado" : al.size ? `${al.size} activa${al.size > 1 ? "s" : ""}${nr.size ? ` · ${nr.size} sin reconocer` : ""}` : nr.size ? `${nr.size} sin reconocer` : "Todo en orden";
-    if (cambia($("#anun-acc"), nr.size && manda ? `<button class="boton" id="b-rec">${icono("check")}Reconocer alarmas</button>` : "") && $("#b-rec"))
+    const visibles = Object.keys(ALARMAS).filter((k) => al.has(k) || nr.has(k));
+    const graves = visibles.filter((k) => GRAVES.has(k) && al.has(k));
+    const tono = !est ? "gris" : graves.length ? "rojo" : visibles.length ? "ambar" : "verde";
+    const titulo = !est ? "Esperando al equipo" : !visibles.length ? "Todo en orden" : al.size ? `${al.size} alarma${al.size > 1 ? "s" : ""} activa${al.size > 1 ? "s" : ""}` : "Nada activo ahora";
+    const detalle = !est
+      ? "Cuando el equipo se conecte, aquí verás sus alarmas."
+      : !visibles.length
+        ? "El equipo vigila la temperatura, el medidor, la red y el botón PARAR."
+        : nr.size
+          ? `${nr.size} sin reconocer: léelas y toca «Reconocer».`
+          : "Ya las reconociste; se quitan solas cuando se resuelven.";
+    $("#al-resumen").dataset.tono = tono;
+    cambia($("#al-resumen"), `<span class="ce-icono">${icono(tono === "verde" ? "check" : tono === "gris" ? "reloj" : "alto")}</span>
+      <div class="ce-texto"><h3>${esc(titulo)}</h3><p>${esc(detalle)}</p></div>
+      ${nr.size && manda ? `<button class="boton" id="b-rec">${icono("check")}Reconocer</button>` : ""}`);
+    if ($("#b-rec"))
       $("#b-rec").onclick = () =>
         conBoton($("#b-rec"), async () => {
           if (!enLinea(est)) throw new Error("El equipo no está en línea.");
           notif((await fb.orden(id, "reconocer")).msg || "Reconocidas.");
         });
+    // una tarjeta por alarma: qué pasa y qué hacer, primero las graves
+    const orden = [...visibles].sort((a, b) => (GRAVES.has(b) && al.has(b)) - (GRAVES.has(a) && al.has(a)));
+    cambia($("#al-lista"), orden.map((k) => {
+      const [t, que, hacer, ico] = ALARMAS[k];
+      const grave = GRAVES.has(k);
+      const etiqueta = !al.has(k) ? "ya pasó" : grave ? "grave" : "aviso";
+      return `<div class="al-item" data-tono="${!al.has(k) ? "gris" : grave ? "rojo" : "ambar"}">
+        <span class="al-ico">${icono(ico)}</span>
+        <div><div class="al-cab"><b>${esc(t)}</b><span class="al-tag">${etiqueta}</span>${nr.has(k) ? `<span class="al-tag nr">sin reconocer</span>` : ""}</div>
+          <p>${esc(que)}</p><p class="al-hacer">${esc(hacer)}</p></div></div>`;
+    }).join(""));
+    $("#t-anun").textContent = !est ? "—" : visibles.length ? `${visibles.length} para revisar` : "Sin alarmas";
+    cambia($("#anun"), Object.keys(ALARMAS).map((k) => `<div class="ventana ${al.has(k) ? "activa" : ""} ${GRAVES.has(k) ? "grave" : "leve"} ${nr.has(k) ? "sin-rec" : ""}" title="${esc(ALARMAS[k][1])}">${esc(ALARMAS[k][0])}</div>`).join(""));
   };
   alSalir(fb.escuchar(`estado/${id}`, (e) => ((est = e), (app.estados[id] = e), pintar())));
   pintar();
-  const [evs, bit] = await Promise.all([fb.eventos(id, 150), fb.bitacora(id, 40).catch(() => [])]);
+  const [evs, bit] = await Promise.all([fb.eventos(id, 80), fb.bitacora(id, 30).catch(() => [])]);
+  const t0 = ahora();
   $("#eventos").innerHTML = evs.length
     ? evs.map((e) => {
         const [c, t] = textoEvento(e);
-        return `<div class="evento"><span class="piloto ${c}"></span><div>${esc(t)}<time>${e.ts ? fFecha(e.ts) : "sin hora"}</time></div></div>`;
+        return `<div class="evento"><span class="piloto ${c}"></span><div>${esc(t)}<time>${e.ts ? `${hace(t0 - e.ts)} · ${fCorta(e.ts)}` : "sin hora"}</time></div></div>`;
       }).join("")
     : `<p class="suave">Todavía no hay eventos.</p>`;
   const nombres = app.u.admin ? (await fb.leer("usuarios").catch(() => null)) || {} : {};
@@ -915,7 +970,8 @@ async function vAlarmas(id) {
     ? bit.map((b) => {
         const quien = b.por === app.u.uid ? "Tú" : nombres[b.por]?.nombre || "Otro usuario";
         const r = b.resp;
-        return `<div class="evento"><span class="piloto ${!r ? "" : r.ok ? "verde" : "rojo"}"></span><div><b>${esc(quien)}</b> · ${esc((ORDENES[b.o] || b.o).toLowerCase())}<br><small>${r ? esc(r.msg || (r.ok ? "confirmada" : "rechazada")) : "sin respuesta del equipo"}</small><time>${fFecha(Math.floor((b.ts || 0) / 1000))}</time></div></div>`;
+        const ts = Math.floor((b.ts || 0) / 1000);
+        return `<div class="evento"><span class="piloto ${!r ? "" : r.ok ? "verde" : "rojo"}"></span><div><b>${esc(quien)}</b> ${esc((ORDENES[b.o] || b.o).toLowerCase())}<br><small>${r ? (r.ok ? "La placa la cumplió" : `La placa la rechazó: ${esc(r.msg || "")}`) : "Sin respuesta del equipo"}</small><time>${hace(t0 - ts)} · ${fCorta(ts)}</time></div></div>`;
       }).join("")
     : `<p class="suave">Nadie ha dado órdenes todavía.</p>`;
   encender(vista);

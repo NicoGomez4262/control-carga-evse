@@ -261,15 +261,9 @@ static void remotaConfig(JsonVariant v) {
 // ------------------------------------------------------------------ telemetría en vivo
 // Lo que el usuario tiene que ver enseguida en la app: K1, permiso, motivo, botón PARAR y alarmas.
 static uint32_t firmaTel = 0, ultUrgente = 0;
-static uint32_t firma(const Instantanea &s) {
-  uint32_t f = (s.k1 ? 1u : 0u) | (s.permiso ? 2u : 0u) | (s.btn ? 4u : 0u) | (s.btn_rearma ? 8u : 0u) | ((uint32_t)s.motivo << 4);
-  return f ^ (s.alarmas * 2654435761u) ^ (s.sin_reconocer * 40503u);
-}
 static bool cambioUrgente() {
   if ((int32_t)(millis() - ultUrgente) < 250) return false;
-  Instantanea s;
-  control::instantanea(s);
-  if (firma(s) == firmaTel) return false;
+  if (control::firmaActual() == firmaTel) return false;  // lectura atómica: sin mutex en cada vuelta del lazo
   ultUrgente = millis();
   return true;
 }
@@ -277,7 +271,7 @@ static bool cambioUrgente() {
 static void subirTel() {
   Instantanea s;
   control::instantanea(s);
-  firmaTel = firma(s);
+  firmaTel = control::firma(s);
   Calibracion cal;
   control::calActual(cal);
   JsonDocument d;

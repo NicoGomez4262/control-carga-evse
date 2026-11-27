@@ -2,11 +2,30 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <esp_attr.h>
+#include <esp_task_wdt.h>
 #include "ca_raiz.h"
 #include "config.h"
 #include "sensores.h"
 
 namespace fb {
+
+// Marca «esperando a la red» en la RAM del RTC: si el watchdog reinicia la placa en medio de una espera larga,
+// al arrancar se sabe que fue la red y no una falla del control (las protecciones van en otra tarea).
+static constexpr uint32_t OCUPADA = 0x4E45540Au;
+RTC_NOINIT_ATTR static uint32_t rtcRedOcupada;
+static const bool ocupadaAlArrancar = rtcRedOcupada == OCUPADA;
+bool redOcupadaAlReiniciar() { return ocupadaAlArrancar; }
+struct EnRed {
+  EnRed() {
+    esp_task_wdt_reset();
+    rtcRedOcupada = OCUPADA;
+  }
+  ~EnRed() {
+    rtcRedOcupada = 0;
+    esp_task_wdt_reset();
+  }
+};
 
 static String dbHost, apiKey, correo, pass;
 static String token, miUid, ultError;
@@ -68,9 +87,11 @@ bool entrar() {
     ultError = "falta el enlace con Firebase («enlazar» en la consola)";
     return false;
   }
+  EnRed enRed;
   WiFiClientSecure c;
   c.setCACert(CA_RAIZ);
   c.setTimeout(15);
+  c.setHandshakeTimeout(10);
   HTTPClient h;
   if (!h.begin(c, String(FB_LOGIN) + apiKey)) {
     ultError = "URL de inicio de sesión inválida";
@@ -130,8 +151,11 @@ int pedir(const char *metodo, const String &ruta, const String &cuerpo, String *
   String url = "https://" + dbHost + "/" + ruta + ".json?auth=" + token;
   int codigo = 0;
   String r;
+  EnRed enRed;
   for (int intento = 0; intento < 2; intento++) {
+    esp_task_wdt_reset();  // cada intento tiene su propio plazo: el watchdog no debe sumar los dos
     cliDatos.setTimeout((espera_ms + 999) / 1000);
+    cliDatos.setHandshakeTimeout(10);
     http.setReuse(true);
     if (!http.begin(cliDatos, url)) {
       ultError = "URL inválida";
@@ -183,10 +207,13 @@ bool flujoAbrir(const String &ruta) {
     ultError = "sin sesión";
     return false;
   }
+  EnRed enRed;
   String h = dbHost, camino = "/" + ruta + ".json?auth=" + token;
   for (int salto = 0; salto < 3; salto++) {
+    esp_task_wdt_reset();
     cliFlujo.setCACert(CA_RAIZ);
     cliFlujo.setTimeout(15);
+    cliFlujo.setHandshakeTimeout(10);
     if (!cliFlujo.connect(h.c_str(), 443)) {
       ultError = "flujo: sin conexión TLS con " + h;
       return false;
