@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>EVSE Monitor · Informe del proyecto</title>
+<!--
+  Informe de 5 páginas (carta) del proyecto. Se convierte a PDF con:
+      python docs/tools/informe.py
+  Las fotos están en docs/fotos/ y las imágenes de Altium en docs/img/.
+  Los QR (qr_*.svg) los genera el mismo script.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: 8.5in 11in; margin: 0; }
+  :root {
+    --tinta: #121b24; --tinta-2: #44515d; --tinta-3: #64707c;
+    --verde: #0e9f4e; --verde-n: #34d27b; --ambar: #c98200; --ambar-n: #f2b233;
+    --rojo: #d0342a; --rojo-n: #ff6656; --azul: #1f6fd1;
+    --noche: #0e1317; --modulo-n: #182129; --costura-n: #26323c;
+    --modulo: #f1f4f6; --costura: #dbe2e7; --placa: #e5eaee;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #888; }
+  body {
+    font-family: "Barlow", "Bahnschrift", "Segoe UI", sans-serif;
+    color: var(--tinta); font-size: 13.5px; line-height: 1.45;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    font-variant-numeric: tabular-nums;
+  }
+  a { color: inherit; text-decoration: none; }
+  .cond { font-family: "Barlow Semi Condensed", "Bahnschrift SemiCondensed", "Bahnschrift", sans-serif; }
+
+  .pagina {
+    width: 816px; height: 1056px; position: relative; overflow: hidden;
+    background: #fff; margin: 0 auto; break-after: page;
+    padding: 40px 56px 0;
+  }
+  .pagina:last-child { break-after: auto; }
+  @media screen { .pagina { margin: 24px auto; box-shadow: 0 8px 30px rgba(0,0,0,.35); } }
+
+  /* ---------- cabeza y pie de las páginas interiores ---------- */
+  .cabeza {
+    display: flex; align-items: center; gap: 10px;
+    font-family: "Barlow Semi Condensed", sans-serif; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .09em; font-size: 10.5px; color: var(--tinta-3);
+    padding-bottom: 10px; border-bottom: 1px solid var(--costura);
+  }
+  .cabeza .marca { color: var(--tinta); display: flex; align-items: center; gap: 6px; }
+  .cabeza .marca svg { width: 13px; height: 13px; }
+  .cabeza .num { margin-left: auto; color: var(--tinta); }
+  .pie {
+    position: absolute; left: 56px; right: 56px; bottom: 26px;
+    display: flex; justify-content: space-between; font-size: 10.5px; color: var(--tinta-3);
+    border-top: 1px solid var(--costura); padding-top: 8px;
+  }
+  .pie a { color: var(--tinta-2); }
+
+  .seccion { display: flex; align-items: baseline; gap: 14px; margin: 22px 0 10px; }
+  .seccion .n {
+    font-weight: 800; font-size: 44px; line-height: 1; color: var(--verde);
+    letter-spacing: -.02em;
+  }
+  .seccion h2 { font-weight: 700; font-size: 30px; line-height: 1.05; letter-spacing: -.01em; }
+  .seccion h2 small { display: block; font-size: 14px; font-weight: 500; color: var(--tinta-2); letter-spacing: 0; margin-top: 4px; }
+  h3 {
+    font-family: "Barlow Semi Condensed", sans-serif; font-weight: 700; font-size: 12px;
+    text-transform: uppercase; letter-spacing: .09em; color: var(--tinta-2); margin-bottom: 6px;
+  }
+  h3 .pt { color: var(--verde); }
+  p + p { margin-top: 7px; }
+  .intro { font-size: 14.6px; line-height: 1.5; color: var(--tinta); max-width: 690px; }
+  .intro b { font-weight: 600; }
+  .nota { font-size: 11.5px; color: var(--tinta-3); line-height: 1.4; }
+  figcaption { font-size: 11px; color: var(--tinta-3); margin-top: 6px; line-height: 1.35; }
+
+  /* ---------- portada ---------- */
+  .portada { background: var(--noche); color: #e6ecf1; padding: 0; }
+  .portada .foto { position: absolute; inset: 0 0 auto 0; height: 592px; }
+  .portada .foto img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; display: block; }
+  .portada .velo {
+    position: absolute; inset: 0 0 auto 0; height: 594px;
+    background: linear-gradient(to bottom, rgba(14,19,23,.72) 0%, rgba(14,19,23,0) 16%, rgba(14,19,23,0) 46%, rgba(14,19,23,.86) 78%, #0e1317 100%);
+  }
+  .portada .barra {
+    position: absolute; top: 34px; left: 56px; right: 56px; display: flex; justify-content: space-between;
+    font-family: "Barlow Semi Condensed", sans-serif; font-weight: 600; font-size: 11px;
+    letter-spacing: .12em; text-transform: uppercase; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.6);
+  }
+  .portada .bloque { position: absolute; left: 56px; right: 56px; top: 468px; }
+  .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: "Barlow Semi Condensed", sans-serif; font-weight: 700; font-size: 12px;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--verde-n);
+  }
+  .kicker i { width: 8px; height: 8px; border-radius: 50%; background: var(--verde-n); box-shadow: 0 0 10px var(--verde-n); }
+  .portada h1 {
+    font-weight: 800; font-size: 104px; line-height: .9; letter-spacing: -.035em; color: #fff;
+    margin-top: 8px; text-shadow: 0 4px 30px rgba(0,0,0,.45);
+  }
+  .portada h1 span { color: var(--verde-n); }
+  .portada .sub { font-size: 25px; font-weight: 500; color: #e6ecf1; margin-top: 10px; letter-spacing: -.005em; }
+  .portada .lead { font-size: 15.5px; line-height: 1.5; color: #a9b5bf; margin-top: 14px; max-width: 640px; }
+  .portada .lead b { color: #e6ecf1; font-weight: 600; }
+  .cifras { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 24px; }
+  .cifra {
+    background: linear-gradient(#1b252e, #141c23); border: 1px solid var(--costura-n); border-radius: 14px;
+    padding: 12px 14px 12px; position: relative;
+  }
+  .cifra::before { content: ""; position: absolute; left: 14px; top: 0; width: 26px; height: 2px; background: var(--verde-n); border-radius: 0 0 2px 2px; }
+  .cifra b { display: block; font-size: 21px; font-weight: 700; color: #fff; letter-spacing: -.01em; line-height: 1.1; }
+  .cifra span { display: block; font-size: 11.5px; color: #85919c; margin-top: 4px; line-height: 1.3; }
+  .portada .bajo {
+    position: absolute; left: 56px; right: 56px; bottom: 44px;
+    display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; align-items: stretch;
+  }
+  .video {
+    display: flex; gap: 14px; align-items: center; border-radius: 16px; padding: 12px;
+    background: linear-gradient(135deg, #2a0f0d, #1a1214 60%, #141c23); border: 1px solid #4a2320;
+  }
+  .qr { background: #fff; border-radius: 10px; padding: 7px; flex: none; }
+  .qr img { display: block; width: 82px; height: 82px; }
+  .video .t { font-weight: 700; font-size: 19px; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .play { width: 26px; height: 26px; border-radius: 50%; background: var(--rojo-n); display: inline-grid; place-items: center; flex: none; }
+  .play svg { width: 11px; height: 11px; margin-left: 2px; }
+  .video .d { font-size: 12.5px; color: #a9b5bf; margin-top: 3px; line-height: 1.35; }
+  .video .u { font-size: 12.5px; color: var(--rojo-n); font-weight: 600; margin-top: 5px; }
+  .autor {
+    border-radius: 16px; padding: 14px 16px; background: #141c23; border: 1px solid var(--costura-n);
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .autor .nom { font-weight: 700; font-size: 18px; color: #fff; }
+  .autor .car { font-size: 12.5px; color: #85919c; margin-top: 1px; }
+  .autor .enl { margin-top: 9px; display: grid; gap: 4px; font-size: 12.5px; }
+  .autor .enl a { display: flex; align-items: center; gap: 7px; color: #e6ecf1; }
+  .autor .enl svg { width: 14px; height: 14px; flex: none; }
+  .credito { position: absolute; left: 56px; right: 56px; bottom: 18px; font-size: 10px; color: #64707c; }
+
+  /* ---------- página 2 ---------- */
+  .diagrama { margin: 14px 0 4px; }
+  .diagrama svg { display: block; width: 100%; height: auto; }
+  .placa-anotada { display: grid; grid-template-columns: 362px 1fr; gap: 24px; margin-top: 12px; }
+  .foto-anotada { position: relative; width: 336px; align-self: start; }
+  .foto-anotada img { display: block; width: 336px; border-radius: 14px; }
+  .m {
+    position: absolute; width: 21px; height: 21px; margin: -10.5px 0 0 -10.5px; border-radius: 50%;
+    background: var(--verde); color: #fff; font-weight: 700; font-size: 11.5px; line-height: 21px; text-align: center;
+    box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(0,0,0,.45);
+  }
+  .m.am { background: var(--ambar); }
+  .banda {
+    position: absolute; background: rgba(242,178,51,.28);
+    border-top: 2px dashed var(--ambar-n); border-bottom: 2px dashed var(--ambar-n);
+  }
+  .regla { position: absolute; left: 345px; width: 16px; border-radius: 3px; }
+  .regla span {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) rotate(-90deg);
+    white-space: nowrap; font-family: "Barlow Semi Condensed", sans-serif; font-weight: 700; font-size: 10px;
+    letter-spacing: .1em; text-transform: uppercase; color: #fff;
+  }
+  .regla.red { background: var(--rojo); }
+  .regla.bt { background: var(--verde); }
+  .leyenda { list-style: none; display: grid; gap: 4px; align-content: start; }
+  .leyenda li { display: grid; grid-template-columns: 24px 1fr; gap: 8px; align-items: start; font-size: 12.3px; line-height: 1.33; color: var(--tinta-2); }
+  .leyenda li b { color: var(--tinta); font-weight: 600; }
+  .leyenda .k {
+    width: 21px; height: 21px; border-radius: 50%; background: var(--verde); color: #fff; font-weight: 700;
+    font-size: 11.5px; line-height: 21px; text-align: center; margin-top: -1px;
+  }
+  .leyenda .k.am { background: var(--ambar); }
+
+  /* ---------- página 3 ---------- */
+  .linea-tiempo { position: relative; margin: 14px 0 6px; height: 96px; }
+  .linea-tiempo .eje { position: absolute; left: 6px; right: 6px; top: 30px; height: 4px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--azul) 0%, var(--verde) 70%, var(--ambar) 100%); }
+  .hito { position: absolute; top: 0; width: 100px; transform: translateX(-50%); text-align: center; }
+  .hito .f { font-family: "Barlow Semi Condensed", sans-serif; font-weight: 700; font-size: 12px; letter-spacing: .04em; color: var(--tinta); }
+  .hito .p { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid var(--verde); margin: 4px auto 6px; }
+  .hito .x { font-size: 11px; line-height: 1.25; color: var(--tinta-2); }
+  .hito .x b { color: var(--tinta); font-weight: 600; }
+  .dos-imgs { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 8px; }
+  .dos-imgs img { width: 100%; height: 262px; object-fit: cover; border-radius: 12px; display: block; }
+  .dos-imgs figure:first-child img { object-position: 50% 50%; }
+  .col2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 16px; }
+  .col2 p { font-size: 13px; color: var(--tinta-2); }
+  .col2 p b { color: var(--tinta); font-weight: 600; }
+  .etapas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 8px; }
+  .etapa { background: var(--modulo); border: 1px solid var(--costura); border-radius: 14px; padding: 12px 12px 12px; position: relative; }
+  .etapa .e { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .etapa .e i {
+    font-style: normal; width: 24px; height: 24px; border-radius: 8px; background: var(--tinta); color: #fff;
+    font-weight: 700; font-size: 12px; display: grid; place-items: center; flex: none;
+  }
+  .etapa .e b { font-weight: 700; font-size: 13.5px; line-height: 1.15; }
+  .etapa p { font-size: 11.8px; color: var(--tinta-2); line-height: 1.38; }
+  .etapa.red { background: #fff6e6; border-color: #f0d9a8; }
+  .etapa.red .e i { background: var(--ambar); }
+
+  /* ---------- página 4 ---------- */
+  .tres { display: grid; grid-template-columns: 1fr 22px 1fr 22px 1fr; align-items: stretch; margin-top: 12px; }
+  .tarjeta { background: var(--modulo); border: 1px solid var(--costura); border-radius: 16px; padding: 13px 14px; }
+  .tarjeta.osc { background: var(--noche); border-color: #26323c; color: #e6ecf1; }
+  .tarjeta .tt { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+  .tarjeta .ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex: none; background: var(--tinta); }
+  .tarjeta.osc .ic { background: #222d36; }
+  .tarjeta .ic svg { width: 17px; height: 17px; }
+  .tarjeta .tt b { font-weight: 700; font-size: 15px; line-height: 1.1; display: block; }
+  .tarjeta .tt small { font-size: 11px; color: var(--tinta-3); display: block; }
+  .tarjeta.osc .tt small { color: #85919c; }
+  .tarjeta ul { list-style: none; display: grid; gap: 5px; }
+  .tarjeta li { font-size: 12px; line-height: 1.36; color: var(--tinta-2); padding-left: 13px; position: relative; }
+  .tarjeta.osc li { color: #a9b5bf; }
+  .tarjeta li::before { content: ""; position: absolute; left: 0; top: 6px; width: 6px; height: 6px; border-radius: 2px; background: var(--verde); }
+  .tarjeta.osc li::before { background: var(--verde-n); }
+  .flecha { display: grid; place-items: center; color: var(--tinta-3); }
+  .flecha svg { width: 18px; height: 18px; }
+  .app-fila { display: grid; grid-template-columns: 184px 1fr; gap: 28px; margin-top: 18px; }
+  .celular {
+    width: 184px; border-radius: 28px; padding: 8px; background: #05080a;
+    box-shadow: 0 0 0 1.5px #2c3842, 0 14px 30px rgba(14,19,23,.28);
+  }
+  .celular img { display: block; width: 168px; border-radius: 21px; }
+  .lista-ok { list-style: none; display: grid; gap: 6px; margin-top: 2px; }
+  .lista-ok li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 12.8px; line-height: 1.35; color: var(--tinta-2); align-items: start; }
+  .lista-ok li b { color: var(--tinta); font-weight: 600; }
+  .ok { width: 18px; height: 18px; border-radius: 50%; background: var(--verde); display: grid; place-items: center; margin-top: 0; }
+  .ok svg { width: 11px; height: 11px; }
+  .ok.pend { background: #fff; border: 2px solid var(--ambar); }
+  .caja-app { background: var(--modulo); border: 1px solid var(--costura); border-radius: 16px; padding: 14px 16px; }
+  .caja-app ul { list-style: none; display: grid; gap: 6px; }
+  .caja-app li { font-size: 12.8px; line-height: 1.38; color: var(--tinta-2); padding-left: 14px; position: relative; }
+  .caja-app li::before { content: ""; position: absolute; left: 0; top: 6px; width: 6px; height: 6px; border-radius: 2px; background: var(--azul); }
+  .caja-app li b { color: var(--tinta); font-weight: 600; }
+  .ruta { display: inline-flex; gap: 4px; align-items: center; font-family: "Barlow Semi Condensed", sans-serif; font-weight: 700; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
+  .ruta em { font-style: normal; background: var(--tinta); color: #fff; border-radius: 6px; padding: 1px 6px; }
+  .ruta em.k { background: var(--verde); }
+
+  /* ---------- página 5 ---------- */
+  .concl { display: grid; grid-template-columns: 1fr 236px; gap: 24px; margin-top: 6px; }
+  .concl ol { list-style: none; counter-reset: c; display: grid; gap: 9px; }
+  .concl li { counter-increment: c; display: grid; grid-template-columns: 26px 1fr; gap: 8px; font-size: 12.8px; line-height: 1.42; color: var(--tinta-2); }
+  .concl li::before {
+    content: counter(c); width: 22px; height: 22px; border-radius: 7px; background: var(--placa); color: var(--tinta);
+    font-weight: 700; font-size: 12px; display: grid; place-items: center; margin-top: 1px;
+  }
+  .concl li b { color: var(--tinta); font-weight: 600; }
+  .concl figure img { width: 236px; height: 292px; object-fit: cover; object-position: 50% 40%; border-radius: 14px; display: block; }
+  .apps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 8px; }
+  .apl { border-radius: 16px; padding: 14px; background: var(--noche); color: #e6ecf1; position: relative; overflow: hidden; }
+  .apl .ic { width: 32px; height: 32px; border-radius: 10px; background: #222d36; display: grid; place-items: center; margin-bottom: 8px; }
+  .apl .ic svg { width: 18px; height: 18px; }
+  .apl b { display: block; font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .apl p { font-size: 12px; line-height: 1.4; color: #a9b5bf; }
+  .apl::after { content: ""; position: absolute; right: -30px; top: -30px; width: 90px; height: 90px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(52,210,123,.22), rgba(52,210,123,0) 70%); }
+  .sigue { margin-top: 14px; border-radius: 14px; padding: 10px 14px; background: #fff6e6; border: 1px solid #f0d9a8;
+    display: flex; gap: 12px; align-items: center; font-size: 12.5px; color: #5c4200; }
+  .sigue b { color: #3d2c00; }
+  .sigue .et { font-family: "Barlow Semi Condensed", sans-serif; font-weight: 700; font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    background: var(--ambar); color: #fff; border-radius: 6px; padding: 3px 8px; flex: none; }
+  .enlaces { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 10px; }
+  .enlace { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: center; border: 1px solid var(--costura); border-radius: 16px; padding: 10px 12px; background: var(--modulo); }
+  .enlace .qr { padding: 5px; border: 1px solid var(--costura); }
+  .enlace .qr img { width: 70px; height: 70px; }
+  .enlace b { display: block; font-size: 14.5px; font-weight: 700; line-height: 1.15; }
+  .enlace span { display: block; font-size: 11.5px; color: var(--tinta-2); margin-top: 3px; line-height: 1.3; word-break: break-word; }
+  .enlace .u { grid-column: 1 / -1; color: var(--azul); font-weight: 600; font-size: 12px; margin-top: 0; white-space: nowrap; }
+  .enlace.yt .u { color: var(--rojo); }
+</style>
+</head>
+<body>
+
+<!-- ======================================================= 1 · PORTADA -->
+<section class="pagina portada">
+  <div class="foto"><img src="../fotos/banco_con_red.jpg" alt="La placa EVSE Monitor en el banco de pruebas, conectada a la red a través de un transformador de aislamiento y midiendo un bombillo encendido"></div>
+  <div class="velo"></div>
+  <div class="barra"><span>Hardware en IoT · Pontificia Universidad Javeriana</span><span>Noviembre de 2026</span></div>
+
+  <div class="bloque">
+    <div class="kicker"><i></i>Informe del proyecto</div>
+    <h1>EVSE <span>Monitor</span></h1>
+    <p class="sub">Medidor y control IoT para la carga de un carro eléctrico</p>
+    <p class="lead">Una placa electrónica diseñada desde cero que se instala junto al cargador, <b>mide cada carga</b>, la puede <b>pausar o reanudar</b> y muestra todo <b>en vivo en una app</b>, desde el celular o el computador.</p>
+    <div class="cifras">
+      <div class="cifra"><b>120–240 V</b><span>Diseñada para red monofásica y bifásica</span></div>
+      <div class="cifra"><b>V · I · P · kWh</b><span>Tensión, corriente, potencia, energía y temperatura</span></div>
+      <div class="cifra"><b>WiFi + nube</b><span>Datos en vivo y órdenes desde la app</span></div>
+      <div class="cifra"><b>130 × 100 mm</b><span>PCB propia de 2 capas, fabricada en JLCPCB</span></div>
+    </div>
+  </div>
+
+  <div class="bajo">
+    <a class="video" href="https://youtu.be/911OGRqqaCk">
+      <div class="qr"><img src="qr_video.svg" alt="Código QR del video en YouTube"></div>
+      <div>
+        <div class="t"><span class="play"><svg viewBox="0 0 10 12"><path d="M0 0 10 6 0 12z" fill="#fff"/></svg></span>Mira el video</div>
+        <div class="d">El sistema funcionando: la placa en la red, la app y el control de la carga.</div>
+        <div class="u">youtu.be/911OGRqqaCk</div>
+      </div>
+    </a>
+    <div class="autor">
+      <div class="nom">Nicolás Gómez Ramírez</div>
+      <div class="car">Ingeniería Electrónica · Pontificia Universidad Javeriana</div>
+      <div class="enl">
+        <a href="https://github.com/NicoGomez4262/control-carga-evse"><svg viewBox="0 0 24 24" fill="#e6ecf1"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.09 0 4.42-2.69 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>github.com/NicoGomez4262/control-carga-evse</a>
+        <a href="https://nicolasgomez.dev/#hw-evse"><svg viewBox="0 0 24 24" fill="none" stroke="#34d27b" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>nicolasgomez.dev · portafolio</a>
+      </div>
+    </div>
+  </div>
+  <p class="credito">Portada: la placa conectada a la red a través de un transformador de aislamiento, midiendo un bombillo de prueba.</p>
+</section>
+
+<!-- ======================================================= 2 · QUÉ SE HIZO -->
+<section class="pagina">
+  <header class="cabeza">
+    <span class="marca"><svg viewBox="0 0 24 24" fill="#0e9f4e"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>EVSE Monitor</span>
+    <span>· Informe del proyecto</span><span class="num">02 / 05</span>
+  </header>
+
+  <div class="seccion"><span class="n">01</span><h2>Qué se hizo</h2></div>
+  <p class="intro">Cuando un carro eléctrico se carga en casa, el cargador de pared (el <b>EVSE</b>, por sus siglas en inglés) hace su trabajo, pero casi nunca cuenta nada: ni cuánta energía entregó, ni cuánto costó la carga, ni deja pausarla desde lejos. Este proyecto le agrega eso a cualquier cargador con un equipo propio: <b>una placa electrónica diseñada desde cero, el programa de su microcontrolador y una app en internet.</b></p>
+
+  <div class="diagrama">
+    <svg viewBox="0 0 704 256" font-family="Barlow, Bahnschrift, sans-serif">
+      <defs>
+        <marker id="fl" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#44515d"/></marker>
+        <marker id="fa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#c98200"/></marker>
+        <marker id="fv" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#1f6fd1"/></marker>
+      </defs>
+      <!-- camino de la potencia -->
+      <text x="0" y="14" font-size="11" font-weight="700" letter-spacing="1.2" fill="#64707c">LA POTENCIA</text>
+      <path d="M130 56H330M500 56H574" stroke="#121b24" stroke-width="4"/>
+      <rect x="0" y="28" width="130" height="56" rx="12" fill="#f1f4f6" stroke="#dbe2e7"/>
+      <text x="65" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#121b24">Red eléctrica</text>
+      <text x="65" y="70" text-anchor="middle" font-size="12.5" fill="#44515d">120 o 240 V</text>
+      <rect x="330" y="28" width="170" height="56" rx="12" fill="#f1f4f6" stroke="#dbe2e7"/>
+      <text x="415" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#121b24">Cargador (EVSE)</text>
+      <text x="415" y="70" text-anchor="middle" font-size="12.5" fill="#44515d">el de la pared</text>
+      <rect x="574" y="28" width="130" height="56" rx="12" fill="#f1f4f6" stroke="#dbe2e7"/>
+      <text x="639" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#121b24">Carro eléctrico</text>
+      <text x="639" y="70" text-anchor="middle" font-size="12.5" fill="#44515d">carga como siempre</text>
+      <!-- pinza -->
+      <circle cx="245" cy="56" r="13" fill="#fff" stroke="#c98200" stroke-width="4"/>
+      <text x="245" y="22" text-anchor="middle" font-size="12" font-weight="600" fill="#c98200">pinza de corriente</text>
+
+      <!-- placa -->
+      <rect x="40" y="150" width="330" height="96" rx="16" fill="#0e1317" stroke="#34d27b" stroke-width="1.5"/>
+      <path d="M58 172h10l4-7 4 14 4-7h10" stroke="#34d27b" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="100" y="180" font-size="18" font-weight="800" fill="#fff">EVSE Monitor</text>
+      <text x="228" y="180" font-size="12" fill="#85919c">esta placa</text>
+      <g font-size="12.5" font-weight="700" text-anchor="middle">
+        <rect x="58" y="200" width="92" height="28" rx="14" fill="#182129" stroke="#2c3842"/><text x="104" y="219" fill="#34d27b">Mide</text>
+        <rect x="160" y="200" width="92" height="28" rx="14" fill="#182129" stroke="#2c3842"/><text x="206" y="219" fill="#f2b233">Protege</text>
+        <rect x="262" y="200" width="92" height="28" rx="14" fill="#182129" stroke="#2c3842"/><text x="308" y="219" fill="#5b9bff">Decide</text>
+      </g>
+      <!-- conexiones con la potencia -->
+      <path d="M65 148V88" stroke="#44515d" stroke-width="2" marker-end="url(#fl)"/>
+      <text x="73" y="124" font-size="12" fill="#44515d">tensión</text>
+      <path d="M245 148V73" stroke="#44515d" stroke-width="2" marker-end="url(#fl)"/>
+      <text x="253" y="124" font-size="12" fill="#44515d">corriente</text>
+      <path d="M350 148V88" stroke="#c98200" stroke-width="2.4" stroke-dasharray="6 4" marker-end="url(#fa)"/>
+      <text x="358" y="118" font-size="12" font-weight="600" fill="#c98200">habilita o pausa</text>
+      <text x="358" y="133" font-size="11" fill="#64707c">con un relé aislado</text>
+
+      <!-- nube y app -->
+      <text x="420" y="152" font-size="11" font-weight="700" letter-spacing="1.2" fill="#64707c">LOS DATOS</text>
+      <path d="M372 196H416" stroke="#1f6fd1" stroke-width="2" marker-end="url(#fv)"/>
+      <text x="394" y="188" text-anchor="middle" font-size="11.5" fill="#1f6fd1">WiFi</text>
+      <rect x="420" y="162" width="110" height="72" rx="14" fill="#eef4fd" stroke="#bcd3f3"/>
+      <text x="475" y="192" text-anchor="middle" font-size="15" font-weight="700" fill="#121b24">Nube</text>
+      <text x="475" y="211" text-anchor="middle" font-size="12" fill="#44515d">Firebase</text>
+      <path d="M532 188H590" stroke="#1f6fd1" stroke-width="2" marker-end="url(#fv)"/>
+      <path d="M592 210H534" stroke="#1f6fd1" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#fv)"/>
+      <text x="562" y="180" text-anchor="middle" font-size="11" fill="#1f6fd1">datos</text>
+      <text x="562" y="226" text-anchor="middle" font-size="11" fill="#1f6fd1">órdenes</text>
+      <rect x="594" y="162" width="110" height="72" rx="14" fill="#eef4fd" stroke="#bcd3f3"/>
+      <text x="649" y="192" text-anchor="middle" font-size="15" font-weight="700" fill="#121b24">App</text>
+      <text x="649" y="211" text-anchor="middle" font-size="12" fill="#44515d">celular y PC</text>
+    </svg>
+  </div>
+  <p class="nota">La placa no está en el camino de la potencia: mide «al lado» y, para pausar, abre los bornes de habilitación del cargador, que es quien detiene la carga. Las protecciones (temperatura, botón de parada, fallas) las decide la placa, aunque no haya internet.</p>
+
+  <div class="placa-anotada">
+    <div class="foto-anotada">
+      <img src="../fotos/placa_1_arriba.jpg" alt="La placa EVSE Monitor vista desde arriba, con sus partes numeradas">
+      <div class="banda" style="left:30.8%;top:35.0%;width:54.4%;height:4.1%"></div>
+      <span class="m" style="left:59.4%;top:6.4%">1</span>
+      <span class="m" style="left:15.9%;top:24.4%">2</span>
+      <span class="m am" style="left:35.5%;top:37.1%">3</span>
+      <span class="m" style="left:50.6%;top:30.6%">4</span>
+      <span class="m" style="left:78.8%;top:32.6%">5</span>
+      <span class="m" style="left:52.1%;top:50.0%">6</span>
+      <span class="m" style="left:70.6%;top:62.4%">7</span>
+      <span class="m" style="left:81.2%;top:53.9%">8</span>
+      <span class="m" style="left:43.5%;top:80.8%">9</span>
+      <span class="m" style="left:82.9%;top:86.5%">10</span>
+      <div class="regla red" style="top:2.6%;height:32.2%"><span>Red · 120–240 V</span></div>
+      <div class="regla bt" style="top:39.4%;height:56%"><span>Baja tensión · 12 y 3,3 V</span></div>
+    </div>
+    <div>
+      <h3>Lo que hay en la placa</h3>
+      <ul class="leyenda">
+        <li><span class="k">1</span><span><b>Entrada de red y fusibles.</b> Por aquí llega la red; a la derecha, los bornes hacia el cargador.</span></li>
+        <li><span class="k">2</span><span><b>Fuente aislada.</b> Convierte la red en 12 V separados de ella.</span></li>
+        <li><span class="k am">3</span><span><b>Barrera de aislamiento.</b> Franja de 6,7 mm sin cobre entre la red y el lado que se puede tocar.</span></li>
+        <li><span class="k">4</span><span><b>Amplificador aislado.</b> Lleva la tensión de la red al otro lado de la barrera.</span></li>
+        <li><span class="k">5</span><span><b>Relé de estado sólido.</b> Habilita o pausa el cargador, sin tocar la red.</span></li>
+        <li><span class="k">6</span><span><b>Medidor de energía.</b> Un chip que calcula tensión, corriente, potencia y energía.</span></li>
+        <li><span class="k">7</span><span><b>ESP32-S3.</b> El cerebro: WiFi, protecciones y memoria para guardar datos.</span></li>
+        <li><span class="k">8</span><span><b>Pinza de corriente.</b> Se abraza al cable del cargador sin cortarlo.</span></li>
+        <li><span class="k">9</span><span><b>Reloj con pila.</b> Mantiene la hora aunque se vaya la luz.</span></li>
+        <li><span class="k">10</span><span><b>USB-C.</b> Para programarla y probarla desde el computador.</span></li>
+      </ul>
+      <p class="nota" style="margin-top:7px">Además: sonda de temperatura para el cable, sensor de temperatura y humedad, botón de parada de emergencia y LEDs de estado.</p>
+    </div>
+  </div>
+
+  <footer class="pie"><span>Nicolás Gómez Ramírez · Hardware en IoT</span><a href="https://github.com/NicoGomez4262/control-carga-evse">github.com/NicoGomez4262/control-carga-evse</a></footer>
+</section>
+
+<!-- ======================================================= 3 · HARDWARE -->
+<section class="pagina">
+  <header class="cabeza">
+    <span class="marca"><svg viewBox="0 0 24 24" fill="#0e9f4e"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>EVSE Monitor</span>
+    <span>· Informe del proyecto</span><span class="num">03 / 05</span>
+  </header>
+
+  <div class="seccion"><span class="n">02</span><h2>Cómo se hizo: la placa<small>Diez fases, de la primera hoja del esquemático al sistema funcionando, en unas ocho semanas.</small></h2></div>
+
+  <div class="linea-tiempo">
+    <div class="eje"></div>
+    <div class="hito" style="left:6%"><div class="f">6 oct</div><div class="p" style="border-color:var(--azul)"></div><div class="x"><b>Arquitectura</b><br>bloques y seguridad</div></div>
+    <div class="hito" style="left:20.5%"><div class="f">8–12 oct</div><div class="p" style="border-color:var(--azul)"></div><div class="x"><b>Esquemático</b><br>una hoja por bloque</div></div>
+    <div class="hito" style="left:35%"><div class="f">19 oct</div><div class="p" style="border-color:#1786a0"></div><div class="x"><b>Lista de piezas</b><br>y revisión completa</div></div>
+    <div class="hito" style="left:49.5%"><div class="f">22 oct</div><div class="p" style="border-color:#119270"></div><div class="x"><b>PCB terminada</b><br>ruteo y archivos</div></div>
+    <div class="hito" style="left:64%"><div class="f">30 oct</div><div class="p"></div><div class="x"><b>Pedido</b><br>a JLCPCB</div></div>
+    <div class="hito" style="left:78.5%"><div class="f">20–24 nov</div><div class="p" style="border-color:#5f9a2c"></div><div class="x"><b>Placas en mano</b><br>y pruebas</div></div>
+    <div class="hito" style="left:93%"><div class="f">23–27 nov</div><div class="p" style="border-color:var(--ambar)"></div><div class="x"><b>Firmware, nube</b><br>y app</div></div>
+  </div>
+
+  <div class="dos-imgs">
+    <figure><img src="../img/render_3d.webp" alt="Render 3D de la placa en Altium Designer"><figcaption><b>El diseño en 3D</b> (Altium Designer). Así se veía la placa antes de mandarla a fabricar.</figcaption></figure>
+    <figure><img src="../img/layout_2d.webp" alt="Vista de las pistas de la PCB en Altium, con la franja de aislamiento"><figcaption><b>Las pistas de cobre.</b> La franja rayada vertical es la barrera de aislamiento: a la izquierda, la red.</figcaption></figure>
+  </div>
+
+  <div class="col2">
+    <div>
+      <h3><span class="pt">■</span> Diseño</h3>
+      <p>El circuito se dibujó en <b>Altium Designer</b> en seis hojas (alimentación, medición, microcontrolador, sensores, actuación y una principal que las une). Cada pieza se escogió comparando dos o tres opciones contra su hoja de datos y el stock del fabricante.</p>
+      <p>La regla que mandó en todo el diseño fue la <b>seguridad</b>: lo que toca la red queda de un lado y lo que se puede tocar (USB, sensores) del otro. Para revisarlo se escribieron <b>58 scripts en Python</b> que leen los archivos de Altium y buscan conexiones sueltas o distancias que no cumplen.</p>
+    </div>
+    <div>
+      <h3><span class="pt">■</span> Fabricación</h3>
+      <p><b>JLCPCB</b> fabricó y ensambló dos placas con <b>127 piezas</b> cada una; solo el regulador de 3,3 V y dos pulsadores se soldaron a mano.</p>
+      <p>Elegir piezas que el fabricante tuviera en bodega también fue parte del diseño: cuando el relé previsto se agotó, se cambió por uno con la misma huella y el firmware invirtió su lógica. La placa funcionó sin cortar pistas ni soldar puentes.</p>
+    </div>
+  </div>
+
+  <h3 style="margin-top:16px"><span class="pt">■</span> Pruebas por etapas, de lo más seguro a lo más riesgoso</h3>
+  <div class="etapas">
+    <div class="etapa"><div class="e"><i>1</i><b>Sin energía</b></div><p>Multímetro entre 39 puntos numerados en un mapa de la placa: cortos, diodos y aislamiento.</p></div>
+    <div class="etapa"><div class="e"><i>2</i><b>Energía de a poco</b></div><p>Fuente de laboratorio a 3, 6 y 12 V, midiendo cada riel antes de subir.</p></div>
+    <div class="etapa"><div class="e"><i>3</i><b>Bloque por bloque</b></div><p>Un firmware de prueba revisa LEDs, botones, sensores, relé, medidor y WiFi.</p></div>
+    <div class="etapa red"><div class="e"><i>4</i><b>Con la red</b></div><p>A través de un transformador de aislamiento 1:1, con un bombillo como carga (foto de portada).</p></div>
+  </div>
+
+  <footer class="pie"><span>Nicolás Gómez Ramírez · Hardware en IoT</span><a href="https://github.com/NicoGomez4262/control-carga-evse">github.com/NicoGomez4262/control-carga-evse</a></footer>
+</section>
+
+<!-- ======================================================= 4 · SOFTWARE -->
+<section class="pagina">
+  <header class="cabeza">
+    <span class="marca"><svg viewBox="0 0 24 24" fill="#0e9f4e"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>EVSE Monitor</span>
+    <span>· Informe del proyecto</span><span class="num">04 / 05</span>
+  </header>
+
+  <div class="seccion"><span class="n">03</span><h2>Cómo se hizo: el software y la app<small>Tres piezas que hablan entre sí por una conexión cifrada que siempre abre la placa.</small></h2></div>
+
+  <div class="tres">
+    <div class="tarjeta osc">
+      <div class="tt"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#34d27b" stroke-width="2" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></svg></span><span><b>Firmware</b><small>C++ · unas 4.000 líneas</small></span></div>
+      <ul>
+        <li>Lee el medidor cada segundo y suma la energía de cada carga.</li>
+        <li>Protege sin internet: temperatura, botón de parada, fallas, límites y horario.</li>
+        <li>Sin conexión, guarda hasta 7 MB de datos y los sube al volver.</li>
+        <li>Se actualiza por internet (OTA) en unos 70 s.</li>
+      </ul>
+    </div>
+    <div class="flecha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h15l-4-4M20 15H5l4 4"/></svg></div>
+    <div class="tarjeta">
+      <div class="tt"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M7 18a5 5 0 1 1 1-9.9A6 6 0 0 1 19.5 10 4 4 0 0 1 18 18z"/></svg></span><span><b>Nube</b><small>Firebase, plan gratuito</small></span></div>
+      <ul>
+        <li>Cuentas de usuario (correo o Google) y permisos por equipo.</li>
+        <li>Base de datos en tiempo real con reglas de seguridad probadas.</li>
+        <li>Aloja la app. Sin servidor propio que mantener.</li>
+      </ul>
+    </div>
+    <div class="flecha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h15l-4-4M20 15H5l4 4"/></svg></div>
+    <div class="tarjeta">
+      <div class="tt"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg></span><span><b>App web</b><small>JavaScript · unas 3.000 líneas</small></span></div>
+      <ul>
+        <li>Se abre en el navegador o se instala en el celular.</li>
+        <li>Diseño de «tablero eléctrico» con datos en vivo.</li>
+        <li>Historial, alarmas, ajustes, usuarios y actualizaciones.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="app-fila">
+    <figure>
+      <div class="celular"><img src="../fotos/app_celular.jpg" alt="Captura real de la app en el celular: circuito de carga, temperaturas, red y medidor de potencia"></div>
+      <figcaption style="width:184px">Captura real del celular. La tensión aún se lee alta porque falta calibrar el medidor.</figcaption>
+    </figure>
+    <div>
+      <h3><span class="pt">■</span> Lo que muestra la app</h3>
+      <div class="caja-app">
+        <ul>
+          <li><b>El circuito de carga dibujado:</b> red, fusible, relé, cargador y carro; el relé se abre o se cierra en la pantalla cuando cambia en la placa.</li>
+          <li><b>Medidor de aguja</b> con la potencia, temperaturas con su punto de corte, frecuencia, señal WiFi y la energía y el costo de la sesión, que suben en vivo.</li>
+          <li><b>Un botón para pausar o reanudar</b> que muestra el recorrido de la orden y no la da por hecha hasta que la placa confirma:<br>
+            <span class="ruta"><em>App</em>→<em>Nube</em>→<em>Placa</em>→<em class="k">Relé</em></span></li>
+          <li><b>Alarmas que explican</b> qué pasa y qué hacer, historial con gráficas y descarga en CSV.</li>
+        </ul>
+      </div>
+
+      <h3 style="margin-top:14px"><span class="pt">■</span> Lo que ya funciona en la placa real</h3>
+      <ul class="lista-ok">
+        <li><span class="ok"><svg viewBox="0 0 12 12"><path d="M2 6.5 5 9l5-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><b>Todas las pruebas sin red</b> (hardware y firmware de prueba, bloque por bloque).</span></li>
+        <li><span class="ok"><svg viewBox="0 0 12 12"><path d="M2 6.5 5 9l5-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><b>Conectada a la nube</b>, con la app publicada y datos en vivo en el celular y el PC.</span></li>
+        <li><span class="ok"><svg viewBox="0 0 12 12"><path d="M2 6.5 5 9l5-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><b>Pausar, reanudar y parada de emergencia</b> desde la app, con confirmación de la placa.</span></li>
+        <li><span class="ok"><svg viewBox="0 0 12 12"><path d="M2 6.5 5 9l5-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><b>Alimentada desde la red</b> y midiendo la corriente real de un bombillo y la frecuencia de 60 Hz.</span></li>
+        <li><span class="ok"><svg viewBox="0 0 12 12"><path d="M2 6.5 5 9l5-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><b>Dos actualizaciones de firmware por internet</b>, sin cables.</span></li>
+        <li><span class="ok pend"></span><span><b>Siguiente paso:</b> calibrar el medidor contra un multímetro de referencia.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <footer class="pie"><span>Nicolás Gómez Ramírez · Hardware en IoT</span><a href="https://github.com/NicoGomez4262/control-carga-evse">github.com/NicoGomez4262/control-carga-evse</a></footer>
+</section>
+
+<!-- ======================================================= 5 · CONCLUSIONES -->
+<section class="pagina">
+  <header class="cabeza">
+    <span class="marca"><svg viewBox="0 0 24 24" fill="#0e9f4e"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>EVSE Monitor</span>
+    <span>· Informe del proyecto</span><span class="num">05 / 05</span>
+  </header>
+
+  <div class="seccion"><span class="n">04</span><h2>Conclusiones</h2></div>
+  <div class="concl">
+    <ol>
+      <li><span>Se pasó de una idea a un equipo <b>diseñado, fabricado, probado y conectado a internet</b> en unas ocho semanas, con la placa de la primera versión funcionando sin arreglos.</span></li>
+      <li><span>La <b>seguridad se resolvió en el diseño</b> y no después: la barrera de aislamiento definió la forma de la placa, y probar por etapas permitió llegar a la red sin riesgos para la persona ni para los equipos.</span></li>
+      <li><span><b>Las decisiones importantes viven en la placa.</b> La app informa y pide, pero el corte por temperatura o por el botón de parada funciona aunque se caiga el WiFi.</span></li>
+      <li><span>Los errores difíciles aparecieron con la placa real, no en el simulador. Como el firmware <b>se actualiza por internet</b>, la última corrección llegó a la placa en unos 70 segundos, sin tocarla.</span></li>
+      <li><span>Fabricar con ensamble incluido ahorra días de soldadura, pero obliga a <b>diseñar con lo que hay en bodega</b>. Y un <b>plan gratuito en la nube</b> alcanza para un equipo real con datos en vivo, historial y usuarios.</span></li>
+    </ol>
+    <figure>
+      <img src="../fotos/sistema_completo.jpg" alt="El sistema completo en el banco: la placa, la sonda de temperatura, el botón de parada y la app abierta en el computador">
+      <figcaption>El sistema completo: placa, sonda de temperatura, botón de parada y la app en el computador.</figcaption>
+    </figure>
+  </div>
+
+  <div class="seccion" style="margin-top:14px"><span class="n">05</span><h2>Posibles aplicaciones</h2></div>
+  <div class="apps">
+    <div class="apl">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#34d27b" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M3 11 12 4l9 7v9H3z"/><path d="M13 10l-3 5h4l-3 5"/></svg></div>
+      <b>Carga inteligente en casa</b>
+      <p>Saber cuánto cuesta cada carga, ponerle límites (kWh, tiempo o pesos) y cargar solo en el horario de tarifa más barata.</p>
+    </div>
+    <div class="apl">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#f2b233" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 21V5l8-3 8 3v16"/><path d="M9 21v-5h6v5M8 8h2M14 8h2M8 12h2M14 12h2"/></svg></div>
+      <b>Edificios y parqueaderos</b>
+      <p>Un monitor por cargador para cobrarle a cada residente la energía de su carro y pausar cargas para no pasarse de la potencia del edificio.</p>
+    </div>
+    <div class="apl">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#5b9bff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="4"/></svg></div>
+      <b>Otras cargas de 120/240 V</b>
+      <p>Con un contactor externo, la misma placa vigila y apaga a distancia un calentador, una bomba o un aire acondicionado.</p>
+    </div>
+  </div>
+
+  <div class="sigue"><span class="et">Lo que sigue</span><span><b>Calibrar el medidor</b>, probar de punta a punta sin internet y hacer la <b>versión 1.1</b> de la placa, con gabinete.</span></div>
+
+  <h3 style="margin-top:16px"><span class="pt">■</span> Enlaces</h3>
+  <div class="enlaces">
+    <a class="enlace yt" href="https://youtu.be/911OGRqqaCk">
+      <div class="qr"><img src="qr_video.svg" alt="QR del video"></div>
+      <div><b>Video</b><span>El sistema funcionando, en YouTube.</span></div><span class="u">youtu.be/911OGRqqaCk</span>
+    </a>
+    <a class="enlace" href="https://github.com/NicoGomez4262/control-carga-evse">
+      <div class="qr"><img src="qr_github.svg" alt="QR del repositorio"></div>
+      <div><b>Repositorio</b><span>Diseño de Altium, firmware, app y documentación.</span></div><span class="u">github.com/NicoGomez4262/<br>control-carga-evse</span>
+    </a>
+    <a class="enlace" href="https://nicolasgomez.dev/#hw-evse">
+      <div class="qr"><img src="qr_portafolio.svg" alt="QR del portafolio"></div>
+      <div><b>Portafolio</b><span>Este y otros proyectos de Nicolás Gómez.</span></div><span class="u">nicolasgomez.dev</span>
+    </a>
+  </div>
+
+  <footer class="pie"><span>Nicolás Gómez Ramírez · Ingeniería Electrónica · Pontificia Universidad Javeriana</span><span>Noviembre de 2026</span></footer>
+</section>
+
+</body>
+</html>

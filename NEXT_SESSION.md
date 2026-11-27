@@ -42,7 +42,7 @@ tokens en git ni en el chat. En cada prueba, dime qué conectar con los números
 - **Fotos** de la placa funcionando en `docs/fotos/` (placa por arriba, banco con red y bombillo, captura de la app en el celular y sistema completo), recortadas y sin metadatos.
 - **Video** del proyecto: <https://youtu.be/911OGRqqaCk>.
 - **README** reescrito con el estado real (app publicada, placa con 1.0.3, red por transformador, OTA), el video, las fotos y la arquitectura con Firebase. `PLAN_FASES`, `ARQUITECTURA` y el registro del protocolo al día (1.0.3: 64 min sin reinicios en la última telemetría).
-- **Informe de 5 páginas** (`docs/informe/`, PDF con `python docs/tools/informe.py`): se sube a GitHub cuando lo apruebes.
+- **Informe de 5 páginas** aprobado y en GitHub: `docs/informe/EVSE_Monitor_Informe.pdf` (se regenera desde `informe.html` con `python docs/tools/informe.py`).
 
 ## Qué se hizo (25–26 nov, 10H segunda parte)
 
