@@ -18,8 +18,8 @@
 | F6 | `06_ACTUACION.SchDoc` | driver Q3, PhotoMOS K1 (NC, aislamiento reforzado), salida J2 a los bornes de habilitación del EVSE | cerrada (2026-10-12) |
 | F7 | todas las hojas | compilación, footprints, clases de red, librería del proyecto, BOM con proveedores (PCBWay, DigiKey; Sigma último recurso) | cerrada (2026-10-19) |
 | F8 | `EVSE_Monitor.PcbDoc` | contorno, stackup, reglas de aislamiento, ubicación, ruteo, DRC, archivos para PCBWay y carrito | cerrada (2026-10-22) |
-| F9 | pedido y banco de pruebas | pedido a JLCPCB (D20) y Sigma; recepción, soldadura a mano (U1) y pruebas de hardware por etapas | en curso: placas recibidas; H1–H3 aprobadas (20 nov); falta U1 |
-| F10 | `firmware/` y `app/` (fuera de Altium) | firmware de pruebas y final del ESP32-S3, protocolo de mensajes, backend, aplicación web de control e integración con la placa | en curso: código listo y probado con el simulador (23 nov); falta la integración con la placa |
+| F9 | pedido y banco de pruebas | pedido a JLCPCB (D20) y Sigma; recepción, soldadura a mano (U1) y pruebas de hardware por etapas | cerrada (2026-11-24): H0–H6 y S1–S6 aprobadas en la placa 1; etiqueta `rev1.0` |
+| F10 | `firmware/` y `app/` (fuera de Altium) | firmware de pruebas y final del ESP32-S3, protocolo de mensajes, backend, aplicación web de control e integración con la placa | en curso: app publicada en Firebase (25 nov); placa 1 en línea con 1.0.3, alimentada por la red a través del transformador de aislamiento y actualizada por OTA (27 nov); falta calibrar (S7) y S8 |
 
 Estados posibles: pendiente · en curso · cerrada.
 
@@ -621,12 +621,12 @@ PCB        ZONA RED · 120–240 VAC                     ┃ BARRERA  ┃      Z
 - [x] 10A · Arquitectura: D21–D32 en `docs/DECISIONES.md` y `docs/software/ARQUITECTURA.md` (23–24 nov). El 24 nov el servidor pasó a Firebase (D31, pedido del usuario) y la app tomó el diseño de tablero eléctrico (D32). Antes: Firmware Arduino-ESP32 en PlatformIO; WebSocket seguro saliente; Cloudflare Workers + Durable Objects + D1 + KV (gratis); app sin framework; Telegram. Falta que el usuario decida D28 (arranque de K1).
 - [x] 10B · Firmware de pruebas (`firmware/prueba_placa`): S1–S6 y ayudas para S5 con generador y S7 (23 nov). Corrido en la placa 1 el 24 nov: S1–S6 aprobadas. Se corrigieron CR + LF, comillas y red guardada en `s6 con`, el ritmo de `s6 carga` y S5-4, y se agregó `s5 inyectar` (canal de corriente sin red).
 - [x] 10C · Protocolo de mensajes (`docs/software/PROTOCOLO_MENSAJES.md`).
-- [x] 10D · Firmware final (`firmware/evse_monitor`): ATM90E26 con CS1/CS2 y LNSel = 0, sensores, máquina de estados con K1 NA, protecciones locales, energía en NVS, búfer de 7 MB, NTP + DS3231, WiFi a 17 dBm, TLS verificado, portal, consola, OTA con vuelta atrás y watchdog (23 nov, compila). Falta probarlo en la placa.
+- [x] 10D · Firmware final (`firmware/evse_monitor`): ATM90E26 con CS1/CS2 y LNSel = 0, sensores, máquina de estados con K1 NA, protecciones locales, energía en NVS, búfer de 7 MB, NTP + DS3231, WiFi a 17 dBm, TLS verificado, portal, consola, OTA con vuelta atrás y watchdog (23 nov, compila). En la placa 1 desde el 24 nov; versiones 1.0.1 (USB) y 1.0.2 y 1.0.3 (OTA) con las correcciones de D33, D34 y D37; 1.0.4 cargado en la base.
 - [x] 10E · Simulador del equipo (`tools/simulador/simulador.py`).
-- [x] 10F · Servidor: API, WebSocket en vivo, usuarios y roles, D1, OTA, Telegram y limpieza diaria (probado en local con el simulador).
-- [x] 10G · Aplicación web: panel en vivo, control con confirmación, horarios y límites, historial con costos y CSV, alarmas, ajustes, calibración, OTA, usuarios (probada en local en tamaño de celular).
-- [ ] 10H · Integración con la placa: ~~S1–S6 con el firmware de pruebas, U1 + H4~~ (hecho el 24 nov). Falta publicar la app en Firebase (guía B), conectar el firmware final, S7 con calibración y el CT en un solo conductor, y S8 de punta a punta (orden en la app → K1 → J2 medido).
-- [x] 10I · Documentación: `ARQUITECTURA.md`, `PROTOCOLO_MENSAJES.md`, `GUIA_INSTALACION.md`, README (23 nov).
+- [x] 10F · Servidor: API, WebSocket en vivo, usuarios y roles, D1, OTA, Telegram y limpieza diaria (probado en local con el simulador). Desde el 24 nov es **Firebase** (D31): Authentication, Realtime Database con reglas (64/64 pruebas) y Hosting; OTA en partes en la base y Telegram desde el equipo.
+- [x] 10G · Aplicación web: panel en vivo, control con confirmación, horarios y límites, historial con costos y CSV, alarmas, ajustes, calibración, OTA, usuarios (probada en local en tamaño de celular). Publicada el 25 nov en <https://evse-monitor-d37rs.web.app> con diseño de tablero eléctrico (D32, D35, D37) e instalable en el celular (PWA).
+- [ ] 10H · Integración con la placa: ~~S1–S6 con el firmware de pruebas, U1 + H4~~ (24 nov), ~~publicar la app en Firebase y enlazar el firmware final~~ (25 nov), ~~lecturas en vivo, PARAR, Quitar emergencia y Pausar/Reanudar desde la app~~ (25 nov), ~~CT con corriente real y la placa alimentada por la red a través del transformador TJP~~ (25 nov, D36), ~~OTA 1.0.1 → 1.0.2 → 1.0.3~~ (27 nov, D37). Falta S7 con calibración (`cal_auto`), las pruebas de reconexión y S8 de punta a punta (orden en la app → K1 → J2 medido, protecciones sin internet). Checklist al día en `NEXT_SESSION.md`.
+- [x] 10I · Documentación: `ARQUITECTURA.md`, `PROTOCOLO_MENSAJES.md`, `GUIA_INSTALACION.md`, README (23 nov). README reescrito con el estado del 27 nov, el video y las fotos de `docs/fotos/`.
 
 **Termina cuando:** desde la app se ve la medición real calibrada y se permite o detiene la carga, y las protecciones actúan sin internet.
 

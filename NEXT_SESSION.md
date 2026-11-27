@@ -13,7 +13,7 @@ Antes de nada, lee: CLAUDE.md; NEXT_SESSION.md; docs/DECISIONES.md (D33–D36);
 docs/software/GUIA_INSTALACION.md (partes C, D y D2); docs/pruebas/PROTOCOLO_PRUEBAS.md (S7, S8 y el
 registro del 25–26 nov al final).
 
-Estado (26 nov):
+Estado (27 nov):
 - App en https://evse-monitor-d37rs.web.app (Firebase evse-monitor-d37rs; CLI en app\ con npx.cmd).
   Entrada con Google o correo. Yo estoy en admins. Equipo nico-01.
 - Placa 1 con evse_monitor 1.0.3 (OTA el 27 nov; D37 corrige los reinicios del 1.0.2). El 1.0.4 (FP con
@@ -36,6 +36,13 @@ Qué quiero, en este orden:
 Reglas: no toques la zona de red con la regleta encendida. Nada de claves del WiFi, códigos de enlace ni
 tokens en git ni en el chat. En cada prueba, dime qué conectar con los números del mapa y su pin de Altium.
 ```
+
+## Qué se hizo (27 nov, tarde: documentación)
+
+- **Fotos** de la placa funcionando en `docs/fotos/` (placa por arriba, banco con red y bombillo, captura de la app en el celular y sistema completo), recortadas y sin metadatos.
+- **Video** del proyecto: <https://youtu.be/911OGRqqaCk>.
+- **README** reescrito con el estado real (app publicada, placa con 1.0.3, red por transformador, OTA), el video, las fotos y la arquitectura con Firebase. `PLAN_FASES`, `ARQUITECTURA` y el registro del protocolo al día (1.0.3: 64 min sin reinicios en la última telemetría).
+- **Informe de 5 páginas** (`docs/informe/`, PDF con `python docs/tools/informe.py`): se sube a GitHub cuando lo apruebes.
 
 ## Qué se hizo (25–26 nov, 10H segunda parte)
 

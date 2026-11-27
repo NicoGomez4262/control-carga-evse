@@ -1,5 +1,7 @@
 # Contexto para el software — EVSE Monitor Rev 1.0
 
+> **Documento de entrada de la Fase 10 (20 nov 2026).** El estado de la sección 1 es el de ese día: U1 ya está soldado desde el 24 nov y la placa funciona con el firmware final (ver `README.md` y `docs/pruebas/PROTOCOLO_PRUEBAS.md`). Lo demás (pines, polaridades y requisitos) sigue vigente.
+
 Lo que el firmware y la app necesitan saber de la placa, sacado del esquemático (hojas 02–06), de `docs/DECISIONES.md`, de `docs/calculos/` y de los datasheets. Es la entrada de la Fase 10. Las decisiones de software se registran desde D21 en `docs/DECISIONES.md`.
 
 ## 1. Estado del hardware (20 nov 2026)
