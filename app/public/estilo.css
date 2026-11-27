@@ -630,3 +630,6 @@ body::before {
 .al-item .al-hacer::before { content: "→ "; color: var(--tinta-3); }
 @media (max-width: 639.98px) { .al-resumen { grid-template-columns: 46px 1fr; } .al-resumen .boton { grid-column: 1 / -1; } }
 
+/* odómetro continuo de E0: sin transición (lo mueve el reloj de la app, despacio y sin saltos) */
+.rodillos.continuo .tira { transition: none; will-change: transform; }
+

@@ -3,7 +3,7 @@
 
 import * as fb from "./fb.js";
 import { Grafica } from "./grafica.js";
-import { encender, ESCALAS_P, icono, Medidor, mimico, numero, pintarMimico, rodillos, termometro } from "./instrumentos.js";
+import { encender, ESCALAS_P, icono, Medidor, mimico, numero, pintarMimico, rodillos, rodillosSuave, termometro } from "./instrumentos.js";
 import "./fondo.js";
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -514,6 +514,26 @@ async function vPanel(id) {
   const mim = mimico();
   $("#mimico").append(mim);
   const med = new Medidor(8);
+  // Contadores en vivo: entre un dato y el siguiente (2 s mientras miras, 15 s si no) la energía sigue sumando con
+  // la potencia del último dato, igual que hace la placa (∫P dt solo con P > 0). Nunca retroceden por la estimación;
+  // si el dato real queda por debajo, se esperan a que lo alcance.
+  let baseE = null, vistoE = { et: NaN, es: NaN };
+  function contar() {
+    const on = enLinea(est, cfg);
+    if (!baseE || !on) return false;
+    const dt = Math.min(30000, Math.max(0, performance.now() - baseE.t));
+    const kwh = (baseE.p > 0 ? baseE.p : 0) * dt / 3.6e9;
+    let et = baseE.et + kwh, es = baseE.ses ? baseE.es + kwh : baseE.es;
+    if (Number.isFinite(vistoE.et) && et < vistoE.et && vistoE.et - et < 0.02) et = vistoE.et;
+    if (Number.isFinite(vistoE.es) && es < vistoE.es && vistoE.es - es < 0.02 && baseE.ses) es = vistoE.es;
+    vistoE = { et, es };
+    if (Number.isFinite(et)) rodillosSuave($("#l-et"), et, 3);
+    $("#l-es").textContent = fmt(es, 3);
+    $("#l-cop").textContent = cop(es * (Number(cfg?.tarifa) || 0));
+    return true;
+  }
+  const relojE = setInterval(contar, 120);
+  alSalir(() => clearInterval(relojE));
   $("#medidor").append(med.el);
   let est = app.estados[id] || null, cfg = null, ultimaOrden = 0, animParar = 0;
   // escala del medidor: sube enseguida si la potencia no cabe; baja solo si cabe holgada en la menor durante 6 s
@@ -586,9 +606,9 @@ async function vPanel(id) {
     pintarCamino(e, on);
     pintarParar(e, on);
     // sesión
-    numero($("#l-es"), on || est ? Number(e.es) : NaN, 2);
+    if (!contar()) numero($("#l-es"), on || est ? Number(e.es) : NaN, 3);
     const tarifa = Number(cfg?.tarifa) || 0;
-    $("#l-cop").textContent = est ? cop((Number(e.es) || 0) * tarifa) : "—";
+    if (!on) $("#l-cop").textContent = est ? cop((Number(e.es) || 0) * tarifa) : "—";
     $("#l-dur").textContent = e.ses ? duracion(Number(e.dur)) : "—";
     $("#l-pico").textContent = e.ses ? `${fmt((e.pmax || 0) / 1000, 2)} kW` : "—";
     $("#l-tar").textContent = tarifa ? cop(tarifa) : "—";
@@ -611,7 +631,7 @@ async function vPanel(id) {
     $("#l-f").textContent = on ? fmt(e.f, 2) : "—";
     $("#l-rssi").textContent = on ? fmt(e.rssi, 0) : "—";
     $("#l-vnom").textContent = fmt(vnom, 0);
-    rodillos($("#l-et"), Number.isFinite(e.et) ? Number(e.et) : NaN, 1);
+    if (!on) rodillosSuave($("#l-et"), Number.isFinite(e.et) ? Number(e.et) : NaN, 3);
   };
 
   async function mandar(o) {
@@ -744,6 +764,9 @@ async function vPanel(id) {
       if (est && e && est.mot !== "parar" && e.mot === "parar") notif("Carga pausada por emergencia: alguien oprimió el botón PARAR del equipo.", "rojo");
       else if (est && e && est.mot === "parar" && e.mot !== "parar") notif("Emergencia quitada.");
       est = e;
+      // punto de partida de los contadores: el dato real y el momento en que la placa lo midió
+      if (e && Number.isFinite(Number(e.et)))
+        baseE = { et: Number(e.et), es: Number(e.es) || 0, ses: !!e.ses, p: Number(e.p) || 0, t: performance.now() - Math.min(30, Math.max(0, edad(e))) * 1000 };
       const antes = (app.estados[id]?.nr || []).length;
       app.estados[id] = e;
       if ((e?.nr || []).length !== antes) pintarMando(id, "panel");

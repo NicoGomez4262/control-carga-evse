@@ -266,6 +266,33 @@ export function rodillos(el, valor, dec = 1) {
   el.setAttribute("aria-label", Number.isFinite(valor) ? `${fmtN(valor, dec)} kWh` : "sin dato");
 }
 
+// Odómetro continuo: cada rodillo gira en proporción, como uno mecánico (el último no salta: rueda despacio, y el de
+// al lado empieza a girar cuando el último pasa de 9 a 0). «ent» enteros y «dec» decimales.
+export function rodillosSuave(el, valor, dec = 3, ent = 5) {
+  const n = ent + dec;
+  if (!el.firstChild || el.dataset.n !== `s${n}`) {
+    const rueda = `<span class="rueda"><span class="tira">${"01234567890".split("").map((d) => `<i>${d}</i>`).join("")}</span></span>`;
+    el.innerHTML = rueda.repeat(ent) + `<span class="coma">,</span>` + rueda.repeat(dec);
+    el.dataset.n = `s${n}`;
+    el.classList.add("continuo");
+  }
+  const ruedas = el.querySelectorAll(".rueda .tira");
+  if (!Number.isFinite(valor)) {
+    ruedas.forEach((r) => (r.style.transform = "translateY(0)"));
+    el.setAttribute("aria-label", "sin dato");
+    return;
+  }
+  const v = Math.max(0, valor) * 10 ** dec; // en unidades del último rodillo
+  for (let j = 0; j < n; j++) {
+    const u = 10 ** j;
+    const pos = (Math.floor(v / u) % 10) + Math.max(0, (v % u) - (u - 1));
+    const r = ruedas[n - 1 - j];
+    r.style.transform = `translateY(${(-pos).toFixed(3)}em)`;
+    r.parentElement.classList.toggle("dec", j < dec);
+  }
+  el.setAttribute("aria-label", `${fmtN(valor, dec)} kWh`);
+}
+
 // ------------------------------------------------------------------ termómetro de barra con marca de corte
 export function termometro(el, t, corte) {
   const ok = Number.isFinite(t);
